@@ -1,42 +1,53 @@
-# JD Cookie Sync Loon Plugin
+# 京东 Cookie 同步 (JDCK)
 
-这是一个 Loon 插件，用于自动提取京东 App 或小程序中的 Cookie (`pt_key`, `pt_pin`) 并同步到青龙面板环境变量 (`JD_COOKIE`)。
+自动捕获京东 App 或小程序中的 Cookie (`pt_key`, `pt_pin`) 并同步到青龙面板环境变量 (`JD_COOKIE`)。
 
-## 功能特性
+## ✨ 功能特点
 
-- **自动捕获**: 打开京东 App 或小程序时自动捕获 Cookie。
-- **自动同步**: 将捕获的 Cookie 同步到配置的青龙面板。
-- **自动更新**: 如果 Cookie 已存在，将更新其值；如果不存在，则自动创建。
-- **状态检查**: 如果环境变量被禁用，插件会尝试启用它。
+- 🎣 **自动捕获**: 打开京东 App 或小程序时自动捕获 Cookie。
+- 🔄 **自动同步**: 捕获后立即同步到配置的青龙面板。
+- 🛠️ **自动更新**: 自动识别并更新已有环境变量的值。
+- ⚡ **状态检查**: 自动确保环境变量处于启用状态。
 
-## 安装说明
+## 📦 安装说明
 
-1. 打开 Loon App。
-2. 进入 **配置** -> **插件** -> **添加**。
-3. 选择 **本地安装** 或 **从 URL 安装** (如果您已将此仓库发布)。
-4. 导入 `JD_Cookie_Sync.plugin` 文件。
+### Loon (推荐)
 
-## 配置指南
+在 Loon 的「配置」->「插件」中安装：
 
-在插件安装或配置界面，您需要填写以下信息：
+| 类型 | 链接 |
+| :--- | :--- |
+| **插件地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync.plugin` |
+
+### Surge
+
+在 Surge 的「模块」或「脚本」中添加：
+
+| 类型 | 链接 |
+| :--- | :--- |
+| **模块地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync.sgmodule` |
+
+## ⚙️ 配置指南
+
+安装后需在插件或模块设置中配置以下变量：
 
 | 参数 | 说明 | 示例 |
 | :--- | :--- | :--- |
-| **Qinglong URL** | 青龙面板的访问地址 (包含端口) | `http://192.168.1.1:5700` |
-| **Client ID** | 青龙面板 Open API 的 Client ID | `xYzAbCdE` |
-| **Client Secret** | 青龙面板 Open API 的 Client Secret | `123456abcdef` |
+| **Qinglong URL** | 青龙面板地址 (带端口) | `http://192.168.1.1:5700` |
+| **Client ID** | 青龙面板 API Client ID | `xYzAbCdE...` |
+| **Client Secret** | 青龙面板 API Client Secret | `123456...` |
 
-###获取 Client ID 和 Secret:
-1. 登录青龙面板。
-2. 进入 **系统设置** -> **应用设置**。
-3. 点击 **新建应用**。
-4. 权限选择 **环境变量** (或者给予所有权限)。
-5. 复制生成的 Client ID 和 Client Secret。
+> [!TIP]
+> **获取 Client ID 和 Secret**: 登录青龙面板 -> 系统设置 -> 应用设置 -> 新建应用 (权限勾选 "环境变量")。
 
-## 使用方法
+## 📖 使用指南
 
-1. 确保 Loon 处于开启状态，且插件已启用。
-2. 打开 **京东 App** 或 **微信小程序 -> 京东购物**。
-3. 浏览任意页面，稍微刷新一下。
-4. 查看 Loon 的通知中心，如果成功，您将收到 "Capture Cookie Success" 或 "Cookie Updated" 的通知。
-5. 登录青龙面板，检查环境变量 `JD_COOKIE` 是否已更新。
+1.  **启动插件**: 确保 Loon/Surge 处于开启状态。
+2.  **触发捕获**: 打开「京东」App 或微信「京东购物」小程序。
+3.  **刷新页面**: 随便逛逛，直到收到 "Capture Cookie Success" 或 "Cookie Updated" 通知。
+4.  **核对结果**: 登录青龙面板，确认 `JD_COOKIE` 已成功创建 or 更新。
+
+## ⚠️ 注意事项
+
+-   请确保青龙面板的外网访问权限或在同一内网环境。
+-   本插件需要 MITM 功能支持，请确保已正确配置证书。

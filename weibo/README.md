@@ -1,35 +1,25 @@
-# Weibo Daily Sign
+# 微博签到 (Weibo Sign)
 
-新浪微博每日签到脚本，支持 Loon 和 Surge，支持多账号。
+新浪微博每日自动签到脚本，支持 Loon 和 Surge，支持多账号。
 
-## 功能特性
+## ✨ 功能特点
 
-- 📝 每日自动签到
-- 🍬 领取微博签到奖励
-- 🔄 支持多账号
-- 🔔 签到结果通知
+- 📝 **每日签到**: 自动完成微博每日签到。
+- 🍬 **领取奖励**: 自动领取签到积分和红包奖励。
+- 🔄 **多账号**: 支持无限添加账号，自动去重。
+- 🔔 **消息通知**: 签到结果实时通知。
 
-## 📦 安装方法
+## 📦 安装说明
 
 ### Surge
 
-#### 模块安装 (推荐)
+#### 方式一：使用模块 (推荐)
 
-在 Surge 配置文件中添加模块:
+| 类型 | 链接 |
+| :--- | :--- |
+| **模块地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo.sgmodule` |
 
-```ini
-[Module]
-微博签到 = https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo.sgmodule
-```
-
-或在 Surge iOS 中:
-1. 打开 Surge
-2. 配置 → 模块 → 安装新模块
-3. 输入链接: `https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo.sgmodule`
-
-#### 脚本配置
-
-如果不想使用模块，可以在配置文件中手动添加:
+#### 方式二：手动配置
 
 ```ini
 [Script]
@@ -43,20 +33,19 @@ hostname = %APPEND% api.weibo.cn
 
 ### Loon
 
-请使用对应的 Loon 插件 (如果提供)，或参照 Surge 脚本配置进行手动配置。
+请使用对应的 Loon 插件（如有），或参考 Loom 的脚本配置格式添加上述脚本路径。
 
 ## 📖 使用指南
 
-1. **配置 MITM**: 确保 hostname 包含 `api.weibo.cn`。
-2. **获取 Cookie**:
-    - 打开微博 App
-    - 浏览首页或点击"我"
-    - Surge/Loon 弹出通知提示 "Weibo Token" 或 "Weibo Cookie" 获取成功
-3. **自动签到**:
-    - 脚本会在每天 8:15 和 23:15 自动运行
-    - 也可以在脚本列表手动运行测试
+1.  **配置环境**: 开启 MITM 并信任证书。
+2.  **获取 Cookie**:
+    -   打开「微博」APP。
+    -   浏览首页或点击「我」的页面。
+    -   等待通知提示 "Weibo Token 获取成功" 或 "Weibo Cookie 获取成功"。
+3.  **多账号获取**: 切换微博账号，重复步骤 2 即可添加新账号。
+4.  **自动运行**: 脚本默认在每天 8:15 和 23:15 执行。
 
 ## ⚠️ 注意事项
 
-- Cookie 可能会失效，如果签到失败，请尝试重新打开微博 App 获取 Cookie。
-- 仅供学习交流使用。
+-   Cookie 有效期取决于 APP 登录状态，若签到失败请重新获取。
+-   仅供学习交流使用。
