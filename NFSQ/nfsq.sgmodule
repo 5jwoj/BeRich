@@ -1,0 +1,16 @@
+#!name=农夫山泉
+#!desc=农夫山泉小程序自动抽奖，打开小程序自动抓取Cookie (Surge版)
+#!author=AI Assistant
+#!icon=https://is1-ssl.mzstatic.com/image/thumb/Purple126/v4/8c/3d/5e/8c3d5e6a-8d8c-5d9a-8f9d-7f5a4e8b5c3d/AppIcon-0-0-1x_U007emarketing-0-0-0-7-0-0-sRGB-0-0-0-GLES2_U002c0-512MB-85-220-0-0.png/60x60bb.png
+#!homepage=https://github.com
+#!date=2025-12-20
+
+[Script]
+# Cookie抓取脚本 - 打开小程序时自动获取
+农夫山泉Cookie抓取 = type=http-request,pattern=^https:\/\/sxs-consumer\.nfsq\.com\.cn\/geement,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/NFSQ/nfsq_cookie.js,requires-body=false,timeout=10
+
+# 定时抽奖脚本 - 每天早上8:15执行
+农夫山泉抽奖 = type=cron,cronexp=15 8 * * *,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/NFSQ/nfsq.js,timeout=120,wake-system=1
+
+[MITM]
+hostname = %APPEND% sxs-consumer.nfsq.com.cn

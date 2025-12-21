@@ -1,0 +1,18 @@
+#!name=JD Cookie Sync (Local)
+#!desc=本地版：拦截京东 Cookie 并同步到青龙面板。请确保脚本 jd_cookie_sync.js 位于 Loon 的脚本目录或同目录下。
+#!author=NongfuSpring
+#!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
+#!homepage=https://github.com/
+#!date=2025-12-11 19:10:00
+
+[Argument]
+ql_url = { type = "input", name = "Qinglong URL", desc = "QL Address (e.g. http://1.1.1.1:5700)", placeholder = "http://127.0.0.1:5700" }
+ql_client_id = { type = "input", name = "Client ID", desc = "QL Open API Client ID", placeholder = "your_client_id" }
+ql_client_secret = { type = "input", name = "Client Secret", desc = "QL Open API Client Secret", placeholder = "your_client_secret" }
+
+[Script]
+# 使用相对路径，请确保 jd_cookie_sync.js 能够被 Loon 找到
+http-request ^https?:\/\/api\.m\.jd\.com script-path=jd_cookie_sync.js, timeout=10, tag=JD Cookie Sync, argument=ql_url={ql_url}&ql_client_id={ql_client_id}&ql_client_secret={ql_client_secret}
+
+[MITM]
+hostname = api.m.jd.com
