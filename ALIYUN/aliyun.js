@@ -2,7 +2,7 @@
 阿里云社区签到脚本
 @Author: CleanCode
 @Description: 阿里云社区签到、任务完成。支持 Loon 插件形式，不依赖 cheerio。
-@Version: 1.1.1
+@Version: 1.1.2
 @Update: 2025-12-23
 
 获取 Cookie 方式:
@@ -18,7 +18,7 @@ const $ = new Env('阿里云社区');
 const cookieName = 'aliyunWeb_data';
 
 (async () => {
-        console.log("🚀 脚本实例已创建 (v1.1.1)");
+        console.log("🚀 脚本实例已创建 (v1.1.2)");
 
         if (typeof $request !== 'undefined') {
                 getCookie();
@@ -93,17 +93,20 @@ async function checkIn(cookie) {
                                         console.log("❌ 请求失败:");
                                         $.logErr(error);
                                 } else {
+                                        console.log(`📋 getUser raw data: ${data}`);
                                         const result = JSON.parse(data);
-                                        if (result && result.code === '200') {
-                                                const nickName = result.data ? result.data.nickName : '未知用户';
+                                        if (result && (result.code === '200' || result.success === true)) {
+                                                const userData = result.data || result.content || {};
+                                                const nickName = userData.nickName || userData.nickname || userData.name || '未知用户';
                                                 $.msg($.name, "用户信息查询成功 ✅", `用户: ${nickName}\n状态: Cookie 有效`);
                                                 console.log(`✅ 用户名: ${nickName}`);
                                         } else {
-                                                console.log(`⚠️ 响应代码不是 200: ${result.code}`);
+                                                console.log(`⚠️ 响应代码或状态异常: ${result.code || result.success}`);
                                                 $.msg($.name, "Cookie 可能已失效 ⚠️", `请重新获取 Cookie`);
                                         }
                                 }
                         } catch (e) {
+                                console.log(`❌ 解析用户信息失败: ${e.message}`);
                                 $.logErr(e);
                         } finally {
                                 resolve();
@@ -182,18 +185,25 @@ async function dailyCheckIn(cookie) {
                                 if (error) {
                                         console.log("❌ 签到请求失败");
                                 } else {
+                                        console.log(`📋 dailyCheckIn raw data: ${data}`);
+                                        if (!data) {
+                                                console.log("⚠️ 签到返回内容为空");
+                                                resolve();
+                                                return;
+                                        }
                                         const res = JSON.parse(data);
-                                        if (res.code === '200') {
+                                        if (res.code === '200' || res.success === true) {
                                                 console.log("✅ 签到成功!");
                                                 $.msg($.name, "签到成功", "积分已到手 💰");
-                                        } else if (res.code === 'MISSION_ALREADY_CHECK_IN') {
+                                        } else if (res.code === 'MISSION_ALREADY_CHECK_IN' || (res.message && res.message.indexOf('已签到') > -1)) {
                                                 console.log("ℹ️ 今日已签到，无需重复操作");
                                         } else {
-                                                console.log(`⚠️ 签到返回: ${res.message || res.code}`);
+                                                console.log(`⚠️ 签到返回: ${res.message || res.code || JSON.stringify(res)}`);
                                         }
                                 }
                         } catch (e) {
-                                console.log("❌ 解析签到结果失败");
+                                console.log(`❌ 解析签到结果失败: ${e.message}`);
+                                console.log(`👁️ 原始数据预览: ${data ? data.substring(0, 100) : 'null'}`);
                         } finally {
                                 resolve();
                         }
