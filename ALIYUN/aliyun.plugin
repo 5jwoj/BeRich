@@ -1,0 +1,19 @@
+#!name=阿里云社区
+#!desc=阿里云社区自动签到、任务完成
+#!author=CleanCode
+#!homepage=https://github.com/5jwoj/BeRich
+#!icon=https://raw.githubusercontent.com/5jwoj/BeRich/main/ALIYUN/icon/aliyun.png
+#!date=2025-12-23
+
+[Rule]
+# 如果有特定的规则可以加在这里，通常不需要
+
+[Script]
+# 获取 Cookie
+http-response ^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/ALIYUN/aliyun.js,requires-body=true,tag=获取阿里云Cookie
+
+# 定时任务
+cron "0 7,13 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/ALIYUN/aliyun.js,tag=阿里云社区,img-url=https://raw.githubusercontent.com/5jwoj/BeRich/main/ALIYUN/icon/aliyun.png
+
+[MITM]
+hostname = developer.aliyun.com
