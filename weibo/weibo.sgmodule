@@ -1,12 +1,18 @@
 #!name=Weibo Daily Sign
 #!desc=新浪微博每日签到（支持多账号｜Surge）
-#!author=5jwoj
+#!author=5jwoj (modified)
 #!homepage=https://github.com/5jwoj/BeRich/tree/main/weibo
 
 [MITM]
-hostname = api.weibo.cn, pay.sc.weibo.com, m.weibo.cn, luck.sc.weibo.com
+# 用 %APPEND% 避免覆盖你原来的 MITM hostname
+hostname = %APPEND% api.weibo.cn, pay.sc.weibo.com, m.weibo.cn, luck.sc.weibo.com
 
 [Script]
-Weibo Token = type=http-request,pattern=^https://api\.weibo\.cn/\d/users/show,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
-Weibo Cookie = type=http-request,pattern=^https://api\.weibo\.cn/2/logservice/attach,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+# 1) 抓 Token：修正了 pattern（原来 \d 没有 +，匹配不全）
+Weibo Token = type=http-request,pattern=^https?:\/\/api\.weibo\.cn\/\d+\/users\/show,requires-header=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+
+# 2) 抓 Cookie：换成更稳定会带 SUB 的域名（m.weibo.cn / pay.sc.weibo.com）
+Weibo Cookie = type=http-request,pattern=^https?:\/\/(m\.weibo\.cn|pay\.sc\.weibo\.com)\/,requires-header=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+
+# 3) 定时签到：每天 8:15 / 23:15
 Weibo Sign = type=cron,cronexp=15 8,23 * * *,timeout=60,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
