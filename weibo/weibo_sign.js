@@ -1,8 +1,8 @@
 /**
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
- * Author: 5jwoj
- * Version: v1.0.1
+ * Author: 5jwoj (modified)
+ * Version: v1.0.2
  */
 
 const TOKEN_KEY = 'sy_token_wb'
@@ -21,17 +21,16 @@ if (isRequest) {
 }
 
 async function main() {
-  console.log('Script Version: v1.0.1')
+  console.log('Script Version: v1.0.2')
+
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
 
-
   if (!tokens) {
     console.log('未获取到 Token')
-    notify('新浪微博', '未获取到 Token', '请先打开微博获取 Cookie')
+    notify('新浪微博', '未获取到 Token', '请先打开微博触发 Token 获取')
     return $done()
   }
-
 
   let tokenArr = tokens.split('#')
   let cookieArr = cookies ? cookies.split('#') : []
@@ -42,23 +41,34 @@ async function main() {
 
     if (!token) continue
 
+    // 兼容旧数据：若 token 未包含 from= 则补上
     if (!token.includes('from=')) {
       token = '&from=10B3193010' + token
     }
 
     await weiboSign(token)
-    await paySign(token, cookie)
+
+    // 钱包签到依赖 SUB cookie；如果没有就给出提示但不中断微博签到
+    if (!cookie) {
+      paybag = '钱包签到：未获取到 SUB Cookie（请打开微博/钱包页触发 Cookie 获取）'
+    } else {
+      await paySign(token, cookie)
+    }
+
     notify('新浪微博签到', wbsign, paybag)
   }
-
 
   $done()
 }
 
 function getCookie() {
-  const url = $request.url
-  const headers = $request.headers
+  const url = $request.url || ''
+  const headers = $request.headers || {}
 
+  // 兼容 Surge header key 大小写差异
+  const cookieHeader = headers['Cookie'] || headers['cookie'] || ''
+
+  // 1) 抓 Token：来自 users/show 且带 gsid=
   if (url.includes('users/show') && url.includes('gsid=')) {
     const from = url.match(/from=\w+/)
     const uid = url.match(/&uid=\d+/)
@@ -77,10 +87,15 @@ function getCookie() {
     notify('微博 Token', '获取成功', '')
   }
 
-  if (headers.Cookie && headers.Cookie.includes('SUB=')) {
-    let cookie = headers.Cookie.match(/SUB=[\w-]+/)[0]
-    let old = $persistentStore.read(COOKIE_KEY)
+  // 2) 抓 Cookie：SUB=...（注意 SUB 里可能有 =，原 regex 会漏）
+  if (cookieHeader && cookieHeader.includes('SUB=')) {
+    // 匹配 SUB 的值直到分号或字符串结束
+    const m = cookieHeader.match(/SUB=([^;]+)/)
+    if (!m) return
 
+    let cookie = `SUB=${m[1]}`
+
+    let old = $persistentStore.read(COOKIE_KEY)
     if (old && old.includes(cookie)) return
 
     let val = old ? old + '#' + cookie : cookie
@@ -108,7 +123,7 @@ function weiboSign(token) {
           } else {
             wbsign = '每日签到：失败'
           }
-        } catch {
+        } catch (e) {
           wbsign = '每日签到：解析失败'
         }
         resolve()
@@ -140,7 +155,7 @@ function paySign(token, cookie) {
           } else {
             paybag = '钱包签到：失败'
           }
-        } catch {
+        } catch (e) {
           paybag = '钱包签到：解析失败'
         }
         resolve()
