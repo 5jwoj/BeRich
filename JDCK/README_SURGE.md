@@ -93,6 +93,18 @@ argument=ql_url=http://192.168.1.1:5700&ql_client_id=xYzAbCdE&ql_client_secret=1
 3. 确认青龙面板地址、Client ID 和 Secret 是否正确。
 4. 确认青龙面板可以正常访问。
 
+### 打开京东但无通知
+
+如果您打开京东 App（或小程序）后没有收到任何通知，建议按下列步骤排查：
+
+1. 确认 Surge 的 MITM 已启用并且已信任 Surge CA 证书。
+2. 在模块设置或本地脚本中，确保已将需要的 JD 主机加入到 MITM 列表（例如 `api.m.jd.com`、`plogin.m.jd.com`、`wq.jd.com`），模块默认已包含常见域名，但某些请求可能来自其他子域。
+3. 在模块中临时开启调试：
+   - 在 `jd_cookie_sync_surge.js` 的 `MANUAL_CONFIG` 中将 `debug` 设置为 `true`，或在模块 `argument` 中添加 `&debug=true`。
+   - 开启后，脚本在拦截到没有 Cookie 的请求时会发出一次调试通知，帮助确认脚本是否被触发。
+4. 刷新或多浏览几页以触发 API 请求（有时仅打开首页并不会立即触发包含 Cookie 的接口）。
+5. 查看 Surge 日志（或日志中心），检查是否有类似 `Intercepted request` 的记录。如果有记录但没有 Cookie，说明请求被拦截但该请求不携带 Cookie，需要尝试触发其他页面或登录操作。
+
 ### 收到 "配置未生效" 通知
 
 说明模块的参数没有正确配置,请检查:

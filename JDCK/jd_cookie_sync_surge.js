@@ -18,7 +18,11 @@ const MANUAL_CONFIG = {
     // 因为是本地脚本,更新不会覆盖您的修改(除非您手动替换了文件)。
     url: "",        // 必填,例如 "http://192.168.1.1:5700"
     id: "",         // 必填,Client ID
-    secret: ""      // 必填,Client Secret
+    secret: "",     // 必填,Client Secret
+    // 调试选项(默认关闭):
+    // - 设置 debug=true 可以在拦截到请求但没有 Cookie 时发送一次调试通知，便于确认脚本是否被触发
+    // - 仅在确认为调试排查时打开，避免造成通知骚扰
+    debug: false
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
@@ -48,8 +52,28 @@ const MANUAL_CONFIG = {
         }
 
         // 1. Capture Cookie
+        console.log(`Intercepted request: ${$request.method || 'GET'} ${$request.url || ''}`);
+        try {
+            console.log(`Request header keys: ${Object.keys($request.headers || {}).join(', ')}`);
+        } catch (e) {
+            console.log('Could not enumerate request headers');
+        }
+
         const cookie = $request.headers["Cookie"] || $request.headers["cookie"];
         if (!cookie) {
+            // 如果在 MANUAL_CONFIG 或 argument 中启用了 debug 模式, 则发送一次调试通知来帮助定位
+            const debugEnabled = MANUAL_CONFIG.debug || getArg('debug') === 'true';
+            if (debugEnabled) {
+                const notified = $persistentStore.read('JD_DEBUG_NO_COOKIE_NOTIFIED');
+                if (!notified) {
+                    $notification.post("JD Request (No Cookie)", "Found request but no Cookie header", $request.url || "URL unknown");
+                    $persistentStore.write('1', 'JD_DEBUG_NO_COOKIE_NOTIFIED');
+                } else {
+                    console.log("JD request intercepted but no Cookie header present (notification suppressed).");
+                }
+            } else {
+                console.log("JD request intercepted but no Cookie header present.");
+            }
             $done({});
             return;
         }
