@@ -1,0 +1,15 @@
+#!name=JD Cookie Sync (Plan A / Always Sync)
+#!desc=Capture JD pt_key/pt_pin on matched requests and ALWAYS sync to Qinglong (no local dedup skip). iOS optimized.
+#!author=5jwoj
+#!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
+
+#!arguments=QL_URL:http://127.0.0.1:5700,QL_CLIENT_ID:your_client_id,QL_CLIENT_SECRET:your_client_secret
+#!arguments-desc=QL_URL: 青龙面板地址 (例如 http://192.168.1.1:5700)\nQL_CLIENT_ID: 青龙面板 Client ID\nQL_CLIENT_SECRET: 青龙面板 Client Secret
+
+[Script]
+# 覆盖常见京东域名，提高命中率。命中时从 request header 的 Cookie 里提取 pt_key/pt_pin。
+JD Cookie Sync = type=http-request,pattern=^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com\/,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.js,script-update-interval=0,timeout=20,argument=ql_url={{{QL_URL}}}&ql_client_id={{{QL_CLIENT_ID}}}&ql_client_secret={{{QL_CLIENT_SECRET}}}
+
+[MITM]
+# 需要 MITM 才能读取 HTTPS 请求头 Cookie
+hostname = %APPEND% api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com, home.m.jd.com
