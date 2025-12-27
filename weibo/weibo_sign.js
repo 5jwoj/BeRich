@@ -2,7 +2,7 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.0.2
+ * Version: v1.0.3
  */
 
 const TOKEN_KEY = 'sy_token_wb'
@@ -21,7 +21,7 @@ if (isRequest) {
 }
 
 async function main() {
-  console.log('Script Version: v1.0.2')
+  console.log('Script Version: v1.0.3')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -106,7 +106,7 @@ function getCookie() {
 
 function weiboSign(token) {
   return new Promise(resolve => {
-    $httpClient.get(
+    $httpClient.post(
       {
         url: `https://api.weibo.cn/2/checkin/add?c=iphone&${token}`,
         headers: {
@@ -114,14 +114,19 @@ function weiboSign(token) {
         }
       },
       (err, resp, data) => {
+        console.log(`微博签到原始返回: ${data}`)
         try {
+          if (err) {
+            wbsign = `每日签到：请求失败 (${err})`
+            return resolve()
+          }
           let res = JSON.parse(data)
           if (res.status === 10000) {
             wbsign = `每日签到：连续 ${res.data.continuous} 天`
           } else if (res.errno === 30000) {
             wbsign = '每日签到：已签到'
           } else {
-            wbsign = '每日签到：失败'
+            wbsign = `每日签到：失败 (${res.msg || res.errmsg || '未知错误'})`
           }
         } catch (e) {
           wbsign = '每日签到：解析失败'
@@ -146,14 +151,19 @@ function paySign(token, cookie) {
         body: token + '&lang=zh_CN&wm=3333_2001'
       },
       (err, resp, data) => {
+        console.log(`钱包签到原始返回: ${data}`)
         try {
+          if (err) {
+            paybag = `钱包签到：请求失败 (${err})`
+            return resolve()
+          }
           let res = JSON.parse(data)
           if (res.status === 1) {
             paybag = `钱包签到：+${res.score} 积分`
           } else if (res.status === 2) {
             paybag = '钱包签到：已签到'
           } else {
-            paybag = '钱包签到：失败'
+            paybag = `钱包签到：失败 (${res.msg || '未知错误'})`
           }
         } catch (e) {
           paybag = '钱包签到：解析失败'
