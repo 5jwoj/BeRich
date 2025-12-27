@@ -8,11 +8,11 @@
 hostname = %APPEND% api.weibo.cn, pay.sc.weibo.com, m.weibo.cn, luck.sc.weibo.com
 
 [Script]
-# 1) 抓 Token：修正了 pattern（原来 \d 没有 +，匹配不全）
-Weibo Token = type=http-request,pattern=^https?:\/\/api\.weibo\.cn\/\d+\/users\/show,requires-header=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+# 1) 抓 Token：匹配 /d+/users/show 接口
+Weibo Token = type=http-request,pattern=^https?:\/\/api\.weibo\.cn\/\d+\/users\/show,requires-header=1,debug=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
 
-# 2) 抓 Cookie：换成更稳定会带 SUB 的域名（m.weibo.cn / pay.sc.weibo.com）
-Weibo Cookie = type=http-request,pattern=^https?:\/\/(m\.weibo\.cn|pay\.sc\.weibo\.com)\/,requires-header=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+# 2) 抓 Cookie：匹配微博移动端和钱包域名
+Weibo Cookie = type=http-request,pattern=^https?:\/\/(m\.weibo\.cn|pay\.sc\.weibo\.com)\/,requires-header=1,debug=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
 
-# 3) 定时签到：每天 8:15 / 23:15
-Weibo Sign = type=cron,cronexp=15 8,23 * * *,timeout=60,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+# 3) 定时签到：每天 8:15 / 23:15（启用唤醒通知）
+Weibo Sign = type=cron,cronexp=15 8,23 * * *,timeout=60,wake-system=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js

@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.0.9
+ * Version: v1.1.0
  */
 
-console.log('--- Weibo Script Loaded (v1.0.9) ---')
+console.log('--- Weibo Script Loaded (v1.1.0) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -46,7 +46,7 @@ if (isCookieCapture) {
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.0.9')
+  console.log('Script Version: v1.1.0')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -54,7 +54,7 @@ async function main() {
   console.log(`Data Check - Token: ${tokens ? 'Found' : 'NotFound'}, Cookie: ${cookies ? 'Found' : 'NotFound'}`)
 
   if (!tokens) {
-    console.log('未获取到 Weibo Token，停止执行。请先通过微博 App 获取。')
+    console.log('未获取到 Weibo Token，停止执行。')
     notify('新浪微博', '未获取到 Token', '请先打开微博触发 Token 获取')
     return $done()
   }
@@ -85,7 +85,7 @@ async function main() {
       await paySign(token, cookie)
     }
 
-    // 简化通知内容，防止长度超限
+    // 简化通知内容
     let wbRes = wbsign.replace('签到:', '').replace('每日签到：', '')
     let payRes = paybag.replace('钱包签到：', '').replace('钱包:', '')
     summary.push(`[${i + 1}] 微博:${wbRes} | 钱包:${payRes}`)
@@ -98,14 +98,19 @@ async function main() {
   }
 
   console.log('--- Summary Notification ---')
-  const notifyTitle = tokenArr.length > 1 ? `微博签到汇总结算 (${tokenArr.length})` : '新浪微博签到'
+
+  // 添加时间戳到通知标题
+  const now = new Date()
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const notifyTitle = tokenArr.length > 1
+    ? `微博签到 [${timeStr}] (${tokenArr.length}个账号)`
+    : `微博签到 [${timeStr}]`
+
   notify(notifyTitle, '', summary.join('\n'))
 
   console.log('--- Weibo Sign Task Finished ---')
-  // 延迟 1 秒后结束脚本，确保通知成功发送
-  setTimeout(() => {
-    $done()
-  }, 1000)
+  // 直接结束，不使用延迟
+  $done()
 }
 
 function getCookie() {
@@ -113,6 +118,7 @@ function getCookie() {
   const headers = $request.headers || {}
   const cookieHeader = headers['Cookie'] || headers['cookie'] || ''
 
+  // 处理 Token 捕获
   if (url.includes('users/show') && url.includes('gsid=')) {
     console.log('Matching Token capturing rule...')
     const from = url.match(/from=\w+/)
@@ -120,32 +126,68 @@ function getCookie() {
     const gsid = url.match(/&gsid=[\w-]+/)
     const s = url.match(/&s=\w+/)
 
-    if (!from || !uid || !gsid || !s) return
+    if (!from || !uid || !gsid || !s) {
+      console.log('Token parameters incomplete - missing: ' +
+        (!from ? 'from ' : '') +
+        (!uid ? 'uid ' : '') +
+        (!gsid ? 'gsid ' : '') +
+        (!s ? 's' : ''))
+      return
+    }
 
     let token = from[0] + uid[0] + gsid[0] + s[0]
+    console.log('Token extracted successfully')
+
     let old = $persistentStore.read(TOKEN_KEY)
-    if (old && old.includes(token)) return
+    if (old && old.includes(token)) {
+      console.log('Token already exists, skipping update')
+      notify('微博 Token', '已存在', '此 Token 已保存，无需重复获取')
+      return
+    }
 
     let val = old ? old + '#' + token : token
     if ($persistentStore.write(val, TOKEN_KEY)) {
-      notify('微博 Token', '获取成功', '已更新，请尝试运行签到')
+      console.log('Token saved to PersistentStore successfully')
+      notify('微博 Token', '✅ 获取成功', '已更新，可运行签到任务')
+    } else {
+      console.log('Failed to save Token to PersistentStore')
+      notify('微博 Token', '❌ 保存失败', '请检查 Surge 存储权限')
     }
+    return
   }
 
+  // 处理 Cookie 捕获
   if (cookieHeader && cookieHeader.includes('SUB=')) {
     console.log('Matching Cookie capturing rule...')
     const m = cookieHeader.match(/SUB=([^;]+)/)
-    if (!m) return
+    if (!m) {
+      console.log('SUB Cookie format invalid')
+      return
+    }
 
     let cookie = `SUB=${m[1]}`
+    console.log('Cookie extracted successfully')
+
     let old = $persistentStore.read(COOKIE_KEY)
-    if (old && old.includes(cookie)) return
+    if (old && old.includes(cookie)) {
+      console.log('Cookie already exists, skipping update')
+      notify('微博 Cookie', '已存在', '此 Cookie 已保存，无需重复获取')
+      return
+    }
 
     let val = old ? old + '#' + cookie : cookie
     if ($persistentStore.write(val, COOKIE_KEY)) {
-      notify('微博 Cookie', '获取成功', '已更新，请尝试运行签到')
+      console.log('Cookie saved to PersistentStore successfully')
+      notify('微博 Cookie', '✅ 获取成功', '已更新，可运行签到任务')
+    } else {
+      console.log('Failed to save Cookie to PersistentStore')
+      notify('微博 Cookie', '❌ 保存失败', '请检查 Surge 存储权限')
     }
+    return
   }
+
+  // 没有匹配到任何规则
+  console.log('No capturing rules matched for this request')
 }
 
 function weiboSign(token) {
