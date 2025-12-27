@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.0.8
+ * Version: v1.0.9
  */
 
-console.log('--- Weibo Script Loaded (v1.0.8) ---')
+console.log('--- Weibo Script Loaded (v1.0.9) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -46,7 +46,7 @@ if (isCookieCapture) {
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.0.8')
+  console.log('Script Version: v1.0.9')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -78,26 +78,34 @@ async function main() {
     await weiboSign(token)
 
     if (!cookie) {
-      paybag = '钱包签到：未获取到 SUB Cookie'
+      paybag = '钱包:无'
       console.log(`[Account ${i + 1}] Skip wallet sign-in: No SUB cookie found.`)
     } else {
       console.log(`[Account ${i + 1}] Executing Wallet Sign-in...`)
       await paySign(token, cookie)
     }
 
-    summary.push(`账号 ${i + 1}: ${wbsign} | ${paybag.replace('钱包签到：', '钱包:')}`)
+    // 简化通知内容，防止长度超限
+    let wbRes = wbsign.replace('签到:', '').replace('每日签到：', '')
+    let payRes = paybag.replace('钱包签到：', '').replace('钱包:', '')
+    summary.push(`[${i + 1}] 微博:${wbRes} | 钱包:${payRes}`)
 
-    // 账号间增加 1.5 秒延迟
+    // 账号间增加延迟
     if (i < tokenArr.length - 1) {
-      console.log('Wait 1.5s for the next account...')
-      await new Promise(r => setTimeout(r, 1500))
+      console.log('Wait 2s for the next account...')
+      await new Promise(r => setTimeout(r, 2000))
     }
   }
 
   console.log('--- Summary Notification ---')
-  notify('新浪微博签到汇总', `共处理 ${tokenArr.length} 个账号`, summary.join('\n'))
+  const notifyTitle = tokenArr.length > 1 ? `微博签到汇总结算 (${tokenArr.length})` : '新浪微博签到'
+  notify(notifyTitle, '', summary.join('\n'))
+
   console.log('--- Weibo Sign Task Finished ---')
-  $done()
+  // 延迟 1 秒后结束脚本，确保通知成功发送
+  setTimeout(() => {
+    $done()
+  }, 1000)
 }
 
 function getCookie() {
@@ -152,22 +160,22 @@ function weiboSign(token) {
       (err, resp, data) => {
         if (err) {
           console.log(`Weibo Sign API Error: ${err}`)
-          wbsign = `签到:请求失败`
+          wbsign = `签到:失败`
         } else {
           console.log(`Weibo Sign API Response: ${data}`)
           try {
             let res = JSON.parse(data)
             if (res.status === 10000) {
-              wbsign = `签到:✅(连签${res.data.continuous}天)`
+              wbsign = `✅连签${res.data.continuous}天`
             } else if (res.errno === 30000) {
-              wbsign = '签到:重复'
+              wbsign = '重复'
             } else if (res.errno === -100) {
-              wbsign = '签到:❌(登录失效)'
+              wbsign = '失效'
             } else {
-              wbsign = `签到:❌(${res.msg || res.errmsg || '未知'})`
+              wbsign = `❌${(res.msg || res.errmsg || '错').substring(0, 10)}`
             }
           } catch (e) {
-            wbsign = '签到:解析失败'
+            wbsign = '解析失败'
           }
         }
         resolve()
@@ -192,24 +200,23 @@ function paySign(token, cookie) {
       (err, resp, data) => {
         if (err) {
           console.log(`Wallet Sign API Error: ${err}`)
-          paybag = `钱包签到：请求失败`
+          paybag = `钱包:失败`
         } else {
-          console.log(`Wallet Sign API Response: ${data}`)
+          console.log(`Wallet Sign API Response: ${data.substring(0, 100)}...`)
           if (data && data.includes('<html')) {
-            console.log('Wallet Sign returned HTML. SUB Cookie likely invalid.')
-            paybag = '钱包签到：❌(登录失效)'
+            paybag = '失效'
           } else {
             try {
               let res = JSON.parse(data)
               if (res.status === 1) {
-                paybag = `钱包签到：✅(+${res.score})`
+                paybag = `✅+${res.score}`
               } else if (res.status === 2) {
-                paybag = '钱包签到：重复'
+                paybag = '重复'
               } else {
-                paybag = `钱包签到：❌(${res.msg || '未知'})`
+                paybag = `❌${(res.msg || '错').substring(0, 10)}`
               }
             } catch (e) {
-              paybag = '钱包签到：解析失败'
+              paybag = '解析失败'
             }
           }
         }
