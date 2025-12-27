@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.0.7
+ * Version: v1.0.8
  */
 
-console.log('--- Weibo Script Loaded (v1.0.7) ---')
+console.log('--- Weibo Script Loaded (v1.0.8) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -15,10 +15,10 @@ const isCookieCapture = typeof $request !== 'undefined' &&
   $request.url &&
   (/weibo\.cn/.test($request.url) || /weibo\.com/.test($request.url));
 
-// 手动运行或 Cron 运行（通常 $request 为 undefined）
+// 手动运行或 Cron 运行
 let isTaskExecution = typeof $request === 'undefined';
 
-// 特殊处理：如果被 apple.com 触发，大概率是某些环境下的手动运行测试或配置错误，我们尝试以此为入口执行任务
+// 特殊处理：apple.com 触发强制进入任务模式
 if (typeof $request !== 'undefined' && $request.url && $request.url.includes('apple.com')) {
   console.log('Surge connectivity test (apple.com) detected. Forcing Task Execution mode.')
   isTaskExecution = true;
@@ -40,14 +40,13 @@ if (isCookieCapture) {
     $done()
   })
 } else {
-  // 其他无关请求拦截，不执行任务，直接结束
   console.log(`Mode: Irrelevant Request Intercepted (${$request.url || 'No URL'}) - Ignoring.`)
   $done()
 }
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.0.7')
+  console.log('Script Version: v1.0.8')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -64,10 +63,11 @@ async function main() {
   let cookieArr = cookies ? cookies.split('#') : []
   console.log(`Processing ${tokenArr.length} account(s)...`)
 
+  let summary = []
+
   for (let i = 0; i < tokenArr.length; i++) {
     let token = tokenArr[i]
     let cookie = cookieArr[i] || ''
-
     if (!token) continue
 
     if (!token.includes('from=')) {
@@ -85,9 +85,17 @@ async function main() {
       await paySign(token, cookie)
     }
 
-    notify('新浪微博签到', wbsign, paybag)
+    summary.push(`账号 ${i + 1}: ${wbsign} | ${paybag.replace('钱包签到：', '钱包:')}`)
+
+    // 账号间增加 1.5 秒延迟
+    if (i < tokenArr.length - 1) {
+      console.log('Wait 1.5s for the next account...')
+      await new Promise(r => setTimeout(r, 1500))
+    }
   }
 
+  console.log('--- Summary Notification ---')
+  notify('新浪微博签到汇总', `共处理 ${tokenArr.length} 个账号`, summary.join('\n'))
   console.log('--- Weibo Sign Task Finished ---')
   $done()
 }
@@ -112,7 +120,7 @@ function getCookie() {
 
     let val = old ? old + '#' + token : token
     if ($persistentStore.write(val, TOKEN_KEY)) {
-      notify('微博 Token', '获取成功', '')
+      notify('微博 Token', '获取成功', '已更新，请尝试运行签到')
     }
   }
 
@@ -127,7 +135,7 @@ function getCookie() {
 
     let val = old ? old + '#' + cookie : cookie
     if ($persistentStore.write(val, COOKIE_KEY)) {
-      notify('微博 Cookie', '获取成功', '')
+      notify('微博 Cookie', '获取成功', '已更新，请尝试运行签到')
     }
   }
 }
@@ -144,20 +152,22 @@ function weiboSign(token) {
       (err, resp, data) => {
         if (err) {
           console.log(`Weibo Sign API Error: ${err}`)
-          wbsign = `每日签到：请求失败 (${err})`
+          wbsign = `签到:请求失败`
         } else {
           console.log(`Weibo Sign API Response: ${data}`)
           try {
             let res = JSON.parse(data)
             if (res.status === 10000) {
-              wbsign = `每日签到：连续 ${res.data.continuous} 天`
+              wbsign = `签到:✅(连签${res.data.continuous}天)`
             } else if (res.errno === 30000) {
-              wbsign = '每日签到：已签到'
+              wbsign = '签到:重复'
+            } else if (res.errno === -100) {
+              wbsign = '签到:❌(登录失效)'
             } else {
-              wbsign = `每日签到：失败 (${res.msg || res.errmsg || 'Unknown'})`
+              wbsign = `签到:❌(${res.msg || res.errmsg || '未知'})`
             }
           } catch (e) {
-            wbsign = '每日签到：解析失败'
+            wbsign = '签到:解析失败'
           }
         }
         resolve()
@@ -182,20 +192,25 @@ function paySign(token, cookie) {
       (err, resp, data) => {
         if (err) {
           console.log(`Wallet Sign API Error: ${err}`)
-          paybag = `钱包签到：请求失败 (${err})`
+          paybag = `钱包签到：请求失败`
         } else {
           console.log(`Wallet Sign API Response: ${data}`)
-          try {
-            let res = JSON.parse(data)
-            if (res.status === 1) {
-              paybag = `钱包签到：+${res.score} 积分`
-            } else if (res.status === 2) {
-              paybag = '钱包签到：已签到'
-            } else {
-              paybag = `钱包签到：失败 (${res.msg || 'Unknown'})`
+          if (data && data.includes('<html')) {
+            console.log('Wallet Sign returned HTML. SUB Cookie likely invalid.')
+            paybag = '钱包签到：❌(登录失效)'
+          } else {
+            try {
+              let res = JSON.parse(data)
+              if (res.status === 1) {
+                paybag = `钱包签到：✅(+${res.score})`
+              } else if (res.status === 2) {
+                paybag = '钱包签到：重复'
+              } else {
+                paybag = `钱包签到：❌(${res.msg || '未知'})`
+              }
+            } catch (e) {
+              paybag = '钱包签到：解析失败'
             }
-          } catch (e) {
-            paybag = '钱包签到：解析失败'
           }
         }
         resolve()
