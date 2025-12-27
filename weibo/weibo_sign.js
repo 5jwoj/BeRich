@@ -2,7 +2,7 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.0.3
+ * Version: v1.0.4
  */
 
 const TOKEN_KEY = 'sy_token_wb'
@@ -21,7 +21,8 @@ if (isRequest) {
 }
 
 async function main() {
-  console.log('Script Version: v1.0.3')
+  console.log('--- Weibo Sign Script Start ---')
+  console.log('Script Version: v1.0.4')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
