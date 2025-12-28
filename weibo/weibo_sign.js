@@ -2,18 +2,16 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.1.0
+ * Version: v1.2.0
  */
 
-console.log('--- Weibo Script Loaded (v1.1.0) ---')
+console.log('--- Weibo Script Loaded (v1.2.0) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
 
-// 仅在匹配微博域名时进入获取 Cookie 模式
-const isCookieCapture = typeof $request !== 'undefined' &&
-  $request.url &&
-  (/weibo\.cn/.test($request.url) || /weibo\.com/.test($request.url));
+// 简化判断:所有被 Surge 拦截的请求都进入 getCookie 处理
+const isCookieCapture = typeof $request !== 'undefined' && $request.url;
 
 // 手动运行或 Cron 运行
 let isTaskExecution = typeof $request === 'undefined';
@@ -44,9 +42,13 @@ if (isCookieCapture) {
   $done()
 }
 
+// 全局变量声明
+let wbsign = ''
+let paybag = ''
+
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.1.0')
+  console.log('Script Version: v1.2.0')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -77,12 +79,12 @@ async function main() {
     console.log(`[Account ${i + 1}] Executing Daily Sign-in...`)
     await weiboSign(token)
 
-    if (!cookie) {
-      paybag = '钱包:无'
-      console.log(`[Account ${i + 1}] Skip wallet sign-in: No SUB cookie found.`)
-    } else {
+    if (cookie) {
       console.log(`[Account ${i + 1}] Executing Wallet Sign-in...`)
       await paySign(token, cookie)
+    } else {
+      paybag = '钱包:无'
+      console.log(`[Account ${i + 1}] Skip wallet sign-in: No SUB cookie found.`)
     }
 
     // 简化通知内容
