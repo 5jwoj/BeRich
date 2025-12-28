@@ -2,24 +2,29 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.2.0
+ * Version: v1.2.1
  */
 
-console.log('--- Weibo Script Loaded (v1.2.0) ---')
+console.log('--- Weibo Script Loaded (v1.2.1) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
 
-// 简化判断:所有被 Surge 拦截的请求都进入 getCookie 处理
-const isCookieCapture = typeof $request !== 'undefined' && $request.url;
+// 检查是否为 Surge 连通性测试 (apple.com)
+const isAppleConnectivityTest = typeof $request !== 'undefined' &&
+  $request.url &&
+  $request.url.includes('apple.com');
 
-// 手动运行或 Cron 运行
-let isTaskExecution = typeof $request === 'undefined';
+// 手动运行或 Cron 运行,或 apple.com 连通性测试
+let isTaskExecution = typeof $request === 'undefined' || isAppleConnectivityTest;
 
-// 特殊处理：apple.com 触发强制进入任务模式
-if (typeof $request !== 'undefined' && $request.url && $request.url.includes('apple.com')) {
-  console.log('Surge connectivity test (apple.com) detected. Forcing Task Execution mode.')
-  isTaskExecution = true;
+// Cookie 捕获模式:有请求且不是 apple.com 测试
+const isCookieCapture = typeof $request !== 'undefined' &&
+  $request.url &&
+  !isAppleConnectivityTest;
+
+if (isAppleConnectivityTest) {
+  console.log('Surge connectivity test (apple.com) detected. Entering Task Execution mode.')
 }
 
 if (isCookieCapture) {
@@ -48,7 +53,7 @@ let paybag = ''
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.2.0')
+  console.log('Script Version: v1.2.1')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
