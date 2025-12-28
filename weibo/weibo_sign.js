@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.2.1
+ * Version: v1.3.0
  */
 
-console.log('--- Weibo Script Loaded (v1.2.1) ---')
+console.log('--- Weibo Script Loaded (v1.3.0) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -53,7 +53,7 @@ let paybag = ''
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.2.1')
+  console.log('Script Version: v1.3.0')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -71,6 +71,7 @@ async function main() {
   console.log(`Processing ${tokenArr.length} account(s)...`)
 
   let summary = []
+  let invalidAccounts = []  // 记录失效的账号索引
 
   for (let i = 0; i < tokenArr.length; i++) {
     let token = tokenArr[i]
@@ -84,9 +85,21 @@ async function main() {
     console.log(`[Account ${i + 1}] Executing Daily Sign-in...`)
     await weiboSign(token)
 
+    // 检测账号是否失效
+    if (wbsign === '失效') {
+      console.log(`[Account ${i + 1}] Token expired, marking for deletion.`)
+      invalidAccounts.push(i)
+    }
+
     if (cookie) {
       console.log(`[Account ${i + 1}] Executing Wallet Sign-in...`)
       await paySign(token, cookie)
+
+      // 检测 Cookie 是否失效
+      if (paybag === '失效') {
+        console.log(`[Account ${i + 1}] Cookie expired.`)
+        // Cookie 失效不影响 Token,仅标记
+      }
     } else {
       paybag = '钱包:无'
       console.log(`[Account ${i + 1}] Skip wallet sign-in: No SUB cookie found.`)
@@ -99,18 +112,48 @@ async function main() {
 
     // 账号间增加延迟
     if (i < tokenArr.length - 1) {
-      console.log('Wait 2s for the next account...')
-      await new Promise(r => setTimeout(r, 2000))
+      console.log('Wait 1s for the next account...')
+      await new Promise(r => setTimeout(r, 1000))
     }
   }
 
   console.log('--- Summary Notification ---')
 
+  // 清理失效账号
+  if (invalidAccounts.length > 0) {
+    console.log(`Cleaning up ${invalidAccounts.length} invalid account(s)...`)
+
+    // 过滤掉失效的账号
+    let validTokens = tokenArr.filter((_, idx) => !invalidAccounts.includes(idx))
+    let validCookies = cookieArr.filter((_, idx) => !invalidAccounts.includes(idx))
+
+    // 更新持久化存储
+    if (validTokens.length > 0) {
+      $persistentStore.write(validTokens.join('#'), TOKEN_KEY)
+      console.log(`Updated tokens: ${validTokens.length} valid account(s) remaining.`)
+    } else {
+      $persistentStore.write('', TOKEN_KEY)
+      console.log('All tokens invalid, cleared storage.')
+    }
+
+    if (validCookies.length > 0) {
+      $persistentStore.write(validCookies.join('#'), COOKIE_KEY)
+      console.log(`Updated cookies: ${validCookies.length} valid account(s) remaining.`)
+    } else {
+      $persistentStore.write('', COOKIE_KEY)
+      console.log('All cookies invalid, cleared storage.')
+    }
+
+    // 添加清理提示到通知
+    summary.push(`\n⚠️ 已自动清理 ${invalidAccounts.length} 个失效账号`)
+  }
+
   // 添加时间戳到通知标题
   const now = new Date()
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const validCount = tokenArr.length - invalidAccounts.length
   const notifyTitle = tokenArr.length > 1
-    ? `微博签到 [${timeStr}] (${tokenArr.length}个账号)`
+    ? `微博签到 [${timeStr}] (${validCount}/${tokenArr.length}个账号)`
     : `微博签到 [${timeStr}]`
 
   notify(notifyTitle, '', summary.join('\n'))
