@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.3.0
+ * Version: v1.3.1
  */
 
-console.log('--- Weibo Script Loaded (v1.3.0) ---')
+console.log('--- Weibo Script Loaded (v1.3.1) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -30,12 +30,15 @@ if (isAppleConnectivityTest) {
 if (isCookieCapture) {
   console.log('Mode: Cookie Capture Interception')
   console.log(`URL: ${$request.url}`)
-  try {
-    getCookie()
-  } catch (e) {
-    console.log('getCookie Error: ' + e)
-  }
-  $done()
+    ; (async () => {
+      try {
+        await getCookie()
+      } catch (e) {
+        console.log('getCookie Error: ' + e)
+      } finally {
+        $done()
+      }
+    })()
 } else if (isTaskExecution) {
   console.log('Mode: Task Execution (Manual/Cron)')
   main().catch(e => {
@@ -53,7 +56,7 @@ let paybag = ''
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.3.0')
+  console.log('Script Version: v1.3.1')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -163,7 +166,7 @@ async function main() {
   $done()
 }
 
-function getCookie() {
+async function getCookie() {
   const url = $request.url || ''
   const headers = $request.headers || {}
   const cookieHeader = headers['Cookie'] || headers['cookie'] || ''
@@ -188,17 +191,22 @@ function getCookie() {
     let token = from[0] + uid[0] + gsid[0] + s[0]
     console.log('Token extracted successfully')
 
+    // Always try to sign in when token is captured/detected
+    console.log('Executing immediate sign-in check...')
+    await weiboSign(token)
+    let signMsg = wbsign || '签到无返回'
+
     let old = $persistentStore.read(TOKEN_KEY)
     if (old && old.includes(token)) {
       console.log('Token already exists, skipping update')
-      notify('微博 Token', '已存在', '此 Token 已保存，无需重复获取')
+      notify('微博 Token', '重复获取 & ' + signMsg, '此 Token 已保存')
       return
     }
 
     let val = old ? old + '#' + token : token
     if ($persistentStore.write(val, TOKEN_KEY)) {
       console.log('Token saved to PersistentStore successfully')
-      notify('微博 Token', '✅ 获取成功', '已更新，可运行签到任务')
+      notify('微博 Token', '✅ 从新获取 & ' + signMsg, '已写入脚本存储')
     } else {
       console.log('Failed to save Token to PersistentStore')
       notify('微博 Token', '❌ 保存失败', '请检查 Surge 存储权限')
