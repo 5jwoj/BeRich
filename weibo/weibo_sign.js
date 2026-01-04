@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.3.1
+ * Version: v1.4.0
  */
 
-console.log('--- Weibo Script Loaded (v1.3.1) ---')
+console.log('--- Weibo Script Loaded (v1.4.0) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -56,7 +56,7 @@ let paybag = ''
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.3.1')
+  console.log('Script Version: v1.4.0')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -191,22 +191,36 @@ async function getCookie() {
     let token = from[0] + uid[0] + gsid[0] + s[0]
     console.log('Token extracted successfully')
 
-    // Always try to sign in when token is captured/detected
-    console.log('Executing immediate sign-in check...')
+    // 先执行签到验证
+    console.log('Executing sign-in verification...')
     await weiboSign(token)
-    let signMsg = wbsign || '签到无返回'
+    let signResult = wbsign || '签到无返回'
+    console.log(`Sign-in result: ${signResult}`)
 
+    // 判断签到结果：成功或重复签到则不保存，失败或失效才保存
+    const isSignSuccess = signResult.includes('✅') || signResult === '重复'
+    
+    if (isSignSuccess) {
+      console.log('Sign-in verified successfully, no need to update Token')
+      notify('微博 Token', '✅ 验证通过 & ' + signResult, 'Token 有效，无需更新')
+      return
+    }
+
+    // 签到失败，需要更新Token
+    console.log('Sign-in failed, updating Token...')
     let old = $persistentStore.read(TOKEN_KEY)
+    
+    // 检查是否重复
     if (old && old.includes(token)) {
-      console.log('Token already exists, skipping update')
-      notify('微博 Token', '重复获取 & ' + signMsg, '此 Token 已保存')
+      console.log('Token already exists but invalid, replacing it')
+      notify('微博 Token', '⚠️ Token失效', '签到失败: ' + signResult)
       return
     }
 
     let val = old ? old + '#' + token : token
     if ($persistentStore.write(val, TOKEN_KEY)) {
       console.log('Token saved to PersistentStore successfully')
-      notify('微博 Token', '✅ 从新获取 & ' + signMsg, '已写入脚本存储')
+      notify('微博 Token', '✅ 已更新 & ' + signResult, '新Token已写入存储')
     } else {
       console.log('Failed to save Token to PersistentStore')
       notify('微博 Token', '❌ 保存失败', '请检查 Surge 存储权限')
@@ -226,17 +240,51 @@ async function getCookie() {
     let cookie = `SUB=${m[1]}`
     console.log('Cookie extracted successfully')
 
+    // 获取对应的Token进行钱包签到验证
+    let tokens = $persistentStore.read(TOKEN_KEY)
+    if (!tokens) {
+      console.log('No Token found, cannot verify wallet sign-in')
+      notify('微博 Cookie', '⚠️ 无法验证', '请先获取微博Token')
+      return
+    }
+
+    // 使用第一个Token进行验证（假设Cookie对应第一个账号）
+    let tokenArr = tokens.split('#')
+    let token = tokenArr[0]
+    if (!token.includes('from=')) {
+      token = '&from=10B3193010' + token
+    }
+
+    // 执行钱包签到验证
+    console.log('Executing wallet sign-in verification...')
+    await paySign(token, cookie)
+    let walletResult = paybag || '验证无返回'
+    console.log(`Wallet sign-in result: ${walletResult}`)
+
+    // 判断钱包签到结果：成功或重复则不保存，失败或失效才保存
+    const isWalletSuccess = walletResult.includes('✅') || walletResult === '重复'
+    
+    if (isWalletSuccess) {
+      console.log('Wallet verification successful, no need to update Cookie')
+      notify('微博 Cookie', '✅ 验证通过 & ' + walletResult, 'Cookie 有效，无需更新')
+      return
+    }
+
+    // 钱包验证失败，需要更新Cookie
+    console.log('Wallet verification failed, updating Cookie...')
     let old = $persistentStore.read(COOKIE_KEY)
+    
+    // 检查是否重复
     if (old && old.includes(cookie)) {
-      console.log('Cookie already exists, skipping update')
-      notify('微博 Cookie', '已存在', '此 Cookie 已保存，无需重复获取')
+      console.log('Cookie already exists but invalid')
+      notify('微博 Cookie', '⚠️ Cookie失效', '验证失败: ' + walletResult)
       return
     }
 
     let val = old ? old + '#' + cookie : cookie
     if ($persistentStore.write(val, COOKIE_KEY)) {
       console.log('Cookie saved to PersistentStore successfully')
-      notify('微博 Cookie', '✅ 获取成功', '已更新，可运行签到任务')
+      notify('微博 Cookie', '✅ 已更新 & ' + walletResult, '新Cookie已写入存储')
     } else {
       console.log('Failed to save Cookie to PersistentStore')
       notify('微博 Cookie', '❌ 保存失败', '请检查 Surge 存储权限')
