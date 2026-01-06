@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.4.0
+ * Version: v1.5.0
  */
 
-console.log('--- Weibo Script Loaded (v1.4.0) ---')
+console.log('--- Weibo Script Loaded (v1.5.0) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -56,7 +56,7 @@ let paybag = ''
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.4.0')
+  console.log('Script Version: v1.5.0')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -202,7 +202,7 @@ async function getCookie() {
     
     if (isSignSuccess) {
       console.log('Sign-in verified successfully, no need to update Token')
-      notify('微博 Token', '✅ 验证通过 & ' + signResult, 'Token 有效，无需更新')
+      // notify('微博 Token', '✅ 验证通过 & ' + signResult, 'Token 有效，无需更新')  // 禁用验证通知，避免频繁提醒
       return
     }
 
@@ -266,7 +266,7 @@ async function getCookie() {
     
     if (isWalletSuccess) {
       console.log('Wallet verification successful, no need to update Cookie')
-      notify('微博 Cookie', '✅ 验证通过 & ' + walletResult, 'Cookie 有效，无需更新')
+      // notify('微博 Cookie', '✅ 验证通过 & ' + walletResult, 'Cookie 有效，无需更新')  // 禁用验证通知，避免频繁提醒
       return
     }
 
