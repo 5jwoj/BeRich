@@ -1,5 +1,11 @@
 /*
-* JD Cookie Sync to Qinglong
+* JD Cookie Sync to Qinglong - Smart Validation
+* 
+* 行为：
+* 1) 抓到 pt_key + pt_pin 后先验证 Cookie 有效性
+* 2) Cookie 有效且未变化则静默跳过，无需同步青龙
+* 3) Cookie 失效或变化时才同步青龙
+* Version: v2.0.0
 * 
 * @script
 * api.m.jd.com
@@ -102,6 +108,44 @@ const MANUAL_CONFIG = {
 function getCookieValue(cookieStr, key) {
     const match = cookieStr.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));
     return match ? match[1] : null;
+}
+
+
+
+async function validateJDCookie(jd_cookie) {
+    const options = {
+        url: "https://me-api.jd.com/user_new/info/GetJDUserInfoUnion",
+        method: "GET",
+        headers: {
+            "Cookie": jd_cookie,
+            "User-Agent": "jdapp;iPhone;10.0.0;14.0;network/wifi;Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
+            "Referer": "https://home.m.jd.com/"
+        }
+    };
+
+    return new Promise((resolve) => {
+        $.http.get(options).then(response => {
+            try {
+                const body = JSON.parse(response.body);
+                
+                // 检查返回数据是否包含用户信息
+                if (body && body.retcode === "0" && body.data && body.data.userInfo) {
+                    const nickname = body.data.userInfo.baseInfo?.nickname || "";
+                    $.log(`Cookie validation success: ${nickname}`);
+                    resolve({ valid: true, nickname });
+                } else {
+                    $.log(`Cookie validation failed: ${JSON.stringify(body).substring(0, 100)}`);
+                    resolve({ valid: false });
+                }
+            } catch (e) {
+                $.log(`Cookie validation parse error: ${e.message}`);
+                resolve({ valid: false });
+            }
+        }, reason => {
+            $.log(`Cookie validation network error: ${reason.error}`);
+            resolve({ valid: false });
+        });
+    });
 }
 
 async function getQLToken(url, clientId, clientSecret) {

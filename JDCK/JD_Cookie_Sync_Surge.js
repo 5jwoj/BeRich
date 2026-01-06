@@ -69,7 +69,27 @@ const MANUAL_CONFIG = {
 
     console.log(`Captured Cookie for pt_pin=${pt_pin}`);
 
-    // 2) Authenticate with Qinglong
+    // 2) 检查本地缓存，避免重复处理
+    const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
+    const cachedCookie = $persistentStore.read(cacheKey);
+    
+    if (cachedCookie === jd_cookie) {
+      console.log(`Cookie unchanged for ${pt_pin}, validating...`);
+      
+      // 2.1) 验证 Cookie 有效性
+      const validation = await validateJDCookie(jd_cookie);
+      
+      if (validation.valid) {
+        console.log(`Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Skip sync.`);
+        $done({});
+        return;
+      } else {
+        console.log(`Cookie invalid for ${pt_pin}. Need to re-sync.`);
+        // 继续执行同步逻辑
+      }
+    }
+
+    // 3) Authenticate with Qinglong
     const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
     if (!token) {
       $notification.post("同步失败", "获取青龙 Token 失败", "请检查 ql_url / client_id / client_secret 是否正确。");
@@ -77,7 +97,7 @@ const MANUAL_CONFIG = {
       return;
     }
 
-    // 3) Sync Cookie
+    // 4) Sync Cookie
     const result = await syncCookieToQL(ql_url, token, pt_pin, jd_cookie);
 
     if (!result.ok) {
@@ -86,8 +106,9 @@ const MANUAL_CONFIG = {
       return;
     }
 
-    // 4) 只有发生变化才通知（创建/更新/启用）
+    // 5) 同步成功后更新缓存
     if (result.changed) {
+      $persistentStore.write(jd_cookie, cacheKey);
       $notification.post(result.title, result.subtitle, result.body);
     } else {
       console.log(`No change for ${pt_pin}. No notification.`);
@@ -161,6 +182,53 @@ async function getQLToken(url, clientId, clientSecret) {
  * - 找到但被禁用则启用
  * 若 value 相同且已启用，则 changed=false（不通知）
  */
+
+
+/**
+ * 验证京东 Cookie 是否有效
+ * @param {string} jd_cookie - 京东Cookie字符串
+ * @returns {Promise<{valid: boolean, nickname?: string}>}
+ */
+async function validateJDCookie(jd_cookie) {
+  const options = {
+    url: "https://me-api.jd.com/user_new/info/GetJDUserInfoUnion",
+    method: "GET",
+    headers: {
+      "Cookie": jd_cookie,
+      "User-Agent": "jdapp;iPhone;10.0.0;14.0;network/wifi;Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
+      "Referer": "https://home.m.jd.com/"
+    },
+    timeout: 10
+  };
+
+  return new Promise((resolve) => {
+    $httpClient.get(options, (error, response, data) => {
+      if (error) {
+        console.log(`Cookie validation network error: ${error}`);
+        resolve({ valid: false });
+        return;
+      }
+
+      try {
+        const body = JSON.parse(data);
+        
+        // 检查返回数据是否包含用户信息
+        if (body && body.retcode === "0" && body.data && body.data.userInfo) {
+          const nickname = body.data.userInfo.baseInfo?.nickname || "";
+          console.log(`Cookie validation success: ${nickname}`);
+          resolve({ valid: true, nickname });
+        } else {
+          console.log(`Cookie validation failed: ${JSON.stringify(body).substring(0, 100)}`);
+          resolve({ valid: false });
+        }
+      } catch (e) {
+        console.log(`Cookie validation parse error: ${e.message}`);
+        resolve({ valid: false });
+      }
+    });
+  });
+}
+
 async function syncCookieToQL(url, token, pt_pin, newValue) {
   const headers = {
     "Authorization": `Bearer ${token}`,
