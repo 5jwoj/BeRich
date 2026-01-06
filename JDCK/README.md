@@ -17,7 +17,7 @@
 
 | 类型 | 链接 |
 | :--- | :--- |
-| **插件地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync.plugin` |
+| **插件地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Loon.plugin` |
 
 ### Surge
 
@@ -25,7 +25,7 @@
 
 | 类型 | 链接 |
 | :--- | :--- |
-| **模块地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync.sgmodule` |
+| **模块地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.sgmodule` |
 
 ## ⚙️ 配置指南
 

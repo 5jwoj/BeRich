@@ -11,7 +11,7 @@ ql_client_id = { type = "input", name = "Client ID", desc = "QL Open API Client 
 ql_client_secret = { type = "input", name = "Client Secret", desc = "QL Open API Client Secret", placeholder = "your_client_secret" }
 
 [Script]
-http-request ^https?:\/\/api\.m\.jd\.com script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/jd_cookie_sync.js, timeout=10, tag=JD Cookie Sync, argument=ql_url={ql_url}&ql_client_id={ql_client_id}&ql_client_secret={ql_client_secret}
+http-request ^https?:\/\/api\.m\.jd\.com script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Loon.js, timeout=10, tag=JD Cookie Sync, argument=ql_url={ql_url}&ql_client_id={ql_client_id}&ql_client_secret={ql_client_secret}
 
 [MITM]
 hostname = api.m.jd.com
