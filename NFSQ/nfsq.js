@@ -480,7 +480,7 @@ async function sendNotify() {
 }
 
 async function main() {
-    const header = "🌿 农夫山泉-Loon版 🌿";
+    const header = "🌿 农夫山泉 🌿";
     console.log(header);
     notifyContent.push(`<b>${header}</b>`);
 
