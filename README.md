@@ -14,6 +14,27 @@
 
 ---
 
+## 📦 BoxJS 订阅
+
+### 一键订阅（推荐）
+
+在 BoxJS 中添加以下订阅链接，即可一次性订阅所有脚本：
+
+```
+https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
+```
+
+### 分别订阅
+
+如果只需要某个功能，可以使用以下单独订阅：
+
+- **京东Cookie同步**: `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs.json`
+- **微博每日签到**: `https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo.boxjs.json`
+
+详细说明请查看：[boxjs/README.md](./boxjs/README.md)
+
+---
+
 ## 🛠️ 通用使用指南
 
 1.  **环境准备**: 各项目均基于脚本工具（Surge 或 Loon）运行，请确保您已安装并激活。

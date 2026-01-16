@@ -1,0 +1,95 @@
+{
+    "id": "5jwoj.berich",
+    "name": "BeRich 订阅合集",
+    "description": "包含京东Cookie同步和微博签到的BoxJS订阅合集",
+    "author": "@5jwoj",
+    "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/available.png",
+    "repo": "https://github.com/5jwoj/BeRich",
+    "apps": [
+        {
+            "id": "jd.cookie.sync.qx",
+            "name": "京东Cookie同步",
+            "keys": [
+                "jd_ql_url",
+                "jd_ql_client_id",
+                "jd_ql_client_secret"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">自动捕获京东Cookie并同步到青龙面板</h4>",
+                "<p align=\"center\">使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/blob/main/JDCK/README_QX.md\">README_QX.md</a></p>"
+            ],
+            "settings": [
+                {
+                    "id": "jd_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板的完整地址，包括端口号"
+                },
+                {
+                    "id": "jd_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取"
+                },
+                {
+                    "id": "jd_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取（权限需勾选环境变量）"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js"
+        },
+        {
+            "id": "weibo_sign_qx",
+            "name": "微博每日签到",
+            "keys": [
+                "sy_token_wb",
+                "wb_cookie"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/weibo",
+            "descs_html": [
+                "请先在 QuanX 配置文件中添加重写和 MITM 规则，然后打开微博 APP 获取 Token 和 Cookie。",
+                "脚本会自动去重和验证有效性。"
+            ],
+            "settings": [
+                {
+                    "id": "sy_token_wb",
+                    "name": "微博 Token",
+                    "val": "",
+                    "type": "textarea",
+                    "autoGrow": true,
+                    "rows": 3,
+                    "desc": "多个账号用 # 连接 (脚本会自动处理，通常无需手动修改)"
+                },
+                {
+                    "id": "wb_cookie",
+                    "name": "微博 Cookie (SUB)",
+                    "val": "",
+                    "type": "textarea",
+                    "autoGrow": true,
+                    "rows": 3,
+                    "desc": "多个账号用 # 连接 (用于钱包签到)"
+                }
+            ],
+            "icons": [
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/weibo.png",
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/weibo.png"
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_qx.js"
+        }
+    ]
+}
