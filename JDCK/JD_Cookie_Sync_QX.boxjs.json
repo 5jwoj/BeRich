@@ -1,48 +1,56 @@
 {
-    "id": "jd.cookie.sync.qx",
-    "name": "京东Cookie同步 (Quantumult X)",
-    "desc": "自动捕获京东Cookie并同步到青龙面板",
+    "id": "5jwoj.berich.jdck",
+    "name": "BeRich - 京东Cookie同步",
     "author": "@5jwoj",
     "repo": "https://github.com/5jwoj/BeRich",
-    "icons": [
-        "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
-        "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
-    ],
-    "keys": [
-        "jd_ql_url",
-        "jd_ql_client_id",
-        "jd_ql_client_secret"
-    ],
-    "settings": [
+    "apps": [
         {
-            "id": "jd_ql_url",
-            "name": "青龙面板地址",
-            "val": "",
-            "type": "text",
-            "placeholder": "http://192.168.1.1:5700",
-            "desc": "青龙面板的完整地址，包括端口号"
-        },
-        {
-            "id": "jd_ql_client_id",
-            "name": "Client ID",
-            "val": "",
-            "type": "text",
-            "placeholder": "请输入青龙面板的 Client ID",
-            "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取"
-        },
-        {
-            "id": "jd_ql_client_secret",
-            "name": "Client Secret",
-            "val": "",
-            "type": "text",
-            "placeholder": "请输入青龙面板的 Client Secret",
-            "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取（权限需勾选"环境变量"）"
-        }
-    ],
-    "scripts": [
-        {
+            "id": "jd.cookie.sync.qx",
             "name": "京东Cookie同步",
-            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js"
+            "desc": "自动捕获京东Cookie并同步到青龙面板",
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "keys": [
+                "jd_ql_url",
+                "jd_ql_client_id",
+                "jd_ql_client_secret"
+            ],
+            "settings": [
+                {
+                    "id": "jd_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板的完整地址，包括端口号"
+                },
+                {
+                    "id": "jd_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取"
+                },
+                {
+                    "id": "jd_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取（权限需勾选环境变量）"
+                }
+            ],
+            "scripts": [
+                {
+                    "name": "京东Cookie同步",
+                    "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js"
+                }
+            ]
         }
     ]
 }
