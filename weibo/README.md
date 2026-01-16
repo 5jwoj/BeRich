@@ -31,9 +31,32 @@ Weibo Sign = type=cron,cronexp=15 8,23 * * *,timeout=60,script-path=https://raw.
 hostname = %APPEND% api.weibo.cn
 ```
 
+
 ### Loon
 
 请使用对应的 Loon 插件（如有），或参考 Loom 的脚本配置格式添加上述脚本路径。
+
+### Quantumult X
+
+#### 方式一：配置文件导入 (推荐)
+
+在配置文件的 `[rewrite_local]` 和 `[task_local]` 区域添加如下内容：
+
+```ini
+[rewrite_local]
+# Token 和 Cookie 获取
+^https?:\/\/api\.weibo\.cn\/\d+\/users\/show url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_qx.js
+^https?:\/\/(m\.weibo\.cn|pay\.sc\.weibo\.com)\/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_qx.js
+
+[task_local]
+# 定时签到: 每天 8:15 / 23:15
+15 8,23 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_qx.js, tag=微博签到, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/weibo.png, enabled=true
+```
+
+#### 方式二：BoxJS 订阅
+
+BoxJS 订阅链接：`https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo.boxjs.json`
+
 
 ## 📖 使用指南
 
