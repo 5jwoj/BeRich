@@ -1,6 +1,7 @@
 {
     "id": "5jwoj.berich.jdck",
     "name": "BeRich - 京东Cookie同步",
+    "description": "自动捕获京东Cookie并同步到青龙面板",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -8,17 +9,20 @@
         {
             "id": "jd.cookie.sync.qx",
             "name": "京东Cookie同步",
-            "desc": "自动捕获京东Cookie并同步到青龙面板",
-            "author": "@5jwoj",
-            "repo": "https://github.com/5jwoj/BeRich",
-            "icons": [
-                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
-                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
-            ],
             "keys": [
                 "jd_ql_url",
                 "jd_ql_client_id",
                 "jd_ql_client_secret"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">自动捕获京东Cookie并同步到青龙面板</h4>",
+                "<p align=\"center\">使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/blob/main/JDCK/README_QX.md\">README_QX.md</a></p>"
             ],
             "settings": [
                 {
@@ -45,8 +49,7 @@
                     "placeholder": "请输入青龙面板的 Client Secret",
                     "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取（权限需勾选环境变量）"
                 }
-            ],
-            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js"
+            ]
         }
     ]
 }
