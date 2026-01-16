@@ -168,16 +168,10 @@ async function main() {
 async function getCookie() {
     const url = $request.url || ''
     const headers = $request.headers || {}
-    // QX headers keys might be lower-cased or not, keeping both checks is safe.
-    // Actually QX usually keeps original case but accessing case-insensitive is not default in JS objects.
-    // But standard node/browser envs lower case them. In QX, best to check variations or iterate.
-    // However, simple property access works if we know the case. 'Cookie' is standard.
     const cookieHeader = headers['Cookie'] || headers['cookie'] || ''
 
     // 处理 Token 捕获
     if (url.includes('users/show') && (url.includes('gsid=') || url.includes('access_token='))) {
-        // Note: older implementations looked for gsid, newer weibo apps might use different Params.
-        // The original script matched /from=\w+/ etc.
         console.log('Matching Token capturing rule...')
 
         // Original reg ex checks
@@ -186,7 +180,6 @@ async function getCookie() {
         const gsid = url.match(/&gsid=[\w-]+/)
         const s = url.match(/&s=\w+/)
 
-        // If param structure changed, this might fail, but we stick to original logic for now.
         if (!from || !uid || !gsid || !s) {
             console.log('Token parameters incomplete - missing parts.')
             return
@@ -195,49 +188,27 @@ async function getCookie() {
         let token = from[0] + uid[0] + gsid[0] + s[0]
         console.log('Token extracted successfully')
 
-        // 先执行签到验证
-        console.log('Executing sign-in verification...')
-        wbsign = ''
-        await weiboSign(token)
-        let signResult = wbsign || '签到无返回'
-        console.log(`Sign-in result: ${signResult}`)
-
-        // 判断签到结果：成功或重复签到则不保存，失败或失效才保存
-        const isSignSuccess = signResult.includes('✅') || signResult === '重复'
-
-        if (isSignSuccess) {
-            console.log('Sign-in verified successfully, no need to update Token')
-            return
-        }
-
-        // 签到失败，需要更新Token
-        console.log('Sign-in failed, updating Token...')
         let old = $prefs.valueForKey(TOKEN_KEY)
 
-        // 检查是否重复
+        // 检查是否已存在
         if (old && old.includes(token)) {
-            console.log('Token already exists but invalid, replacing it')
-            notify('微博 Token', '⚠️ Token失效', '签到失败: ' + signResult)
+            console.log('Token already exists')
+            // 可选：通知已获取（防止重复通知，暂不通知）
             return
         }
 
         let val = old ? old + '#' + token : token
         if ($prefs.setValueForKey(val, TOKEN_KEY)) {
             console.log('Token saved to PersistentStore successfully')
-            notify('微博 Token', '✅ 已更新 & ' + signResult, '新Token已写入存储')
+            notify('微博 Token', '✅ 已获取', 'Token已写入存储')
         } else {
             console.log('Failed to save Token to PersistentStore')
-            notify('微博 Token', '❌ 保存失败', '请检查配置')
         }
         return
     }
 
     // 处理 Cookie 捕获
     if (cookieHeader && cookieHeader.includes('SUB=')) {
-        // Filter out some requests to avoid spamming logs or false positives
-        // The original script checks pattern=^https?:\/\/(m\.weibo\.cn|pay\.sc\.weibo\.com)\/
-        // We already filtered by URL via rewrite, but good to double check SUB.
-
         console.log('Matching Cookie capturing rule...')
         const m = cookieHeader.match(/SUB=([^;]+)/)
         if (!m) {
@@ -248,54 +219,20 @@ async function getCookie() {
         let cookie = `SUB=${m[1]}`
         console.log('Cookie extracted successfully')
 
-        // 获取对应的Token进行钱包签到验证
-        let tokens = $prefs.valueForKey(TOKEN_KEY)
-        if (!tokens) {
-            console.log('No Token found, cannot verify wallet sign-in')
-            notify('微博 Cookie', '⚠️ 无法验证', '请先获取微博Token')
-            return
-        }
-
-        // 使用第一个Token进行验证（假设Cookie对应第一个账号）
-        let tokenArr = tokens.split('#')
-        let token = tokenArr[0]
-        if (!token.includes('from=')) {
-            token = '&from=10B3193010' + token
-        }
-
-        // 执行钱包签到验证
-        console.log('Executing wallet sign-in verification...')
-        paybag = ''
-        await paySign(token, cookie)
-        let walletResult = paybag || '验证无返回'
-        console.log(`Wallet sign-in result: ${walletResult}`)
-
-        // 判断钱包签到结果：成功或重复则不保存，失败或失效才保存
-        const isWalletSuccess = walletResult.includes('✅') || walletResult === '重复'
-
-        if (isWalletSuccess) {
-            console.log('Wallet verification successful, no need to update Cookie')
-            return
-        }
-
-        // 钱包验证失败，需要更新Cookie
-        console.log('Wallet verification failed, updating Cookie...')
         let old = $prefs.valueForKey(COOKIE_KEY)
 
-        // 检查是否重复
+        // 检查是否已存在
         if (old && old.includes(cookie)) {
-            console.log('Cookie already exists but invalid')
-            notify('微博 Cookie', '⚠️ Cookie失效', '验证失败: ' + walletResult)
+            console.log('Cookie already exists')
             return
         }
 
         let val = old ? old + '#' + cookie : cookie
         if ($prefs.setValueForKey(val, COOKIE_KEY)) {
             console.log('Cookie saved to PersistentStore successfully')
-            notify('微博 Cookie', '✅ 已更新 & ' + walletResult, '新Cookie已写入存储')
+            notify('微博 Cookie', '✅ 已获取', 'Cookie已写入存储')
         } else {
             console.log('Failed to save Cookie to PersistentStore')
-            notify('微博 Cookie', '❌ 保存失败', '请检查配置')
         }
         return
     }
