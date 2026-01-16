@@ -9,20 +9,13 @@
 
 ## 🚀 使用方法
 
-### 方法一：直接订阅（推荐）
+### 方法：直接订阅（推荐）
 
 在 BoxJS 中添加以下订阅链接：
 
 ```
 https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
 ```
-
-### 方法二：分别订阅
-
-如果你只需要其中某个功能，也可以使用原来的单独订阅：
-
-- 京东Cookie同步：`https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs.json`
-- 微博每日签到：`https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo.boxjs.json`
 
 ## 📝 配置说明
 
