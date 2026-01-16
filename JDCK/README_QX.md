@@ -48,15 +48,41 @@ const MANUAL_CONFIG = {
 };
 ```
 
-### 配置方式二：使用 BoxJS
+### 配置方式二：使用 BoxJS（推荐）
 
-如果您使用 BoxJS，可以在 BoxJS 中设置以下键值：
+#### 1. 订阅 BoxJS 配置
 
-| 键名 | 说明 | 示例 |
+在 BoxJS 中添加订阅：
+
+**订阅链接**：
+```
+https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs.json
+```
+
+**操作步骤**：
+1. 打开 BoxJS（在浏览器中访问 `http://boxjs.com`）
+2. 点击底部「订阅」按钮
+3. 点击右上角「➕」添加订阅
+4. 粘贴上面的订阅链接
+5. 点击「保存」
+
+#### 2. 配置参数
+
+订阅成功后：
+1. 在 BoxJS 首页找到「京东Cookie同步 (Quantumult X)」
+2. 点击进入配置页面
+3. 填写以下参数：
+
+| 参数名 | 说明 | 示例 |
 | :--- | :--- | :--- |
-| `jd_ql_url` | 青龙面板地址 (带端口) | `http://192.168.1.1:5700` |
-| `jd_ql_client_id` | 青龙面板 API Client ID | `xYzAbCdE...` |
-| `jd_ql_client_secret` | 青龙面板 API Client Secret | `123456...` |
+| **青龙面板地址** | 青龙面板的完整地址（带端口） | `http://192.168.1.1:5700` |
+| **Client ID** | 青龙面板 API Client ID | `xYzAbCdE...` |
+| **Client Secret** | 青龙面板 API Client Secret | `123456...` |
+
+4. 填写完成后点击「保存」
+
+> [!NOTE]
+> 使用 BoxJS 配置后，脚本会自动读取这些参数，无需修改脚本文件
 
 > [!TIP]
 > **获取 Client ID 和 Secret**: 登录青龙面板 -> 系统设置 -> 应用设置 -> 新建应用 (权限勾选 "环境变量")
