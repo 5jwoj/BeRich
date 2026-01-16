@@ -27,6 +27,26 @@
 | :--- | :--- |
 | **模块地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.sgmodule` |
 
+### Quantumult X
+
+在 Quantumult X 的配置文件中添加以下内容：
+
+**方法一：使用远程脚本（推荐）**
+
+在 `[rewrite_local]` 部分添加：
+```
+^https?://api\.m\.jd\.com/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js
+```
+
+在 `[mitm]` 部分的 `hostname` 中添加：
+```
+hostname = api.m.jd.com
+```
+
+**方法二：查看详细说明**
+
+详细的安装和配置说明请查看：[README_QX.md](README_QX.md)
+
 ## ⚙️ 配置指南
 
 安装后需在插件或模块设置中配置以下变量：
