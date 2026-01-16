@@ -2,6 +2,7 @@
     "id": "5jwoj.berich.jdck",
     "name": "BeRich - 京东Cookie同步",
     "author": "@5jwoj",
+    "icon": "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
     "repo": "https://github.com/5jwoj/BeRich",
     "apps": [
         {
@@ -45,12 +46,7 @@
                     "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取（权限需勾选环境变量）"
                 }
             ],
-            "scripts": [
-                {
-                    "name": "京东Cookie同步",
-                    "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js"
-                }
-            ]
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js"
         }
     ]
 }
