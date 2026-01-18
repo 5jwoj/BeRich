@@ -1,0 +1,28 @@
+{
+    "name": "ninebot-daily-helper",
+    "version": "1.1.0",
+    "description": "九号出行自动签到 + 领取奖励脚本，支持多账号、青龙面板部署",
+    "main": "ninebot_daily.js",
+    "scripts": {
+        "start": "node ninebot_daily.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "ninebot",
+        "九号出行",
+        "签到",
+        "自动化",
+        "青龙面板",
+        "task",
+        "reward"
+    ],
+    "author": "Adapted by Gemini",
+    "license": "MIT",
+    "dependencies": {
+        "axios": "^1.6.0",
+        "moment": "^2.29.4"
+    },
+    "engines": {
+        "node": ">=14.0.0"
+    }
+}
