@@ -1,6 +1,6 @@
 #!name=JD Cookie Sync (Plan A / Always Sync)
 #!desc=Capture JD pt_key/pt_pin on matched requests and ALWAYS sync to Qinglong (no local dedup skip). iOS optimized.
-#!author=5jwoj
+#!author=z.W.
 #!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
 
 #!arguments=QL_URL:http://127.0.0.1:5700,QL_CLIENT_ID:your_client_id,QL_CLIENT_SECRET:your_client_secret

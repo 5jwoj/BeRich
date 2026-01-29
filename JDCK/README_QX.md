@@ -1,5 +1,7 @@
 # 京东 Cookie 同步 - Quantumult X 版本
 
+> **作者**: z.W.
+
 自动捕获京东 App 或小程序中的 Cookie (`pt_key`, `pt_pin`) 并同步到青龙面板环境变量 (`JD_COOKIE`)。
 
 ## ✨ 功能特点

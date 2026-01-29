@@ -1,7 +1,8 @@
 /*
  * JD Cookie Sync to Qinglong - Surge Version (Notify on Failure Only)
  *
- * Version: 1.1.0
+ * Version: 1.1.1
+ * Author: z.W.
  * 行为：
  * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
  * 2) 只有当同步失败时才发送通知
@@ -72,13 +73,13 @@ const MANUAL_CONFIG = {
     // 2) 检查本地缓存，避免重复处理
     const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
     const cachedCookie = $persistentStore.read(cacheKey);
-    
+
     if (cachedCookie === jd_cookie) {
       console.log(`Cookie unchanged for ${pt_pin}, validating...`);
-      
+
       // 2.1) 验证 Cookie 有效性
       const validation = await validateJDCookie(jd_cookie);
-      
+
       if (validation.valid) {
         console.log(`Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Skip sync.`);
         $done({});
@@ -211,7 +212,7 @@ async function validateJDCookie(jd_cookie) {
 
       try {
         const body = JSON.parse(data);
-        
+
         // 检查返回数据是否包含用户信息
         if (body && body.retcode === "0" && body.data && body.data.userInfo) {
           const nickname = body.data.userInfo.baseInfo?.nickname || "";

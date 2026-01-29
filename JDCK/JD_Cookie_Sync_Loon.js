@@ -1,20 +1,21 @@
 /*
-* JD Cookie Sync to Qinglong - Smart Validation
-* 
-* 行为：
-* 1) 抓到 pt_key + pt_pin 后先验证 Cookie 有效性
-* 2) Cookie 有效且未变化则静默跳过，无需同步青龙
-* 3) Cookie 失效或变化时才同步青龙
-* Version: v2.0.0
-* 
-* @script
-* api.m.jd.com
-* 
-* @args
-* ql_url: Qinglong Panel URL (e.g., http://192.168.1.1:5700)
-* ql_client_id: Qinglong Client ID
-* ql_client_secret: Qinglong Client Secret
-*/
+ * JD Cookie Sync to Qinglong - Smart Validation
+ * 
+ * 行为：
+ * 1) 抓到 pt_key + pt_pin 后先验证 Cookie 有效性
+ * 2) Cookie 有效且未变化则静默跳过，无需同步青龙
+ * 3) Cookie 失效或变化时才同步青龙
+ * Version: v2.0.1
+ * Author: z.W.
+ * 
+ * @script
+ * api.m.jd.com
+ * 
+ * @args
+ * ql_url: Qinglong Panel URL (e.g., http://192.168.1.1:5700)
+ * ql_client_id: Qinglong Client ID
+ * ql_client_secret: Qinglong Client Secret
+ */
 
 const $ = new API("jd_cookie_sync");
 

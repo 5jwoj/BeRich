@@ -1,6 +1,6 @@
 #!name=JD Cookie Sync (Local)
 #!desc=本地版：拦截京东 Cookie 并同步到青龙面板。请确保脚本 JD_Cookie_Sync_Loon.js 位于 Loon 的脚本目录或同目录下。
-#!author=NongfuSpring
+#!author=z.W.
 #!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
 #!homepage=https://github.com/
 #!date=2025-12-11 19:10:00

@@ -1,5 +1,7 @@
 # JD Cookie Sync Surge 模块
 
+> **作者**: z.W.
+
 这是一个 Surge 模块,用于自动提取京东 App 或小程序中的 Cookie (`pt_key`, `pt_pin`) 并同步到青龙面板环境变量 (`JD_COOKIE`)。
 
 ## 功能特性
