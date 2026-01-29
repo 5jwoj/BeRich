@@ -1,10 +1,10 @@
 /*
- * JD Cookie Sync to Qinglong - Surge Version (Notify on Change)
+ * JD Cookie Sync to Qinglong - Surge Version (Notify on Failure Only)
  *
+ * Version: 1.1.0
  * 行为：
  * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
- * 2) 只有当青龙端“发生变化”（创建 / 更新 / 启用）才通知
- * 3) 不做通知间隔限制
+ * 2) 只有当同步失败时才发送通知
  *
  * @script
  * api.m.jd.com
@@ -106,10 +106,10 @@ const MANUAL_CONFIG = {
       return;
     }
 
-    // 5) 同步成功后更新缓存
+    // 5) 同步成功后更新缓存（不发送通知）
     if (result.changed) {
       $persistentStore.write(jd_cookie, cacheKey);
-      $notification.post(result.title, result.subtitle, result.body);
+      console.log(`${result.title}: ${result.subtitle}`);
     } else {
       console.log(`No change for ${pt_pin}. No notification.`);
     }
