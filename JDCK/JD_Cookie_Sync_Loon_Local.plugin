@@ -1,18 +1,14 @@
-#!name=JD Cookie Sync (Local)
-#!desc=本地版：拦截京东 Cookie 并同步到青龙面板。请确保脚本 JD_Cookie_Sync_Loon.js 位于 Loon 的脚本目录或同目录下。
+#!name=JD Cookie Sync (本地版)
+#!desc=拦截京东 Cookie 并同步到青龙面板。支持多个京东域名，首次捕获和同步成功时会发送通知。
 #!author=z.W.
 #!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
-#!homepage=https://github.com/
-#!date=2025-12-11 19:10:00
-
-[Argument]
-ql_url = { type = "input", name = "Qinglong URL", desc = "QL Address (e.g. http://1.1.1.1:5700)", placeholder = "http://127.0.0.1:5700" }
-ql_client_id = { type = "input", name = "Client ID", desc = "QL Open API Client ID", placeholder = "your_client_id" }
-ql_client_secret = { type = "input", name = "Client Secret", desc = "QL Open API Client Secret", placeholder = "your_client_secret" }
+#!homepage=https://github.com/5jwoj/BeRich
+#!date=2026-01-29 21:40:00
 
 [Script]
-# 使用相对路径，请确保 JD_Cookie_Sync_Loon.js 能够被 Loon 找到
-http-request ^https?:\/\/api\.m\.jd\.com script-path=JD_Cookie_Sync_Loon.js, timeout=10, tag=JD Cookie Sync, argument=ql_url={ql_url}&ql_client_id={ql_client_id}&ql_client_secret={ql_client_secret}
+# 拦截多个京东域名，提高捕获成功率
+# 请确保 JD_Cookie_Sync_Loon.js 文件与本插件在同一目录
+http-request ^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com script-path=JD_Cookie_Sync_Loon.js, timeout=20, tag=JD Cookie Sync
 
 [MITM]
-hostname = api.m.jd.com
+hostname = api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com, home.m.jd.com
