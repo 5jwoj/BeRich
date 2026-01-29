@@ -16,9 +16,14 @@
 
 ---
 
-## 📦 BoxJS 订阅
+## 📦 安装方式
 
-### 一键订阅（推荐）
+### Quantumult X 用户 - BoxJS 订阅
+
+> [!IMPORTANT]
+> BoxJS 仅适用于 **Quantumult X** 用户。Surge 和 Loon 用户请查看各项目目录下的对应 README 文件。
+
+#### 一键订阅（推荐）
 
 在 BoxJS 中添加以下订阅链接，即可一次性订阅所有脚本：
 
@@ -26,7 +31,7 @@
 https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
 ```
 
-### 分别订阅
+#### 分别订阅
 
 如果只需要某个功能，可以使用以下单独订阅：
 
@@ -35,13 +40,33 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
 
 详细说明请查看：[boxjs/README.md](./boxjs/README.md)
 
+### Surge 用户
+
+请使用模块（`.sgmodule`）方式安装，详见各项目目录下的 `README.md` 或 `README_Surge.md` 文件。
+
+### Loon 用户
+
+请使用插件（`.plugin`）方式安装，详见各项目目录下的 `README_Loon.md` 文件。
+
 ---
 
 ## 🛠️ 通用使用指南
 
-1.  **环境准备**: 各项目均基于脚本工具（Surge 或 Loon）运行，请确保您已安装并激活。
-2.  **证书配置**: 必须开启 **MITM** 功能并正确安装/信任证书，否则无法捕获 Cookie 或 Token。
-3.  **模块安装**: 建议优先使用模块（`.sgmodule`）或插件（`.plugin`）进行一键安装。
+### 环境准备
+
+- **Surge**: 安装并激活 Surge，使用模块（`.sgmodule`）方式安装脚本
+- **Loon**: 安装并激活 Loon，插件文件（`.plugin`）放在 `Plugins` 目录，脚本文件（`.js`）放在 `scripts` 目录
+- **Quantumult X**: 安装并激活 Quantumult X，可使用 BoxJS 订阅或手动配置
+
+### 证书配置
+
+所有平台都必须开启 **MITM** 功能并正确安装/信任证书，否则无法捕获 Cookie 或 Token。
+
+### 安装方式
+
+- **Surge**: 优先使用模块（`.sgmodule`）进行一键安装
+- **Loon**: 使用插件（`.plugin`）进行安装，注意插件和脚本不需要放在同一文件夹
+- **Quantumult X**: 使用 BoxJS 订阅或手动添加重写规则和定时任务
 
 ## 📄 免责声明
 

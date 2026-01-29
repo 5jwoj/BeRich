@@ -1,6 +1,12 @@
 # BeRich BoxJS 订阅合集
 
-这是一个合并了所有 BeRich 项目脚本的 BoxJS 订阅文件，方便一次性订阅所有功能。
+> [!IMPORTANT]
+> BoxJS 仅适用于 **Quantumult X** 用户。
+> 
+> - **Surge 用户**请查看各项目目录下的 `README_Surge.md` 文件
+> - **Loon 用户**请查看各项目目录下的 `README_Loon.md` 文件
+
+这是一个合并了所有 BeRich 项目脚本的 BoxJS 订阅文件，方便 Quantumult X 用户一次性订阅所有功能。
 
 ## 📦 包含的应用
 

@@ -6,7 +6,7 @@
  * 2) Cookie 有效且未变化则静默跳过，无需同步青龙
  * 3) Cookie 失效或变化时才同步青龙
  * 4) 首次捕获或同步成功时发送通知
- * Version: v2.1.0
+ * Version: v2.1.1
  * Author: z.W.
  * 
  * @script

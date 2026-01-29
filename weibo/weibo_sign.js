@@ -2,10 +2,10 @@
  * Weibo Daily Sign for Surge
  * 新浪微博每日签到（Surge 专用）
  * Author: 5jwoj (modified)
- * Version: v1.5.0
+ * Version: v1.5.1
  */
 
-console.log('--- Weibo Script Loaded (v1.5.0) ---')
+console.log('--- Weibo Script Loaded (v1.5.1) ---')
 
 const TOKEN_KEY = 'sy_token_wb'
 const COOKIE_KEY = 'wb_cookie'
@@ -56,7 +56,7 @@ let paybag = ''
 
 async function main() {
   console.log('--- Weibo Sign Task Started ---')
-  console.log('Script Version: v1.5.0')
+  console.log('Script Version: v1.5.1')
 
   let tokens = $persistentStore.read(TOKEN_KEY)
   let cookies = $persistentStore.read(COOKIE_KEY)
@@ -199,7 +199,7 @@ async function getCookie() {
 
     // 判断签到结果：成功或重复签到则不保存，失败或失效才保存
     const isSignSuccess = signResult.includes('✅') || signResult === '重复'
-    
+
     if (isSignSuccess) {
       console.log('Sign-in verified successfully, no need to update Token')
       // notify('微博 Token', '✅ 验证通过 & ' + signResult, 'Token 有效，无需更新')  // 禁用验证通知，避免频繁提醒
@@ -209,7 +209,7 @@ async function getCookie() {
     // 签到失败，需要更新Token
     console.log('Sign-in failed, updating Token...')
     let old = $persistentStore.read(TOKEN_KEY)
-    
+
     // 检查是否重复
     if (old && old.includes(token)) {
       console.log('Token already exists but invalid, replacing it')
@@ -263,7 +263,7 @@ async function getCookie() {
 
     // 判断钱包签到结果：成功或重复则不保存，失败或失效才保存
     const isWalletSuccess = walletResult.includes('✅') || walletResult === '重复'
-    
+
     if (isWalletSuccess) {
       console.log('Wallet verification successful, no need to update Cookie')
       // notify('微博 Cookie', '✅ 验证通过 & ' + walletResult, 'Cookie 有效，无需更新')  // 禁用验证通知，避免频繁提醒
@@ -273,7 +273,7 @@ async function getCookie() {
     // 钱包验证失败，需要更新Cookie
     console.log('Wallet verification failed, updating Cookie...')
     let old = $persistentStore.read(COOKIE_KEY)
-    
+
     // 检查是否重复
     if (old && old.includes(cookie)) {
       console.log('Cookie already exists but invalid')

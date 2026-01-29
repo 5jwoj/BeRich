@@ -1,24 +1,24 @@
-# JD Cookie Sync - iOS 版 Surge 安装指南
+# JD Cookie Sync - Loon 安装指南
 
 > **作者**: z.W.
 
-## 方法一:使用配置版模块(推荐 ✅)
+## 方法一:使用插件版本(推荐 ✅)
 
-### 步骤 1: 复制模块链接
+### 步骤 1: 复制插件链接
 ```
-https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_iOS.sgmodule
+https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Loon_Local.plugin
 ```
 
-### 步骤 2: 安装模块
-1. 打开 **Surge App**
-2. 点击底部 **首页**
-3. 向下滑动找到 **模块** 区域
+### 步骤 2: 安装插件
+1. 打开 **Loon App**
+2. 点击底部 **配置**
+3. 找到 **插件** 区域
 4. 点击右上角 **➕**
 5. 粘贴上面的链接
-6. 点击 **好** 或 **确定**
+6. 点击 **确定**
 
 ### 步骤 3: 配置参数
-安装时 Surge 会提示您填写以下信息:
+安装时 Loon 会提示您填写以下信息:
 - **QL_URL**: 青龙面板地址,例如 `http://192.168.1.1:5700`
 - **QL_CLIENT_ID**: 您的 Client ID
 - **QL_CLIENT_SECRET**: 您的 Client Secret
@@ -26,23 +26,23 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_iOS.sgmo
 填写后点击保存即可。
 
 ### ✅ 优点
-- 配置保存在 Surge 本地,更新模块不会丢失
-- 可以在 Surge 的模块管理中随时修改配置
+- 配置保存在 Loon 本地,更新插件不会丢失
+- 可以在 Loon 的插件管理中随时修改配置
 - 自动获取脚本更新
 
 ---
 
-## 方法二:使用本地脚本(永久配置)
+## 方法二:使用本地文件(永久配置)
 
 如果您想将配置永久写入脚本,不被更新影响:
 
 ### 步骤 1: 下载文件
 从 GitHub 下载这两个文件到您的设备:
-- `jd_cookie_sync_surge.js`
-- `JD_Cookie_Sync_Local.sgmodule`
+- `JD_Cookie_Sync_Loon.js`
+- `JD_Cookie_Sync_Loon_Local.plugin`
 
 ### 步骤 2: 修改脚本
-使用文本编辑器打开 `jd_cookie_sync_surge.js`,找到第 14-22 行的 `MANUAL_CONFIG` 部分:
+使用文本编辑器打开 `JD_Cookie_Sync_Loon.js`,找到配置部分的 `MANUAL_CONFIG`:
 
 ```javascript
 const MANUAL_CONFIG = {
@@ -55,22 +55,29 @@ const MANUAL_CONFIG = {
 修改后保存。
 
 ### 步骤 3: 上传文件
-将修改好的两个文件上传到 iCloud Drive 的 Surge 文件夹:
+将文件上传到 iCloud Drive 的 Loon 对应目录:
 ```
-iCloud Drive/Surge/
-├── jd_cookie_sync_surge.js
-└── JD_Cookie_Sync_Local.sgmodule
+iCloud Drive/Loon/
+├── scripts/
+│   └── JD_Cookie_Sync_Loon.js
+└── Plugins/
+    └── JD_Cookie_Sync_Loon_Local.plugin
 ```
 
-### 步骤 4: 安装模块
-1. 打开 **Surge App**
-2. 点击 **首页** -> **模块** -> **➕**
+> [!NOTE]
+> Loon 的插件（`.plugin`）和脚本（`.js`）不需要放在同一个文件夹。
+> - 插件文件放在 `Plugins` 目录
+> - 脚本文件放在 `scripts` 目录
+
+### 步骤 4: 安装插件
+1. 打开 **Loon App**
+2. 点击 **配置** -> **插件** -> **➕**
 3. 选择 **从本地安装**
-4. 找到并选择 `JD_Cookie_Sync_Local.sgmodule`
+4. 找到并选择 `JD_Cookie_Sync_Loon_Local.plugin`
 
 ### ✅ 优点
 - 配置永久保存在本地脚本中
-- 即使重新安装 Surge 也不会丢失
+- 即使重新安装 Loon 也不会丢失
 - 不需要联网也能更新配置
 
 ### ⚠️ 缺点
