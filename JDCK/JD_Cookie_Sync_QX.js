@@ -2,10 +2,10 @@
  * JD Cookie Sync to Qinglong - Quantumult X Version
  * 
  * 行为：
- * 1) 抓到 pt_key + pt_pin 后先验证 Cookie 有效性
- * 2) Cookie 有效且未变化则静默跳过，无需同步青龙
- * 3) Cookie 失效或变化时才同步青龙
- * Version: v1.0.1
+ * 1) 抓到 pt_key + pt_pin 后检查是否需要同步（冷却时间机制）
+ * 2) Cookie 有效且未变化且在冷却期内则静默跳过
+ * 3) Cookie 失效或变化或超过冷却时间时才同步青龙
+ * Version: v1.0.2
  * Author: z.W.
  * 
  * @script
@@ -16,6 +16,7 @@
  * - ql_url: 青龙面板地址 (例如: http://192.168.1.1:5700)
  * - ql_client_id: 青龙面板 API Client ID
  * - ql_client_secret: 青龙面板 API Client Secret
+ * - cooldown_minutes: 冷却时间（分钟），默认5分钟
  */
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -23,9 +24,11 @@
 const MANUAL_CONFIG = {
     url: "",        // 必填，例如 "http://192.168.1.1:5700"
     id: "",         // 必填，Client ID
-    secret: ""      // 必填，Client Secret
+    secret: "",     // 必填，Client Secret
+    cooldown: 5     // 可选，冷却时间（分钟），默认5分钟
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
 
 (async () => {
     try {
@@ -33,8 +36,9 @@ const MANUAL_CONFIG = {
         let ql_url = MANUAL_CONFIG.url || $prefs.valueForKey("jd_ql_url");
         const ql_client_id = MANUAL_CONFIG.id || $prefs.valueForKey("jd_ql_client_id");
         const ql_client_secret = MANUAL_CONFIG.secret || $prefs.valueForKey("jd_ql_client_secret");
+        const cooldown_minutes = MANUAL_CONFIG.cooldown || parseInt($prefs.valueForKey("jd_cooldown_minutes")) || 5;
 
-        console.log(`[JD Cookie Sync] Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
+        console.log(`[JD Cookie Sync] Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}, Cooldown=${cooldown_minutes}min`);
 
         // 检查配置是否完整
         if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
@@ -75,24 +79,45 @@ const MANUAL_CONFIG = {
 
         console.log(`[JD Cookie Sync] Captured Cookie for pt_pin=${pt_pin}`);
 
-        // 2. 检查本地缓存（去重）
+        // 2. 检查本地缓存和冷却时间
         const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
+        const timestampKey = `JD_COOKIE_TIMESTAMP_${pt_pin}`;
         const cachedCookie = $prefs.valueForKey(cacheKey);
+        const lastSyncTime = parseInt($prefs.valueForKey(timestampKey)) || 0;
+        const currentTime = Date.now();
+        const cooldownMs = cooldown_minutes * 60 * 1000;
+        const timeSinceLastSync = currentTime - lastSyncTime;
 
+        // 2.1 快速路径：Cookie未变化且在冷却期内，直接跳过
+        if (cachedCookie === jd_cookie && timeSinceLastSync < cooldownMs) {
+            const remainingMinutes = Math.ceil((cooldownMs - timeSinceLastSync) / 60000);
+            console.log(`[JD Cookie Sync] Cookie unchanged for ${pt_pin}, within cooldown period (${remainingMinutes}min remaining). Skip all checks.`);
+            $done();
+            return;
+        }
+
+        // 2.2 Cookie变化或超过冷却时间，需要进一步检查
         if (cachedCookie === jd_cookie) {
-            console.log(`[JD Cookie Sync] Cookie unchanged for ${pt_pin}, validating...`);
+            console.log(`[JD Cookie Sync] Cookie unchanged for ${pt_pin}, but cooldown expired. Validating...`);
+        } else {
+            console.log(`[JD Cookie Sync] Cookie changed for ${pt_pin}. Need to validate and sync.`);
+        }
 
-            // 2.1 验证Cookie有效性
-            const validation = await validateJDCookie(jd_cookie);
+        // 2.3 验证Cookie有效性
+        const validation = await validateJDCookie(jd_cookie);
 
-            if (validation.valid) {
-                console.log(`[JD Cookie Sync] Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Skip sync.`);
-                $done();
-                return;
-            } else {
-                console.log(`[JD Cookie Sync] Cookie invalid for ${pt_pin}. Need to re-sync.`);
-                // 继续执行同步逻辑
-            }
+        if (!validation.valid) {
+            console.log(`[JD Cookie Sync] Cookie invalid for ${pt_pin}. Need to re-sync.`);
+            // Cookie失效，继续执行同步逻辑
+        } else if (cachedCookie === jd_cookie) {
+            // Cookie有效且未变化，只是超过冷却时间，更新时间戳后跳过
+            console.log(`[JD Cookie Sync] Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Update timestamp and skip sync.`);
+            $prefs.setValueForKey(String(currentTime), timestampKey);
+            $done();
+            return;
+        } else {
+            // Cookie有效但已变化，需要同步
+            console.log(`[JD Cookie Sync] Cookie valid and changed for ${pt_pin} (${validation.nickname || 'unknown'}). Need to sync.`);
         }
 
         // 3. 获取青龙Token
@@ -112,11 +137,14 @@ const MANUAL_CONFIG = {
             return;
         }
 
-        // 5. 同步成功后更新缓存
+        // 5. 同步成功后更新缓存和时间戳
         if (result.changed) {
             $prefs.setValueForKey(jd_cookie, cacheKey);
+            $prefs.setValueForKey(String(currentTime), timestampKey);
             $notify(result.title, result.subtitle, result.body);
         } else {
+            // 虽然没有变化，但也更新时间戳
+            $prefs.setValueForKey(String(currentTime), timestampKey);
             console.log(`[JD Cookie Sync] No change for ${pt_pin}. No notification.`);
         }
 
@@ -127,6 +155,7 @@ const MANUAL_CONFIG = {
         $done();
     }
 })();
+
 
 // ========== 工具函数 ==========
 

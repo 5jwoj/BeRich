@@ -8,10 +8,12 @@
 
 - 🎣 **自动捕获**: 打开京东 App 或小程序时自动捕获 Cookie
 - ✅ **智能验证**: 自动验证 Cookie 有效性，避免无效同步
+- ⏱️ **冷却机制**: 默认5分钟冷却时间，避免频繁同步和验证（可自定义）
 - 🔄 **自动同步**: Cookie 变化或失效时自动同步到青龙面板
 - 🛠️ **自动更新**: 自动识别并更新已有环境变量的值
 - ⚡ **状态检查**: 自动确保环境变量处于启用状态
 - 💾 **本地缓存**: 避免重复同步相同的 Cookie
+
 
 ## 📦 安装说明
 
@@ -46,9 +48,14 @@ hostname = api.m.jd.com
 const MANUAL_CONFIG = {
     url: "http://192.168.1.1:5700",        // 青龙面板地址
     id: "your_client_id",                   // Client ID
-    secret: "your_client_secret"            // Client Secret
+    secret: "your_client_secret",           // Client Secret
+    cooldown: 5                             // 冷却时间（分钟），默认5分钟
 };
 ```
+
+**参数说明**：
+- `cooldown`: 冷却时间（分钟），在此时间内如果 Cookie 未变化则不会进行任何验证和同步操作，避免频繁请求。默认 5 分钟，可根据需要调整。
+
 
 ### 配置方式二：使用 BoxJS（推荐）
 
@@ -80,6 +87,8 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs
 | **青龙面板地址** | 青龙面板的完整地址（带端口） | `http://192.168.1.1:5700` |
 | **Client ID** | 青龙面板 API Client ID | `xYzAbCdE...` |
 | **Client Secret** | 青龙面板 API Client Secret | `123456...` |
+| **冷却时间（分钟）** | Cookie 同步冷却时间，默认 5 分钟 | `5` |
+
 
 4. 填写完成后点击「保存」
 
@@ -114,7 +123,12 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs
 - ❌ **同步失败**: 配置错误或网络问题导致同步失败
 
 > [!NOTE]
-> 如果 Cookie 有效且未变化，脚本会静默跳过，不会发送通知，避免频繁打扰。
+> **冷却机制说明**：
+> - 如果 Cookie 有效且未变化，且在冷却期内（默认 5 分钟），脚本会完全跳过验证和同步，不会产生任何网络请求和日志输出
+> - 超过冷却时间后，脚本会重新验证 Cookie 有效性，如果仍然有效则只更新时间戳，不会同步到青龙
+> - 只有在 Cookie 变化或失效时才会真正执行同步操作并发送通知
+> - 这样可以大幅减少不必要的网络请求，避免频繁打开京东 App 时不停同步的问题
+
 
 ## ⚠️ 注意事项
 
@@ -150,12 +164,23 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs
 
 ## 📝 版本历史
 
+### v1.0.2 (2026-02-09)
+- ⏱️ **新增冷却机制**: 添加可配置的冷却时间（默认 5 分钟），避免频繁同步
+- 🚀 **性能优化**: Cookie 未变化且在冷却期内时完全跳过验证和同步，大幅减少网络请求
+- 📊 **智能验证**: 超过冷却时间后才重新验证 Cookie 有效性
+- 🔧 **配置增强**: 支持自定义冷却时间参数
+
+### v1.0.1 (2026-01-28)
+- 🔄 **优化同步逻辑**: 仅在 Cookie 失效或变化时才同步
+- 📢 **优化通知**: Cookie 有效且未变化时不再发送通知
+
 ### v1.0.0 (2026-01-16)
 - 🎉 初始版本发布
 - ✅ 支持自动捕获和同步京东 Cookie
 - ✅ 支持 Cookie 有效性验证
 - ✅ 支持本地缓存去重
 - ✅ 支持青龙面板 API 交互
+
 
 ## 📄 许可证
 
