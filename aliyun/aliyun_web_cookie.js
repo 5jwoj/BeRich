@@ -32,12 +32,9 @@ function parseArgument() {
                 const value = pair.substring(idx + 1);
                 if (key && value) {
                     args[key] = decodeURIComponent(value);
-                    console.log('📝 参数 ' + key + ' = ' + args[key]);
                 }
             }
         }
-    } else {
-        console.log('⚠️ 未检测到$argument参数');
     }
     return args;
 }
@@ -50,12 +47,6 @@ const qlClientId = args.ql_client_id || '';
 const qlClientSecret = args.ql_client_secret || '';
 const qlDataName = args.ql_data_name || 'aliyunWeb_data';
 
-console.log('📝 青龙配置状态:');
-console.log('  - qlUrl: ' + (qlUrl ? qlUrl : '未配置'));
-console.log('  - qlClientId: ' + (qlClientId ? '已配置' : '未配置'));
-console.log('  - qlClientSecret: ' + (qlClientSecret ? '已配置' : '未配置'));
-console.log('  - qlDataName: ' + qlDataName);
-
 /**
  * 获取青龙Token
  */
@@ -66,13 +57,9 @@ async function getQlToken() {
     }
     
     const url = `${qlUrl}/open/auth/token?client_id=${qlClientId}&client_secret=${qlClientSecret}`;
-    console.log('📝 获取Token URL: ' + url);
     
     return new Promise((resolve) => {
         $httpClient.get(url, (error, response, body) => {
-            console.log('📝 Token响应状态: ' + (response ? response.status : '无响应'));
-            console.log('📝 Token响应内容: ' + (body ? body.substring(0, 200) : '无内容'));
-            
             if (error) {
                 console.log('❌ 获取青龙Token失败: ' + error);
                 resolve(null);
@@ -80,9 +67,10 @@ async function getQlToken() {
             }
             try {
                 const data = JSON.parse(body);
-                if (data.code === 200 && data.token) {
+                // 青龙API返回格式: {"code":200,"data":{"token":"xxx","token_type":"Bearer","expiration":xxx}}
+                if (data.code === 200 && data.data && data.data.token) {
                     console.log('✅ 获取青龙Token成功');
-                    resolve(data.token);
+                    resolve(data.data.token);
                 } else {
                     console.log('❌ 获取青龙Token失败: ' + (data.message || JSON.stringify(data)));
                     resolve(null);
@@ -114,9 +102,6 @@ async function syncToQinglong(token, value) {
         remarks: '阿里云社区Cookie - Surge自动同步 ' + new Date().toLocaleString()
     }]);
     
-    console.log('📝 同步URL: ' + url);
-    console.log('📝 同步数据名: ' + qlDataName);
-    
     return new Promise((resolve) => {
         const options = {
             url: url,
@@ -127,12 +112,7 @@ async function syncToQinglong(token, value) {
             body: body
         };
         
-        console.log('📝 发送同步请求...');
-        
         $httpClient.post(options, (error, response, syncBody) => {
-            console.log('📝 同步响应状态: ' + (response ? response.status : '无响应'));
-            console.log('📝 同步响应内容: ' + (syncBody ? syncBody.substring(0, 300) : '无内容'));
-            
             if (error) {
                 console.log('❌ 同步到青龙失败: ' + error);
                 resolve(false);
@@ -160,7 +140,6 @@ async function syncToQinglong(token, value) {
  */
 async function getCookie() {
     if (!$request) {
-        console.log('⚠️ 无请求对象');
         $done({});
         return;
     }
@@ -233,15 +212,12 @@ async function getCookie() {
     console.log('✅ Cookie已保存到本地，账号数: ' + existingData.length);
     
     // 同步到青龙
-    console.log('📝 开始同步到青龙...');
     const token = await getQlToken();
     
     if (token) {
-        console.log('📝 Token获取成功，开始同步数据...');
         const syncResult = await syncToQinglong(token, dataStr);
         
         if (syncResult) {
-            console.log('✅ 全流程完成');
             $notification.post(scriptName, '🎉 Cookie同步成功', 
                 `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已同步至青龙变量: ${qlDataName}`);
         } else {
@@ -249,7 +225,6 @@ async function getCookie() {
                 `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n本地保存成功，青龙同步失败`);
         }
     } else {
-        console.log('⚠️ 未获取到Token，仅保存本地');
         $notification.post(scriptName, '🎉 Cookie获取成功', 
             `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已保存到本地（青龙未配置或连接失败）`);
     }
