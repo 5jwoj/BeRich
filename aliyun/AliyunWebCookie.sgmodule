@@ -8,7 +8,7 @@
 
 [Script]
 # Cookie抓取脚本 - 命中时从请求头Cookie和响应体获取用户信息
-Aliyun Web Cookie = type=http-response,pattern=^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser,requires-body=true,max-size=0,script-path=aliyun_web_cookie.js,script-update-interval=0,timeout=30,argument=ql_url={{{QL_URL}}}&ql_client_id={{{QL_CLIENT_ID}}}&ql_client_secret={{{QL_CLIENT_SECRET}}}&ql_data_name={{{QL_DATA_NAME}}}
+Aliyun Web Cookie = type=http-response,pattern=^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser,requires-body=true,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_web_cookie.js,script-update-interval=0,timeout=30,argument=ql_url={{{QL_URL}}}&ql_client_id={{{QL_CLIENT_ID}}}&ql_client_secret={{{QL_CLIENT_SECRET}}}&ql_data_name={{{QL_DATA_NAME}}}
 
 [MITM]
 # 需要 MITM 才能读取 HTTPS 请求头 Cookie 和响应体
