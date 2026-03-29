@@ -23,13 +23,21 @@ const ckName = 'aliyunWeb_data';
 function parseArgument() {
     const args = {};
     if (typeof $argument !== 'undefined' && $argument) {
+        console.log('📝 解析参数: ' + $argument);
         const pairs = $argument.split('&');
         for (const pair of pairs) {
-            const [key, value] = pair.split('=');
-            if (key && value) {
-                args[key] = decodeURIComponent(value);
+            const idx = pair.indexOf('=');
+            if (idx > 0) {
+                const key = pair.substring(0, idx);
+                const value = pair.substring(idx + 1);
+                if (key && value) {
+                    args[key] = decodeURIComponent(value);
+                    console.log('📝 参数 ' + key + ' = ' + args[key]);
+                }
             }
         }
+    } else {
+        console.log('⚠️ 未检测到$argument参数');
     }
     return args;
 }
@@ -42,22 +50,29 @@ const qlClientId = args.ql_client_id || '';
 const qlClientSecret = args.ql_client_secret || '';
 const qlDataName = args.ql_data_name || 'aliyunWeb_data';
 
+console.log('📝 青龙配置状态:');
+console.log('  - qlUrl: ' + (qlUrl ? qlUrl : '未配置'));
+console.log('  - qlClientId: ' + (qlClientId ? '已配置' : '未配置'));
+console.log('  - qlClientSecret: ' + (qlClientSecret ? '已配置' : '未配置'));
+console.log('  - qlDataName: ' + qlDataName);
+
 /**
  * 获取青龙Token
  */
 async function getQlToken() {
     if (!qlUrl || !qlClientId || !qlClientSecret) {
         console.log('⚠️ 青龙配置不完整，跳过同步');
-        console.log('配置状态: qlUrl=' + (qlUrl ? '已配置' : '未配置') + 
-                    ', qlClientId=' + (qlClientId ? '已配置' : '未配置') + 
-                    ', qlClientSecret=' + (qlClientSecret ? '已配置' : '未配置'));
         return null;
     }
     
     const url = `${qlUrl}/open/auth/token?client_id=${qlClientId}&client_secret=${qlClientSecret}`;
+    console.log('📝 获取Token URL: ' + url);
     
     return new Promise((resolve) => {
         $httpClient.get(url, (error, response, body) => {
+            console.log('📝 Token响应状态: ' + (response ? response.status : '无响应'));
+            console.log('📝 Token响应内容: ' + (body ? body.substring(0, 200) : '无内容'));
+            
             if (error) {
                 console.log('❌ 获取青龙Token失败: ' + error);
                 resolve(null);
@@ -69,7 +84,7 @@ async function getQlToken() {
                     console.log('✅ 获取青龙Token成功');
                     resolve(data.token);
                 } else {
-                    console.log('❌ 获取青龙Token失败: ' + (data.message || '未知错误'));
+                    console.log('❌ 获取青龙Token失败: ' + (data.message || JSON.stringify(data)));
                     resolve(null);
                 }
             } catch (e) {
@@ -81,71 +96,61 @@ async function getQlToken() {
 }
 
 /**
- * 同步变量到青龙
+ * 同步变量到青龙 - 使用新增方式
  */
 async function syncToQinglong(token, value) {
-    if (!token) return false;
+    if (!token) {
+        console.log('⚠️ Token为空，无法同步');
+        return false;
+    }
     
+    // 使用新增接口，青龙会自动处理重复
     const url = `${qlUrl}/open/envs`;
-    const body = JSON.stringify({
+    
+    // 构建请求体 - 青龙新增接口需要数组格式
+    const body = JSON.stringify([{
         name: qlDataName,
         value: value,
-        remarks: '阿里云社区Cookie - Surge自动同步'
-    });
+        remarks: '阿里云社区Cookie - Surge自动同步 ' + new Date().toLocaleString()
+    }]);
     
-    // 先查询是否存在
+    console.log('📝 同步URL: ' + url);
+    console.log('📝 同步数据名: ' + qlDataName);
+    
     return new Promise((resolve) => {
-        $httpClient.get({
-            url: `${url}?searchValue=${qlDataName}`,
+        const options = {
+            url: url,
             headers: {
                 'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json;charset=UTF-8'
+            },
+            body: body
+        };
+        
+        console.log('📝 发送同步请求...');
+        
+        $httpClient.post(options, (error, response, syncBody) => {
+            console.log('📝 同步响应状态: ' + (response ? response.status : '无响应'));
+            console.log('📝 同步响应内容: ' + (syncBody ? syncBody.substring(0, 300) : '无内容'));
+            
+            if (error) {
+                console.log('❌ 同步到青龙失败: ' + error);
+                resolve(false);
+                return;
             }
-        }, (error, response, queryBody) => {
-            let existingId = null;
             try {
-                const data = JSON.parse(queryBody);
-                if (data.code === 200 && data.data && data.data.length > 0) {
-                    existingId = data.data[0].id;
-                    console.log('📝 青龙中已存在变量，ID: ' + existingId);
+                const data = JSON.parse(syncBody);
+                if (data.code === 200) {
+                    console.log('✅ 同步到青龙成功');
+                    resolve(true);
+                } else {
+                    console.log('❌ 同步到青龙失败: ' + (data.message || JSON.stringify(data)));
+                    resolve(false);
                 }
             } catch (e) {
-                console.log('⚠️ 查询青龙变量失败，将尝试新增');
+                console.log('❌ 解析青龙响应失败: ' + e);
+                resolve(false);
             }
-            
-            // 更新或新增
-            const method = existingId ? 'put' : 'post';
-            const requestUrl = existingId ? `${url}/${existingId}` : url;
-            
-            const options = {
-                url: requestUrl,
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Content-Type': 'application/json'
-                },
-                body: body
-            };
-            
-            $httpClient[method](options, (error, response, syncBody) => {
-                if (error) {
-                    console.log('❌ 同步到青龙失败: ' + error);
-                    resolve(false);
-                    return;
-                }
-                try {
-                    const data = JSON.parse(syncBody);
-                    if (data.code === 200) {
-                        console.log('✅ 同步到青龙成功');
-                        resolve(true);
-                    } else {
-                        console.log('❌ 同步到青龙失败: ' + (data.message || '未知错误'));
-                        resolve(false);
-                    }
-                } catch (e) {
-                    console.log('❌ 解析青龙响应失败: ' + e);
-                    resolve(false);
-                }
-            });
         });
     });
 }
@@ -155,6 +160,7 @@ async function syncToQinglong(token, value) {
  */
 async function getCookie() {
     if (!$request) {
+        console.log('⚠️ 无请求对象');
         $done({});
         return;
     }
@@ -227,19 +233,25 @@ async function getCookie() {
     console.log('✅ Cookie已保存到本地，账号数: ' + existingData.length);
     
     // 同步到青龙
+    console.log('📝 开始同步到青龙...');
     const token = await getQlToken();
+    
     if (token) {
+        console.log('📝 Token获取成功，开始同步数据...');
         const syncResult = await syncToQinglong(token, dataStr);
+        
         if (syncResult) {
+            console.log('✅ 全流程完成');
             $notification.post(scriptName, '🎉 Cookie同步成功', 
-                `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已同步至青龙`);
+                `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已同步至青龙变量: ${qlDataName}`);
         } else {
             $notification.post(scriptName, '⚠️ Cookie已保存', 
                 `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n本地保存成功，青龙同步失败`);
         }
     } else {
+        console.log('⚠️ 未获取到Token，仅保存本地');
         $notification.post(scriptName, '🎉 Cookie获取成功', 
-            `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已保存到本地`);
+            `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已保存到本地（青龙未配置或连接失败）`);
     }
     
     $done({});
