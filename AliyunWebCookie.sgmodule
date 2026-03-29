@@ -1,0 +1,15 @@
+#!name=阿里云社区 Cookie Sync
+#!desc=抓取阿里云社区Cookie并同步至青龙面板，不执行任务脚本。iOS优化版。
+#!author=z.W.
+#!icon=https://raw.githubusercontent.com/Orz-3/mini/master/Color/Aliyun.png
+
+#!arguments=QL_URL:http://127.0.0.1:5700,QL_CLIENT_ID:your_client_id,QL_CLIENT_SECRET:your_client_secret,QL_DATA_NAME:aliyunWeb_data
+#!arguments-desc=QL_URL: 青龙面板地址 (例如 http://192.168.1.1:5700)\nQL_CLIENT_ID: 青龙面板 Client ID\nQL_CLIENT_SECRET: 青龙面板 Client Secret\nQL_DATA_NAME: 青龙变量名 (默认 aliyunWeb_data)
+
+[Script]
+# Cookie抓取脚本 - 命中时从请求头Cookie和响应体获取用户信息
+Aliyun Web Cookie = type=http-response,pattern=^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser,requires-body=true,max-size=0,script-path=aliyun_web_cookie.js,script-update-interval=0,timeout=30,argument=ql_url={{{QL_URL}}}&ql_client_id={{{QL_CLIENT_ID}}}&ql_client_secret={{{QL_CLIENT_SECRET}}}&ql_data_name={{{QL_DATA_NAME}}}
+
+[MITM]
+# 需要 MITM 才能读取 HTTPS 请求头 Cookie 和响应体
+hostname = %APPEND% developer.aliyun.com
