@@ -1,5 +1,7 @@
 # BeRich 🚀
 
+![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=5jwoj.BeRich)
+
 个人自动化脚本合集，旨在让生活更智能、更高效。包含针对 Surge 和 Loon 的多项优质脚本。
 
 ---
