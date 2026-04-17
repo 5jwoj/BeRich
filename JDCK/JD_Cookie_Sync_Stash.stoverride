@@ -1,0 +1,16 @@
+#!name=JD Cookie Sync
+#!desc=自动捕获京东 Cookie 并同步到青龙面板。支持多个京东域名，首次捕获、更新和失败时发送通知。
+#!author=z.W.
+#!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
+#!homepage=https://github.com/5jwoj/BeRich
+#!date=2026-04-17
+
+#!arguments=QL_URL:http://127.0.0.1:5700,QL_CLIENT_ID:your_client_id,QL_CLIENT_SECRET:your_client_secret
+#!arguments-desc=QL_URL: 青龙面板地址 (例如 http://192.168.1.1:5700)\nQL_CLIENT_ID: 青龙面板 Client ID\nQL_CLIENT_SECRET: 青龙面板 Client Secret
+
+[Script]
+# 覆盖常见京东域名，提高命中率
+JD Cookie Sync = type=http-request,pattern=^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Stash.js,timeout=20
+
+[MITM]
+hostname = %APPEND% api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com, home.m.jd.com

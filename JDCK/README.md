@@ -70,6 +70,18 @@ hostname = api.m.jd.com
 
 详细的安装和配置说明请查看：[README_QX.md](README_QX.md)
 
+### Stash
+
+在 Stash 的「配置」→「覆写」中添加：
+
+| 类型 | 链接 |
+| :--- | :--- |
+| **覆写地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Stash.stoverride` |
+
+**详细说明**
+
+详细的安装和配置说明请查看：[README_Stash.md](README_Stash.md)
+
 ## ⚙️ 配置指南
 
 ### 获取 Client ID 和 Secret
