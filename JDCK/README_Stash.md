@@ -13,10 +13,11 @@
 - 🔔 **智能通知**: 首次捕获、更新和失败时发送通知
 - ✅ **有效性验证**: 自动验证 Cookie 有效性，避免无效同步
 - 📝 **详细日志**: 在 Stash 日志中可查看详细运行信息
+- 🔧 **BoxJS 配置**: 支持通过 BoxJS 网页界面配置参数
 
 ## 📦 安装说明
 
-### 方法一：覆写订阅（推荐）
+### 步骤一：安装覆写
 
 1. 打开 Stash App
 2. 进入「配置」→「覆写」
@@ -27,17 +28,46 @@
    ```
 5. 点击「下载」并启用覆写
 
-### 方法二：手动安装
+### 步骤二：安装 BoxJS
 
-1. 下载以下文件：
-   - `JD_Cookie_Sync_Stash.stoverride`
-   - `JD_Cookie_Sync_Stash.js`
-2. 将文件放到 Stash 的配置目录
-3. 在 Stash 中手动添加覆写配置
+1. 打开 Stash App
+2. 进入「扩展」→「BoxJS」
+3. 点击右上角「+」→「添加订阅」
+4. 粘贴以下地址：
+   ```
+   https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json
+   ```
+5. 点击「下载」订阅
+
+### 步骤三：配置 MITM
+
+1. 确保 Stash 的 MITM 功能已开启
+2. 安装并信任 Stash 的 CA 证书
+3. MITM 主机列表会自动添加以下域名：
+   - `api.m.jd.com`
+   - `me-api.jd.com`
+   - `plogin.m.jd.com`
+   - `wq.jd.com`
+   - `home.m.jd.com`
 
 ## ⚙️ 配置指南
 
-### 步骤一：获取 Client ID 和 Secret
+### 通过 BoxJS 配置（推荐）
+
+1. 打开 Stash App
+2. 进入「扩展」→「BoxJS」
+3. 点击「京东Cookie同步」
+4. 填写以下参数：
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| **青龙面板地址** | 青龙面板地址 (带端口) | `http://192.168.1.1:5700` |
+| **Client ID** | 青龙面板 API Client ID | `xYzAbCdE...` |
+| **Client Secret** | 青龙面板 API Client Secret | `123456...` |
+
+5. 点击「保存」
+
+### 获取 Client ID 和 Secret
 
 1. 登录青龙面板
 2. 进入 **系统设置** → **应用设置**
@@ -45,41 +75,29 @@
 4. 权限选择 **环境变量**（或所有权限）
 5. 复制生成的 Client ID 和 Client Secret
 
-### 步骤二：配置覆写参数
+### 手动配置方式
 
-1. 在 Stash 中进入「配置」→「覆写」
-2. 找到「JD Cookie Sync」覆写
-3. 点击进入编辑页面
-4. 在「Arguments」区域填写参数：
+如果不使用 BoxJS，可以直接编辑脚本文件：
 
-| 参数 | 说明 | 示例 |
-|------|------|------|
-| **QL_URL** | 青龙面板地址 (带端口) | `http://192.168.1.1:5700` |
-| **QL_CLIENT_ID** | 青龙面板 API Client ID | `xYzAbCdE...` |
-| **QL_CLIENT_SECRET** | 青龙面板 API Client Secret | `123456...` |
-
-5. 保存并启用覆写
-
-### 步骤三：配置 MITM
-
-1. 确保 Stash 的 MITM 功能已开启
-2. 安装并信任 Stash 的 CA 证书
-3. 确保 MITM 主机列表包含以下域名：
-   - `api.m.jd.com`
-   - `me-api.jd.com`
-   - `plogin.m.jd.com`
-   - `wq.jd.com`
-   - `home.m.jd.com`
-
-> 覆写配置会自动添加这些域名，无需手动配置。
+1. 下载 `JD_Cookie_Sync_Stash.js` 到本地
+2. 编辑文件开头的 `MANUAL_CONFIG` 部分：
+   ```javascript
+   const MANUAL_CONFIG = {
+     url: "http://192.168.1.1:5700",  // 改成您的青龙地址
+     id: "your_client_id",             // 改成您的 Client ID
+     secret: "your_client_secret"      // 改成您的 Client Secret
+   };
+   ```
+3. 修改覆写配置，将脚本路径指向本地文件
 
 ## 📖 使用指南
 
 1. **启动 Stash**: 确保 Stash 处于开启状态
-2. **触发捕获**: 打开「京东」App 或微信「京东购物」小程序
-3. **浏览页面**: 随便浏览商品或个人中心
-4. **查看通知**: 首次捕获或 Cookie 更新时会收到通知
-5. **核对结果**: 登录青龙面板，确认 `JD_COOKIE` 已成功创建或更新
+2. **配置参数**: 通过 BoxJS 或手动编辑脚本配置青龙信息
+3. **触发捕获**: 打开「京东」App 或微信「京东购物」小程序
+4. **浏览页面**: 随便浏览商品或个人中心
+5. **查看通知**: 首次捕获或 Cookie 更新时会收到通知
+6. **核对结果**: 登录青龙面板，确认 `JD_COOKIE` 已成功创建或更新
 
 ## 🔍 故障排查
 
@@ -88,12 +106,14 @@
 1. **检查 MITM**: 确保 Stash 的 MITM 功能已开启并信任证书
 2. **查看日志**: 在 Stash 中查看日志，搜索 `[jd_cookie_sync]`
 3. **检查域名**: 确认访问的是京东相关域名
+4. **检查配置**: 确认 BoxJS 或脚本中的参数已正确填写
 
 ### 提示"配置未生效"
 
-1. 检查覆写配置中的 Arguments 参数是否正确填写
-2. 确认三个参数（QL_URL, QL_CLIENT_ID, QL_CLIENT_SECRET）都不为空
+1. 检查 BoxJS 配置是否已保存
+2. 确认三个参数（地址、Client ID、Client Secret）都不为空
 3. URL 格式正确，包含 `http://` 或 `https://`
+4. 如果使用手动配置，确认 `MANUAL_CONFIG` 已正确填写
 
 ### 提示"无法获取青龙 Token"
 
@@ -108,21 +128,6 @@
 2. 确认青龙面板应用权限正确
 3. 尝试在青龙面板手动创建 `JD_COOKIE` 变量测试
 
-### 手动配置方式
-
-如果覆写配置界面无法输入参数，可以直接编辑脚本文件：
-
-1. 下载 `JD_Cookie_Sync_Stash.js` 到本地
-2. 编辑文件开头的 `MANUAL_CONFIG` 部分：
-   ```javascript
-   const MANUAL_CONFIG = {
-     url: "http://192.168.1.1:5700",  // 改成您的青龙地址
-     id: "your_client_id",             // 改成您的 Client ID
-     secret: "your_client_secret"      // 改成您的 Client Secret
-   };
-   ```
-3. 在覆写配置中将 `script-path` 指向本地文件
-
 ## ⚠️ 注意事项
 
 - 请确保青龙面板的外网访问权限或在同一内网环境
@@ -132,11 +137,16 @@
 
 ## 📝 更新日志
 
+### v1.0.1 (2026-04-17)
+
+- ✅ 支持 BoxJS 配置方式
+- ✅ 添加 BoxJS 配置订阅文件
+- ✅ 优化配置提示信息
+
 ### v1.0.0 (2026-04-17)
 
 - ✅ 初始版本发布
 - ✅ 支持 Stash 覆写配置
-- ✅ 支持参数配置界面
 - ✅ 完整通知策略（首次捕获、更新、失败）
 - ✅ Cookie 有效性验证
 - ✅ 本地缓存避免重复同步

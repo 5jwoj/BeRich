@@ -1,9 +1,12 @@
 /*
- * JD Cookie Sync to Qinglong - Stash Version
+ * JD Cookie Sync to Qinglong - Stash Version (BoxJS Config)
  *
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: z.W.
  * 
+ * 支持通过BoxJS配置青龙面板信息
+ * BoxJS订阅地址: https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json
+ *
  * 行为：
  * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
  * 2) 首次捕获、更新、失败时发送通知
@@ -12,15 +15,10 @@
  *
  * @script
  * api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com, home.m.jd.com
- *
- * @arguments
- * ql_url: Qinglong Panel URL (e.g., http://192.168.1.1:5700)
- * ql_client_id: Qinglong Client ID
- * ql_client_secret: Qinglong Client Secret
  */
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-// 如果模块配置界面无法输入,请直接修改下面的引号内容
+// 如果不使用BoxJS，请直接修改下面的引号内容
 const MANUAL_CONFIG = {
   url: "",        // 必填,例如 "http://192.168.1.1:5700"
   id: "",         // 必填,Client ID
@@ -30,14 +28,15 @@ const MANUAL_CONFIG = {
 
 (async () => {
   try {
-    let ql_url = MANUAL_CONFIG.url || getArg("ql_url");
-    const ql_client_id = MANUAL_CONFIG.id || getArg("ql_client_id");
-    const ql_client_secret = MANUAL_CONFIG.secret || getArg("ql_client_secret");
+    // 读取配置（优先使用MANUAL_CONFIG，其次使用BoxJS配置）
+    let ql_url = MANUAL_CONFIG.url || $persistentStore.read("jd_ql_url");
+    const ql_client_id = MANUAL_CONFIG.id || $persistentStore.read("jd_ql_client_id");
+    const ql_client_secret = MANUAL_CONFIG.secret || $persistentStore.read("jd_ql_client_secret");
 
     console.log(`[jd_cookie_sync] Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
 
     if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
-      $notification.post("配置未生效", "参数未正确替换", "请在 Stash 覆写配置页填写青龙信息并保存,不要留空。");
+      $notification.post("配置未生效", "参数未正确设置", "请在BoxJS或脚本中配置青龙信息。\nBoxJS订阅: https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json");
       $done({});
       return;
     }
@@ -126,21 +125,6 @@ const MANUAL_CONFIG = {
     $done({});
   }
 })();
-
-function getArg(key) {
-  const args = {};
-  if (typeof $argument !== 'undefined' && $argument) {
-    $argument.split("&").forEach(pair => {
-      const idx = pair.indexOf("=");
-      if (idx > -1) {
-        const k = pair.substring(0, idx);
-        const v = pair.substring(idx + 1);
-        if (k && v) args[k] = decodeURIComponent(v);
-      }
-    });
-  }
-  return args[key];
-}
 
 function getCookieValue(cookieStr, key) {
   const match = cookieStr.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));

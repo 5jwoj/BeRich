@@ -72,11 +72,12 @@ hostname = api.m.jd.com
 
 ### Stash
 
-在 Stash 的「配置」→「覆写」中添加：
+在 Stash 中添加覆写和 BoxJS 订阅：
 
 | 类型 | 链接 |
 | :--- | :--- |
 | **覆写地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Stash.stoverride` |
+| **BoxJS订阅** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json` |
 
 **详细说明**
 
