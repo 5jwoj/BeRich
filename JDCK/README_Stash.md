@@ -28,16 +28,21 @@
    ```
 5. 点击「下载」并启用覆写
 
-### 步骤二：安装 BoxJS
+### 步骤二：安装 BoxJS（可选，用于网页配置）
 
-1. 打开 Stash App
-2. 进入「扩展」→「BoxJS」
-3. 点击右上角「+」→「添加订阅」
-4. 粘贴以下地址：
+如果希望通过网页界面配置参数，需要先安装 BoxJS：
+
+1. 在 Stash 中添加 BoxJS 覆写：
+   ```
+   https://github.com/chavyleung/scripts/raw/master/box/rewrite/boxjs.rewrite.stash.stoverride
+   ```
+2. 启用 BoxJS 覆写
+3. 在浏览器中访问 `http://boxjs.com`
+4. 进入「订阅」页面，添加应用订阅：
    ```
    https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json
    ```
-5. 点击「下载」订阅
+5. 刷新页面，找到「京东Cookie同步」应用
 
 ### 步骤三：配置 MITM
 
@@ -52,11 +57,11 @@
 
 ## ⚙️ 配置指南
 
-### 通过 BoxJS 配置（推荐）
+### 方法一：通过 BoxJS 配置（推荐）
 
-1. 打开 Stash App
-2. 进入「扩展」→「BoxJS」
-3. 点击「京东Cookie同步」
+1. 确保已安装 BoxJS（参考步骤二）
+2. 在浏览器中访问 `http://boxjs.com`
+3. 点击「京东Cookie同步」应用
 4. 填写以下参数：
 
 | 参数 | 说明 | 示例 |
@@ -67,20 +72,12 @@
 
 5. 点击「保存」
 
-### 获取 Client ID 和 Secret
-
-1. 登录青龙面板
-2. 进入 **系统设置** → **应用设置**
-3. 点击 **新建应用**
-4. 权限选择 **环境变量**（或所有权限）
-5. 复制生成的 Client ID 和 Client Secret
-
-### 手动配置方式
+### 方法二：手动编辑脚本配置
 
 如果不使用 BoxJS，可以直接编辑脚本文件：
 
-1. 下载 `JD_Cookie_Sync_Stash.js` 到本地
-2. 编辑文件开头的 `MANUAL_CONFIG` 部分：
+1. 将脚本下载到本地或复制内容
+2. 编辑脚本开头的 `MANUAL_CONFIG` 部分：
    ```javascript
    const MANUAL_CONFIG = {
      url: "http://192.168.1.1:5700",  // 改成您的青龙地址
@@ -89,6 +86,14 @@
    };
    ```
 3. 修改覆写配置，将脚本路径指向本地文件
+
+### 获取 Client ID 和 Secret
+
+1. 登录青龙面板
+2. 进入 **系统设置** → **应用设置**
+3. 点击 **新建应用**
+4. 权限选择 **环境变量**（或所有权限）
+5. 复制生成的 Client ID 和 Client Secret
 
 ## 📖 使用指南
 
@@ -128,6 +133,12 @@
 2. 确认青龙面板应用权限正确
 3. 尝试在青龙面板手动创建 `JD_COOKIE` 变量测试
 
+### BoxJS 无法访问
+
+1. 确保已添加并启用 BoxJS 覆写
+2. 确保 MITM 已添加 `boxjs.com` 和 `boxjs.net`
+3. 确保 HTTPS 解密已开启（force-http-engine）
+
 ## ⚠️ 注意事项
 
 - 请确保青龙面板的外网访问权限或在同一内网环境
@@ -140,8 +151,9 @@
 ### v1.0.1 (2026-04-17)
 
 - ✅ 支持 BoxJS 配置方式
-- ✅ 添加 BoxJS 配置订阅文件
+- ✅ 添加 BoxJS 应用订阅文件
 - ✅ 优化配置提示信息
+- ✅ 修正 stoverride 文件格式
 
 ### v1.0.0 (2026-04-17)
 

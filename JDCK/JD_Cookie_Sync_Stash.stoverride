@@ -1,18 +1,25 @@
-name: JD Cookie Sync
-desc: 自动捕获京东 Cookie 并同步到青龙面板。首次捕获、更新和失败时发送通知。
-# author: z.W.
-# icon: https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
-# homepage: https://github.com/5jwoj/BeRich
+name: "JD Cookie Sync"
+desc: "自动捕获京东 Cookie 并同步到青龙面板"
+openUrl: "https://github.com/5jwoj/BeRich/tree/main/JDCK"
+author: "z.W."
+homepage: "https://github.com/5jwoj/BeRich"
+icon: "https://raw.githubusercontent.com/Orz-3/mini/master/jd.png"
+category: "京东"
 
-script:
-  - match: ^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com
-    name: https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Stash.js
-    type: request
-    timeout: 20
+http:
+  mitm:
+    - "api.m.jd.com"
+    - "me-api.jd.com"
+    - "plogin.m.jd.com"
+    - "wq.jd.com"
+    - "home.m.jd.com"
+  script:
+    - match: ^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com
+      name: JD Cookie Sync
+      type: request
+      timeout: 30
 
-mitm:
-  - api.m.jd.com
-  - me-api.jd.com
-  - plogin.m.jd.com
-  - wq.jd.com
-  - home.m.jd.com
+script-providers:
+  JD Cookie Sync:
+    url: https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Stash.js
+    interval: 86400
