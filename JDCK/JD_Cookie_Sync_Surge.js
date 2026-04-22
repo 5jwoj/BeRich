@@ -23,7 +23,7 @@ const MANUAL_CONFIG = {
   url: "",        // 必填,例如 "http://192.168.1.1:5700"
   id: "",         // 必填,Client ID
   secret: "",     // 必填,Client Secret
-  debug: false    // 选填,设为 true 会输出更多日志
+  debug: true     // 选填,设为 true 会输出更多日志
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
@@ -72,6 +72,7 @@ const MANUAL_CONFIG = {
     console.log(`Captured Cookie for pt_pin=${pt_pin}`);
 
     // 2) 检查冷却时间 (60秒内只同步一次)，避免打开APP时并发请求轰炸青龙
+    if (MANUAL_CONFIG.debug) console.log(`Valid cookie found for pt_pin=${pt_pin}, checking cooldown...`);
     const cacheKey = `JD_COOKIE_LAST_SYNC_${pt_pin}`;
     const lastSyncTime = $persistentStore.read(cacheKey);
     const now = Date.now();
