@@ -2,11 +2,10 @@
  * JD Cookie Sync to Qinglong - Loon Version (BoxJS Support)
  * 
  * 行为：
- * 1) 抓到 pt_key + pt_pin 后先验证 Cookie 有效性
- * 2) Cookie 有效且未变化则静默跳过，无需同步青龙
- * 3) Cookie 失效或变化时才同步青龙
- * 4) 首次捕获或同步成功时发送通知
- * Version: v2.2.0
+ * 1) 抓到 pt_key + pt_pin 后检查是否需要同步（冷却时间机制）
+ * 2) Cookie 有效且未变化且在冷却期内则静默跳过
+ * 3) Cookie 失效或变化或超过冷却时间时才同步青龙
+ * Version: v2.3.0
  * Author: z.W.
  * 
  * 支持三种配置方式（优先级递减）：
@@ -31,13 +30,13 @@ const MANUAL_CONFIG = {
     url: "",        // 必填，例如 "http://192.168.1.1:5700"
     id: "",         // 必填，Client ID
     secret: "",     // 必填，Client Secret
+    cooldown: 5,    // 可选，冷却时间（分钟），默认5分钟
     debug: false    // 调试模式，设置为 true 可以看到更多日志
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 (async () => {
     try {
-        // 记录请求 URL，方便调试
         const requestUrl = $request.url || "Unknown URL";
         if (MANUAL_CONFIG.debug) {
             $.log(`[DEBUG] Request URL: ${requestUrl}`);
@@ -46,8 +45,9 @@ const MANUAL_CONFIG = {
         let ql_url = MANUAL_CONFIG.url || $.read("ql_url") || $.getData("jd_ql_url");
         const ql_client_id = MANUAL_CONFIG.id || $.read("ql_client_id") || $.getData("jd_ql_client_id");
         const ql_client_secret = MANUAL_CONFIG.secret || $.read("ql_client_secret") || $.getData("jd_ql_client_secret");
+        const cooldown_minutes = MANUAL_CONFIG.cooldown || parseInt($.getData("jd_cooldown_minutes")) || 5;
 
-        $.log(`Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
+        $.log(`Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}, Cooldown=${cooldown_minutes}min`);
 
         if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
             $.notify("配置未生效", "参数未正确填写", "请在 BoxJS / 插件参数 / MANUAL_CONFIG 中填写青龙信息");
@@ -55,89 +55,95 @@ const MANUAL_CONFIG = {
             return;
         }
 
-        // Auto-fix URL if missing http prefix
         if (!ql_url.startsWith("http://") && !ql_url.startsWith("https://")) {
             ql_url = "http://" + ql_url;
             $.log(`Added http prefix to URL: ${ql_url}`);
         }
 
-        // Remove trailing slash if present
         if (ql_url.endsWith("/")) {
             ql_url = ql_url.slice(0, -1);
         }
 
-        // 1. Capture Cookie
         const cookie = $request.headers["Cookie"] || $request.headers["cookie"];
         if (!cookie) {
-            if (MANUAL_CONFIG.debug) {
-                $.log(`[DEBUG] No cookie found in request`);
-            }
             $.done();
             return;
         }
 
         const pt_key = getCookieValue(cookie, "pt_key");
-        const pt_pin = getCookieValue(cookie, "pt_pin");
+        const pt_pin_raw = getCookieValue(cookie, "pt_pin");
 
-        if (!pt_key || !pt_pin) {
-            if (MANUAL_CONFIG.debug) {
-                $.log(`[DEBUG] No pt_key or pt_pin found. pt_key=${pt_key ? 'exists' : 'missing'}, pt_pin=${pt_pin ? 'exists' : 'missing'}`);
-            }
+        if (!pt_key || !pt_pin_raw) {
             $.done();
             return;
         }
 
+        const pt_pin = safeDecodeURIComponent(pt_pin_raw);
         const jd_cookie = `pt_key=${pt_key};pt_pin=${pt_pin};`;
-        $.log(`✅ Captured Cookie for ${pt_pin}`);
 
-        // 1.5 Check Local Cache (Deduplication)
-        const cacheKey = `JD_COOKIE_${pt_pin}`;
+        $.log(`Captured Cookie for pt_pin=${pt_pin}`);
+
+        const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
+        const timestampKey = `JD_COOKIE_TIMESTAMP_${pt_pin}`;
         const cachedCookie = $.getData(cacheKey);
-        const isFirstCapture = !cachedCookie;
+        const lastSyncTime = parseInt($.getData(timestampKey)) || 0;
+        const currentTime = Date.now();
+        const cooldownMs = cooldown_minutes * 60 * 1000;
+        const timeSinceLastSync = currentTime - lastSyncTime;
+
+        if (cachedCookie === jd_cookie && timeSinceLastSync < cooldownMs) {
+            const remainingMinutes = Math.ceil((cooldownMs - timeSinceLastSync) / 60000);
+            $.log(`Cookie unchanged for ${pt_pin}, within cooldown period (${remainingMinutes}min remaining). Skip all checks.`);
+            $.done();
+            return;
+        }
 
         if (cachedCookie === jd_cookie) {
-            $.log(`Cookie for ${pt_pin} is unchanged. Skipping sync.`);
+            $.log(`Cookie unchanged for ${pt_pin}, but cooldown expired. Validating...`);
+        } else {
+            $.log(`Cookie changed for ${pt_pin}. Need to validate and sync.`);
+        }
+
+        const validation = await validateJDCookie(jd_cookie);
+
+        if (!validation.valid) {
+            $.log(`Cookie invalid for ${pt_pin}. Need to re-sync.`);
+        } else if (cachedCookie === jd_cookie) {
+            $.log(`Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Update timestamp and skip sync.`);
+            $.setData(timestampKey, String(currentTime));
             $.done();
             return;
-        }
-
-        if (isFirstCapture) {
-            $.log(`🎉 First time capturing cookie for ${pt_pin}`);
         } else {
-            $.log(`🔄 Cookie changed for ${pt_pin}`);
+            $.log(`Cookie valid and changed for ${pt_pin} (${validation.nickname || 'unknown'}). Need to sync.`);
         }
 
-        // 2. Authenticate with Qinglong
-        $.log(`Authenticating with Qinglong...`);
         const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
         if (!token) {
-            $.notify("同步失败", "无法获取青龙 Token", "请检查 Client ID/Secret 和 URL 是否正确");
+            $.notify("同步失败", "获取青龙Token失败", "请检查配置信息是否正确");
             $.done();
             return;
         }
-        $.log(`✅ Authentication successful`);
 
-        // 3. Sync Cookie
-        $.log(`Syncing cookie to Qinglong...`);
         const result = await syncCookieToQL(ql_url, token, pt_pin, jd_cookie);
 
-        if (result.success) {
-            $.setData(cacheKey, jd_cookie);
-            $.log(`✅ Sync successful: ${result.message}`);
+        if (!result.ok) {
+            $.notify("同步失败", "青龙接口返回异常", result.message || "Unknown error");
+            $.done();
+            return;
+        }
 
-            // 发送成功通知
-            if (isFirstCapture) {
-                $.notify("🎉 Cookie 已创建", `账号: ${pt_pin}`, "首次捕获并同步到青龙成功");
-            } else {
-                $.notify("🔄 Cookie 已更新", `账号: ${pt_pin}`, result.message);
-            }
+        if (result.changed) {
+            $.setData(cacheKey, jd_cookie);
+            $.setData(timestampKey, String(currentTime));
+            $.notify(result.title, result.subtitle, result.body);
         } else {
-            $.notify("同步失败", `账号: ${pt_pin}`, result.message || "未知错误");
+            $.setData(timestampKey, String(currentTime));
+            $.log(`No change for ${pt_pin}. No notification.`);
         }
 
     } catch (e) {
-        $.log(`❌ Error: ${e.message}`);
-        $.notify("同步错误", "发生异常", e.message);
+        $.log(`Error: ${e && e.message ? e.message : e}`);
+        $.notify("同步错误", "发生未预期的错误", String(e && e.message ? e.message : e));
     } finally {
         $.done();
     }
@@ -146,6 +152,14 @@ const MANUAL_CONFIG = {
 function getCookieValue(cookieStr, key) {
     const match = cookieStr.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));
     return match ? match[1] : null;
+}
+
+function safeDecodeURIComponent(s) {
+    try {
+        return decodeURIComponent(s);
+    } catch (_) {
+        return s;
+    }
 }
 
 async function validateJDCookie(jd_cookie) {
@@ -163,7 +177,6 @@ async function validateJDCookie(jd_cookie) {
         $.http.get(options).then(response => {
             try {
                 const body = JSON.parse(response.body);
-
                 if (body && body.retcode === "0" && body.data && body.data.userInfo) {
                     const nickname = body.data.userInfo.baseInfo?.nickname || "";
                     $.log(`Cookie validation success: ${nickname}`);
@@ -176,8 +189,8 @@ async function validateJDCookie(jd_cookie) {
                 $.log(`Cookie validation parse error: ${e.message}`);
                 resolve({ valid: false });
             }
-        }, reason => {
-            $.log(`Cookie validation network error: ${reason.error}`);
+        }).catch(e => {
+            $.log(`Cookie validation network error: ${e.error}`);
             resolve({ valid: false });
         });
     });
@@ -193,7 +206,7 @@ async function getQLToken(url, clientId, clientSecret) {
         $.http.get(options).then(response => {
             try {
                 const body = JSON.parse(response.body);
-                if (body.code === 200) {
+                if (body.code === 200 && body.data && body.data.token) {
                     resolve(body.data.token);
                 } else {
                     $.log(`Auth Failed: ${JSON.stringify(body)}`);
@@ -203,89 +216,94 @@ async function getQLToken(url, clientId, clientSecret) {
                 $.log(`Auth Parse Error: ${e.message}`);
                 resolve(null);
             }
-        }, reason => {
-            $.log(`Auth Network Error: ${reason.error}`);
+        }).catch(e => {
+            $.log(`Auth Network Error: ${e.error}`);
             resolve(null);
         });
     });
 }
 
 async function syncCookieToQL(url, token, pt_pin, newValue) {
-    const searchValue = pt_pin;
     const headers = {
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
     };
 
     const getOptions = {
-        url: `${url}/open/envs?searchValue=${encodeURIComponent(searchValue)}`,
+        url: `${url}/open/envs?searchValue=${encodeURIComponent(pt_pin)}`,
         method: "GET",
-        headers: headers
+        headers
     };
 
     return new Promise((resolve) => {
         $.http.get(getOptions).then(async response => {
             try {
                 const body = JSON.parse(response.body);
-                if (body.code === 200) {
-                    const envs = body.data;
-                    const targetEnv = envs.find(e => {
-                        return e.name === "JD_COOKIE" && e.value.includes(`pt_pin=${pt_pin}`);
-                    });
-
-                    if (targetEnv) {
-                        // Update existing
-                        if (targetEnv.value !== newValue) {
-                            if (targetEnv.status !== 0) {
-                                await enableEnv(url, token, targetEnv.id);
-                            }
-                            await updateEnv(url, token, targetEnv.id, "JD_COOKIE", newValue, targetEnv.remarks);
-                            resolve({
-                                success: true,
-                                message: "已更新并同步到青龙"
-                            });
-                        } else {
-                            if (targetEnv.status !== 0) {
-                                await enableEnv(url, token, targetEnv.id);
-                                resolve({
-                                    success: true,
-                                    message: "已启用（值未变化）"
-                                });
-                            } else {
-                                $.log(`Cookie for ${pt_pin} is already up to date.`);
-                                resolve({
-                                    success: true,
-                                    message: "Cookie 已是最新"
-                                });
-                            }
-                        }
-                    } else {
-                        // Create new
-                        await createEnv(url, token, "JD_COOKIE", newValue, `Created by Loon for ${pt_pin}`);
-                        resolve({
-                            success: true,
-                            message: "已创建并同步到青龙"
-                        });
-                    }
-                } else {
-                    resolve({
-                        success: false,
-                        message: `青龙返回错误: ${body.message || 'Unknown'}`
-                    });
+                if (body.code !== 200 || !Array.isArray(body.data)) {
+                    $.log(`Sync Unexpected Response: ${response.body}`);
+                    resolve({ ok: false, message: "Unexpected Qinglong response" });
+                    return;
                 }
+
+                const envs = body.data;
+                const targetEnv = envs.find(e =>
+                    e && e.name === "JD_COOKIE" &&
+                    typeof e.value === "string" &&
+                    e.value.includes(`pt_pin=${pt_pin}`)
+                );
+
+                let changed = false;
+
+                if (targetEnv) {
+                    if (targetEnv.status !== 0) {
+                        await enableEnv(url, token, targetEnv.id);
+                        changed = true;
+                    }
+
+                    if (targetEnv.value !== newValue) {
+                        await updateEnv(url, token, targetEnv.id, "JD_COOKIE", newValue, targetEnv.remarks);
+                        changed = true;
+
+                        resolve({
+                            ok: true,
+                            changed,
+                            title: "Cookie已更新",
+                            subtitle: `已更新并同步：${pt_pin}`,
+                            body: "青龙中的JD_COOKIE已更新成功"
+                        });
+                        return;
+                    }
+
+                    if (changed) {
+                        resolve({
+                            ok: true,
+                            changed,
+                            title: "Cookie已启用",
+                            subtitle: `已启用并同步：${pt_pin}`,
+                            body: "值未变化，但已从禁用状态启用"
+                        });
+                    } else {
+                        resolve({ ok: true, changed: false });
+                    }
+                    return;
+                }
+
+                await createEnv(url, token, "JD_COOKIE", newValue, `Created by Loon for ${pt_pin}`);
+                resolve({
+                    ok: true,
+                    changed: true,
+                    title: "Cookie已创建",
+                    subtitle: `已创建并同步：${pt_pin}`,
+                    body: "青龙中新增JD_COOKIE变量成功"
+                });
+
             } catch (e) {
                 $.log(`Sync Parse Error: ${e.message}`);
-                resolve({
-                    success: false,
-                    message: `解析错误: ${e.message}`
-                });
+                resolve({ ok: false, message: e.message || String(e) });
             }
-        }, reason => {
-            $.log(`Sync Network Error: ${reason.error}`);
-            resolve({
-                success: false,
-                message: `网络错误: ${reason.error}`
-            });
+        }).catch(e => {
+            $.log(`Sync Network Error: ${e.error}`);
+            resolve({ ok: false, message: e.error || String(e) });
         });
     });
 }
@@ -298,12 +316,10 @@ async function updateEnv(url, token, id, name, value, remarks) {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-            id, name, value, remarks
-        })
+        body: JSON.stringify({ id, name, value, remarks })
     };
     return new Promise(resolve => {
-        $.http.put(options).then(() => resolve(), () => resolve());
+        $.http.put(options).then(() => resolve()).catch(() => resolve());
     });
 }
 
@@ -315,12 +331,10 @@ async function createEnv(url, token, name, value, remarks) {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
         },
-        body: JSON.stringify([{
-            name, value, remarks
-        }])
+        body: JSON.stringify([{ name, value, remarks }])
     };
     return new Promise(resolve => {
-        $.http.post(options).then(() => resolve(), () => resolve());
+        $.http.post(options).then(() => resolve()).catch(() => resolve());
     });
 }
 
@@ -335,11 +349,10 @@ async function enableEnv(url, token, id) {
         body: JSON.stringify([id])
     };
     return new Promise(resolve => {
-        $.http.put(options).then(() => resolve(), () => resolve());
+        $.http.put(options).then(() => resolve()).catch(() => resolve());
     });
 }
 
-// Simple API Wrapper for Loon
 function API(name) {
     this.name = name;
 
@@ -398,11 +411,7 @@ function API(name) {
                         if (error) {
                             reject({ error });
                         } else {
-                            resolve({
-                                status: response.status,
-                                headers: response.headers,
-                                body: data
-                            });
+                            resolve({ status: response.status, headers: response.headers, body: data });
                         }
                     });
                 } else {
@@ -417,11 +426,7 @@ function API(name) {
                         if (error) {
                             reject({ error });
                         } else {
-                            resolve({
-                                status: response.status,
-                                headers: response.headers,
-                                body: data
-                            });
+                            resolve({ status: response.status, headers: response.headers, body: data });
                         }
                     });
                 } else {
@@ -436,11 +441,7 @@ function API(name) {
                         if (error) {
                             reject({ error });
                         } else {
-                            resolve({
-                                status: response.status,
-                                headers: response.headers,
-                                body: data
-                            });
+                            resolve({ status: response.status, headers: response.headers, body: data });
                         }
                     });
                 } else {
