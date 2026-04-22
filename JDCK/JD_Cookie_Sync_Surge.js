@@ -1,11 +1,12 @@
 /*
  * JD Cookie Sync to Qinglong - Surge Version (Notify on Failure Only)
  *
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: z.W.
  * 行为：
  * 1) 每次打开京东APP都会尝试同步青龙（60秒防并发冷却）
  * 2) 同步成功或失败都会发送系统通知
+ * 3) 修复了潜在的 $done() 重复调用导致无响应的问题
  *
  * @script
  * api.m.jd.com
@@ -21,7 +22,8 @@
 const MANUAL_CONFIG = {
   url: "",        // 必填,例如 "http://192.168.1.1:5700"
   id: "",         // 必填,Client ID
-  secret: ""      // 必填,Client Secret
+  secret: "",     // 必填,Client Secret
+  debug: false    // 选填,设为 true 会输出更多日志
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
@@ -35,7 +37,6 @@ const MANUAL_CONFIG = {
 
     if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
       $notification.post("配置未生效", "参数未正确替换", "请在Surge模块配置页填写青龙信息并保存,不要留空。");
-      $done({});
       return;
     }
 
@@ -53,14 +54,14 @@ const MANUAL_CONFIG = {
     // 1) Capture Cookie from request header
     const cookie = $request.headers["Cookie"] || $request.headers["cookie"];
     if (!cookie) {
-      $done({});
+      if (MANUAL_CONFIG.debug) console.log("No cookie found in request header.");
       return;
     }
 
     const pt_key = getCookieValue(cookie, "pt_key");
     const pt_pin_raw = getCookieValue(cookie, "pt_pin");
     if (!pt_key || !pt_pin_raw) {
-      $done({});
+      if (MANUAL_CONFIG.debug) console.log("No pt_key or pt_pin found in cookie.");
       return;
     }
 
@@ -76,8 +77,7 @@ const MANUAL_CONFIG = {
     const now = Date.now();
     
     if (lastSyncTime && now - parseInt(lastSyncTime) < 60000) {
-      console.log(`Cookie sync for ${pt_pin} is in cooldown. Skip.`);
-      $done({});
+      console.log(`Cookie sync for ${pt_pin} is in cooldown (60s). Skip.`);
       return;
     }
 
@@ -85,7 +85,6 @@ const MANUAL_CONFIG = {
     const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
     if (!token) {
       $notification.post("同步失败", "获取青龙 Token 失败", "请检查 ql_url / client_id / client_secret 是否正确。");
-      $done({});
       return;
     }
 
@@ -94,7 +93,6 @@ const MANUAL_CONFIG = {
 
     if (!result.ok) {
       $notification.post("同步失败", "青龙接口返回异常", result.message || "Unknown error");
-      $done({});
       return;
     }
 
