@@ -7,8 +7,8 @@
 
 [Script]
 # 拦截多个京东域名，提高捕获成功率
-# 请确保 JD_Cookie_Sync_Loon.js 文件与本插件在同一目录
-http-request ^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com script-path=JD_Cookie_Sync_Loon.js, timeout=20, tag=JD Cookie Sync
+# 请确保 JD_Cookie_Sync_Loon_Local.js 文件与本插件在同一目录
+http-request ^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com script-path=JD_Cookie_Sync_Loon_Local.js, timeout=20, tag=JD Cookie Sync
 
 [MITM]
 hostname = api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com, home.m.jd.com

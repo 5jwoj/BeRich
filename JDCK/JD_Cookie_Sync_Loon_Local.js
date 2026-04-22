@@ -1,19 +1,14 @@
 /*
- * JD Cookie Sync to Qinglong - Loon Version (BoxJS Support)
+ * JD Cookie Sync to Qinglong - Loon Local Version
  * 
  * 行为：
  * 1) 抓到 pt_key + pt_pin 后先验证 Cookie 有效性
  * 2) Cookie 有效且未变化则静默跳过，无需同步青龙
  * 3) Cookie 失效或变化时才同步青龙
  * 4) 首次捕获或同步成功时发送通知
- * Version: v2.2.0
+ * Version: v2.1.1
  * Author: z.W.
  * 
- * 支持三种配置方式（优先级递减）：
- * 1. 脚本内置 MANUAL_CONFIG
- * 2. 插件 Argument 参数配置
- * 3. BoxJS 面板配置 (需订阅 JD_Cookie_Sync_BoxJS.json)
- *
  * @script
  * api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com
  * 
@@ -26,7 +21,7 @@
 const $ = new API("jd_cookie_sync");
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-// 本地配置区域 - 如果不使用 BoxJS 或 插件参数，请在这里填写青龙面板信息
+// 本地配置区域 - 请在这里填写您的青龙面板信息
 const MANUAL_CONFIG = {
     url: "",        // 必填，例如 "http://192.168.1.1:5700"
     id: "",         // 必填，Client ID
@@ -43,14 +38,14 @@ const MANUAL_CONFIG = {
             $.log(`[DEBUG] Request URL: ${requestUrl}`);
         }
 
-        let ql_url = MANUAL_CONFIG.url || $.read("ql_url") || $.getData("jd_ql_url");
-        const ql_client_id = MANUAL_CONFIG.id || $.read("ql_client_id") || $.getData("jd_ql_client_id");
-        const ql_client_secret = MANUAL_CONFIG.secret || $.read("ql_client_secret") || $.getData("jd_ql_client_secret");
+        let ql_url = MANUAL_CONFIG.url || $.read("ql_url");
+        const ql_client_id = MANUAL_CONFIG.id || $.read("ql_client_id");
+        const ql_client_secret = MANUAL_CONFIG.secret || $.read("ql_client_secret");
 
         $.log(`Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
 
         if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
-            $.notify("配置未生效", "参数未正确填写", "请在 BoxJS / 插件参数 / MANUAL_CONFIG 中填写青龙信息");
+            $.notify("配置未生效", "参数未正确填写", "请在脚本的 MANUAL_CONFIG 中填写青龙信息");
             $.done();
             return;
         }
