@@ -1,5 +1,5 @@
-#!name=JD Cookie Sync (Plan A / Always Sync)
-#!desc=Capture JD pt_key/pt_pin on matched requests and ALWAYS sync to Qinglong (no local dedup skip). iOS optimized.
+#!name=JD Cookie Sync (每次打开同步)
+#!desc=每次打开京东APP自动获取Cookie并同步至青龙面板，带60秒防并发并发送通知。iOS 优化版。
 #!author=z.W.
 #!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
 

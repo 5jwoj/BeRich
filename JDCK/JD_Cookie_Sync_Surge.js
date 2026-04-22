@@ -1,11 +1,11 @@
 /*
  * JD Cookie Sync to Qinglong - Surge Version (Notify on Failure Only)
  *
- * Version: 1.1.1
+ * Version: 1.2.0
  * Author: z.W.
  * 行为：
- * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
- * 2) 只有当同步失败时才发送通知
+ * 1) 每次打开京东APP都会尝试同步青龙（60秒防并发冷却）
+ * 2) 同步成功或失败都会发送系统通知
  *
  * @script
  * api.m.jd.com
@@ -70,24 +70,15 @@ const MANUAL_CONFIG = {
 
     console.log(`Captured Cookie for pt_pin=${pt_pin}`);
 
-    // 2) 检查本地缓存，避免重复处理
-    const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
-    const cachedCookie = $persistentStore.read(cacheKey);
-
-    if (cachedCookie === jd_cookie) {
-      console.log(`Cookie unchanged for ${pt_pin}, validating...`);
-
-      // 2.1) 验证 Cookie 有效性
-      const validation = await validateJDCookie(jd_cookie);
-
-      if (validation.valid) {
-        console.log(`Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Skip sync.`);
-        $done({});
-        return;
-      } else {
-        console.log(`Cookie invalid for ${pt_pin}. Need to re-sync.`);
-        // 继续执行同步逻辑
-      }
+    // 2) 检查冷却时间 (60秒内只同步一次)，避免打开APP时并发请求轰炸青龙
+    const cacheKey = `JD_COOKIE_LAST_SYNC_${pt_pin}`;
+    const lastSyncTime = $persistentStore.read(cacheKey);
+    const now = Date.now();
+    
+    if (lastSyncTime && now - parseInt(lastSyncTime) < 60000) {
+      console.log(`Cookie sync for ${pt_pin} is in cooldown. Skip.`);
+      $done({});
+      return;
     }
 
     // 3) Authenticate with Qinglong
@@ -107,12 +98,15 @@ const MANUAL_CONFIG = {
       return;
     }
 
-    // 5) 同步成功后更新缓存（不发送通知）
+    // 5) 更新冷却时间并发送通知
+    $persistentStore.write(now.toString(), cacheKey);
+
     if (result.changed) {
-      $persistentStore.write(jd_cookie, cacheKey);
+      $notification.post(result.title, result.subtitle, result.body);
       console.log(`${result.title}: ${result.subtitle}`);
     } else {
-      console.log(`No change for ${pt_pin}. No notification.`);
+      $notification.post("Cookie 同步成功", `账号：${pt_pin}`, "Cookie 值未发生变化，已成功检查并同步至青龙面板。");
+      console.log(`Sync success but no change for ${pt_pin}. Notified.`);
     }
 
   } catch (e) {
@@ -185,50 +179,6 @@ async function getQLToken(url, clientId, clientSecret) {
  */
 
 
-/**
- * 验证京东 Cookie 是否有效
- * @param {string} jd_cookie - 京东Cookie字符串
- * @returns {Promise<{valid: boolean, nickname?: string}>}
- */
-async function validateJDCookie(jd_cookie) {
-  const options = {
-    url: "https://me-api.jd.com/user_new/info/GetJDUserInfoUnion",
-    method: "GET",
-    headers: {
-      "Cookie": jd_cookie,
-      "User-Agent": "jdapp;iPhone;10.0.0;14.0;network/wifi;Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
-      "Referer": "https://home.m.jd.com/"
-    },
-    timeout: 10
-  };
-
-  return new Promise((resolve) => {
-    $httpClient.get(options, (error, response, data) => {
-      if (error) {
-        console.log(`Cookie validation network error: ${error}`);
-        resolve({ valid: false });
-        return;
-      }
-
-      try {
-        const body = JSON.parse(data);
-
-        // 检查返回数据是否包含用户信息
-        if (body && body.retcode === "0" && body.data && body.data.userInfo) {
-          const nickname = body.data.userInfo.baseInfo?.nickname || "";
-          console.log(`Cookie validation success: ${nickname}`);
-          resolve({ valid: true, nickname });
-        } else {
-          console.log(`Cookie validation failed: ${JSON.stringify(body).substring(0, 100)}`);
-          resolve({ valid: false });
-        }
-      } catch (e) {
-        console.log(`Cookie validation parse error: ${e.message}`);
-        resolve({ valid: false });
-      }
-    });
-  });
-}
 
 async function syncCookieToQL(url, token, pt_pin, newValue) {
   const headers = {
