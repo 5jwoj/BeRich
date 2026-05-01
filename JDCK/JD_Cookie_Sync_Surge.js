@@ -1,11 +1,14 @@
 /*
- * JD Cookie Sync to Qinglong - Surge Version (Notify on Failure Only)
+ * JD Cookie Sync to Qinglong - Surge Version
  *
- * Version: 1.1.1
+ * Version: 1.2.0
  * Author: z.W.
  * 行为：
  * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
- * 2) 只有当同步失败时才发送通知
+ * 2) 优先同步「标准 Cookie」（非 app_open 前缀）；
+ *    若仅捕获到 app_open 类型且无标准备份，则回退同步 app_open Cookie
+ * 3) 每次实际同步均发送通知并标注 Cookie 类型
+ * 4) 同步失败时也发送通知
  *
  * @script
  * api.m.jd.com
@@ -14,6 +17,7 @@
  * ql_url: Qinglong Panel URL (e.g., http://192.168.1.1:5700)
  * ql_client_id: Qinglong Client ID
  * ql_client_secret: Qinglong Client Secret
+ * prefer_std: 优先标准Cookie开关，1=开启(默认)/0=关闭
  */
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -68,16 +72,41 @@ const MANUAL_CONFIG = {
     const pt_pin = safeDecodeURIComponent(pt_pin_raw);
     const jd_cookie = `pt_key=${pt_key};pt_pin=${pt_pin};`;
 
-    console.log(`Captured Cookie for pt_pin=${pt_pin}`);
+    // 判断本次捕获到的 Cookie 类型
+    const isAppOpen = pt_key.startsWith("app_open");
+    const cookieTypeTag = isAppOpen ? "⚠️ app_open" : "✅ 标准";
+    console.log(`Captured [${cookieTypeTag}] Cookie for pt_pin=${pt_pin}`);
 
-    // 2) 检查本地缓存，避免重复处理
+    // 读取 prefer_std 开关（默认开启）
+    const preferStd = getArg("prefer_std") !== "0";
+
+    // 标准 Cookie 专用缓存键（仅存非 app_open 的最后一次有效值）
+    const stdCacheKey = `JD_STD_COOKIE_${pt_pin}`;
+
+    // 2) 若开启了优先标准 Cookie 且本次是 app_open 类型
+    if (preferStd && isAppOpen) {
+      const stdCookie = $persistentStore.read(stdCacheKey);
+      if (stdCookie) {
+        console.log(`[prefer_std] 已有标准 Cookie 缓存，跳过 app_open 类型同步 (${pt_pin})`);
+        $notification.post(
+          "⏭️ Cookie 保护",
+          `跳过 app_open · ${pt_pin}`,
+          "检测到 app_open 类型 Cookie，但已有标准 Cookie 备份，已自动跳过，无需更新。"
+        );
+        $done({});
+        return;
+      }
+      console.log(`[prefer_std] 无标准 Cookie 缓存，将回退同步 app_open 类型 (${pt_pin})`);
+    }
+
+    // 3) 检查本地缓存，避免重复同步
     const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
     const cachedCookie = $persistentStore.read(cacheKey);
 
     if (cachedCookie === jd_cookie) {
       console.log(`Cookie unchanged for ${pt_pin}, validating...`);
 
-      // 2.1) 验证 Cookie 有效性
+      // 3.1) 验证 Cookie 有效性
       const validation = await validateJDCookie(jd_cookie);
 
       if (validation.valid) {
@@ -90,7 +119,7 @@ const MANUAL_CONFIG = {
       }
     }
 
-    // 3) Authenticate with Qinglong
+    // 4) Authenticate with Qinglong
     const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
     if (!token) {
       $notification.post("同步失败", "获取青龙 Token 失败", "请检查 ql_url / client_id / client_secret 是否正确。");
@@ -98,7 +127,7 @@ const MANUAL_CONFIG = {
       return;
     }
 
-    // 4) Sync Cookie
+    // 5) Sync Cookie
     const result = await syncCookieToQL(ql_url, token, pt_pin, jd_cookie);
 
     if (!result.ok) {
@@ -107,9 +136,22 @@ const MANUAL_CONFIG = {
       return;
     }
 
-    // 5) 同步成功后更新缓存（不发送通知）
+    // 6) 同步成功后更新缓存并发送通知
     if (result.changed) {
       $persistentStore.write(jd_cookie, cacheKey);
+      // 若为标准 Cookie，同时更新标准缓存
+      if (!isAppOpen) {
+        $persistentStore.write(jd_cookie, stdCacheKey);
+        console.log(`标准 Cookie 缓存已更新 (${pt_pin})`);
+      }
+      const typeDesc = isAppOpen
+        ? "app_open 类型（暂无标准版本，已回退同步）"
+        : "标准类型（非 app_open）";
+      $notification.post(
+        `${result.title} [${cookieTypeTag}]`,
+        result.subtitle,
+        `Cookie 类型：${typeDesc}`
+      );
       console.log(`${result.title}: ${result.subtitle}`);
     } else {
       console.log(`No change for ${pt_pin}. No notification.`);

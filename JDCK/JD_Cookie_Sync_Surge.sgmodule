@@ -1,14 +1,14 @@
-#!name=JD Cookie Sync (每次打开同步)
-#!desc=每次打开京东APP自动获取Cookie并同步至青龙面板，带60秒防并发并发送通知。iOS 优化版。
+#!name=JD Cookie Sync (v1.2.0 优先标准Cookie)
+#!desc=每次打开京东 APP 自动同步 Cookie 至青龙面板。默认优先保留标准 Cookie（非 app_open）；无标准备份时回退同步 app_open 类型。每次同步均有标注类型的通知。
 #!author=z.W.
 #!icon=https://raw.githubusercontent.com/Orz-3/mini/master/jd.png
 
-#!arguments=QL_URL:http://127.0.0.1:5700,QL_CLIENT_ID:your_client_id,QL_CLIENT_SECRET:your_client_secret
-#!arguments-desc=QL_URL: 青龙面板地址 (例如 http://192.168.1.1:5700)\nQL_CLIENT_ID: 青龙面板 Client ID\nQL_CLIENT_SECRET: 青龙面板 Client Secret
+#!arguments=QL_URL:http://127.0.0.1:5700,QL_CLIENT_ID:your_client_id,QL_CLIENT_SECRET:your_client_secret,PREFER_STD:1
+#!arguments-desc=QL_URL: 青龙面板地址 (例如 http://192.168.1.1:5700)\nQL_CLIENT_ID: 青龙面板 Client ID\nQL_CLIENT_SECRET: 青龙面板 Client Secret\nPREFER_STD: 优先标准Cookie开关，1=开启(推荐)·0=关闭。开启后若检测到 app_open Cookie 且已有标准备份，则自动跳过不同步。
 
 [Script]
 # 覆盖常见京东域名，提高命中率。命中时从 request header 的 Cookie 里提取 pt_key/pt_pin。
-JD Cookie Sync = type=http-request,pattern=^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.js,script-update-interval=0,timeout=20,argument=ql_url={{{QL_URL}}}&ql_client_id={{{QL_CLIENT_ID}}}&ql_client_secret={{{QL_CLIENT_SECRET}}}
+JD Cookie Sync = type=http-request,pattern=^https?:\/\/(api\.m|me-api|plogin\.m|wq|home\.m)\.jd\.com,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.js,script-update-interval=0,timeout=20,argument=ql_url={{{QL_URL}}}&ql_client_id={{{QL_CLIENT_ID}}}&ql_client_secret={{{QL_CLIENT_SECRET}}}&prefer_std={{{PREFER_STD}}}
 
 [MITM]
 # 需要 MITM 才能读取 HTTPS 请求头 Cookie
