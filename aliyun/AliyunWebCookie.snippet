@@ -1,16 +1,1 @@
-# 阿里云社区 Cookie Sync for Quantumult X
-# 作者: z.W.
-# 版本: v1.0.3
-#
-# [使用方法]
-# 在 Quantumult X -> 重写 -> 引用 中添加本文件的 URL 即可。
-# 青龙面板参数请通过 BoxJs 订阅配置以下键值:
-#   ql_url         青龙面板地址 (例如 http://192.168.1.1:5700)
-#   ql_client_id   青龙面板 Client ID
-#   ql_client_secret 青龙面板 Client Secret
-#   ql_data_name   青龙变量名 (默认 aliyunWeb_data)
-
-^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser url script-res-body https://raw.githubusercontent.com/5jwoj/BeRich/main/aliyun/aliyun_web_cookie_qx.js
-
-[MITM]
-hostname = developer.aliyun.com
+^https?://developer\.aliyun\.com/developer/api/my/user/getUser url script-res-body https://raw.githubusercontent.com/5jwoj/BeRich/main/aliyun/aliyun_web_cookie_qx.js
