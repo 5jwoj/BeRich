@@ -1,5 +1,5 @@
 // [rule: ^短剧ck检测$|^短剧CK检测$]
-// [version: 1.4.0]
+// [version: 1.5.0]
 // [admin: false]
 // [priority: 1000]
 // [disable: false]
@@ -50,7 +50,7 @@
 // 星芽 API 常量（来自抓包，勿修改）
 // ─────────────────────────────────────────────────────────────────────────────
 var XYDJ_API_BASE   = "https://u.shytkjgs.com";
-var XYDJ_CHECK_PATH = "/user/v1/account/info";
+var XYDJ_CHECK_PATH = "/user/v1/account/detail";
 var XYDJ_HEADERS    = {
     "X-Jiuzhou-Service":             "SpeciesBackAdmin",
     "X-App-Id":                      "7",
@@ -506,36 +506,52 @@ async function main() {
     }
 
     // 4. 汇总报告发给管理员（用户通知已逐条实时发送完毕）
-    var summary  = "📊 星芽CK检测报告\n";
-    summary += "══════════════════════\n";
-    summary += "共检测: " + qlEnvs.length + " 条\n";
-    summary += "✅ 有效: " + validList.length + " 条\n";
-    summary += "❌ 失效: " + invalidList.length + " 条\n";
-    summary += "🌐 代理: " + (useProxy ? "已启用 (重试" + MAX_PROXY_RETRIES + "次)" : "未启用") + "\n";
-    summary += "══════════════════════\n";
+    var header = "📊 星芽CK检测报告\n";
+    header += "══════════════════════\n";
+    header += "共检测: " + qlEnvs.length + " 条\n";
+    header += "✅ 有效: " + validList.length + " 条\n";
+    header += "❌ 失效: " + invalidList.length + " 条\n";
+    header += "🌐 代理: " + (useProxy ? "已启用 (重试" + MAX_PROXY_RETRIES + "次)" : "未启用") + "\n";
+    header += "══════════════════════\n";
 
+    var bodyInvalid = "";
     if (invalidList.length > 0) {
-        summary += "\n❌ 失效账号:\n";
+        bodyInvalid += "\n❌ 失效账号:\n";
         for (var m = 0; m < invalidList.length; m++) {
             var inv          = invalidList[m];
             var notifyStatus = inv.notified ? "✉️已通知" : "⚠️通知失败";
-            summary += (m + 1) + ". " + inv.remark + "\n";
-            summary += "   原因: " + inv.reason + "\n";
-            summary += "   用户: " + notifyStatus + "\n";
+            // 采用紧凑的单行格式，避免行数过多
+            var cleanReason  = inv.reason ? inv.reason.replace(/\n/g, " ") : "未知";
+            bodyInvalid += (m + 1) + ". " + inv.remark + " | " + cleanReason + " | " + notifyStatus + "\n";
         }
     }
 
+    var bodyValid = "";
     if (validList.length > 0) {
-        summary += "\n✅ 有效账号:\n";
+        bodyValid += "\n✅ 有效账号:\n";
         for (var v = 0; v < validList.length; v++) {
             var val = validList[v];
-            summary += (v + 1) + ". " + val.remark;
-            if (val.mobile) summary += " (" + val.mobile + ")";
-            summary += "\n";
+            bodyValid += (v + 1) + ". " + val.remark;
+            if (val.mobile) bodyValid += " (" + val.mobile + ")";
+            bodyValid += "\n";
         }
     }
 
-    summary += "\n⏰ " + new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+    var footer = "\n⏰ " + new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+
+    // Telegram 消息单条最大限制 4096 字符，在此进行安全长度截断以防发送失败
+    var maxSafeLen = 3800;
+    var summary    = header + bodyInvalid + bodyValid + footer;
+
+    if (summary.length > maxSafeLen) {
+        var overageMsg = "\n... (由于篇幅限制，已省略其余账号详情，请查看运行日志获取完整报告)";
+        var allowedLen = maxSafeLen - header.length - footer.length - overageMsg.length;
+        
+        // 优先截断主体内容，保留完整的头部、尾部及截断说明
+        var truncatedBody = (bodyInvalid + bodyValid).substring(0, allowedLen);
+        summary = header + truncatedBody + overageMsg + footer;
+    }
+
     sendText(summary);
 }
 
