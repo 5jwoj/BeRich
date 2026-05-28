@@ -76,10 +76,10 @@ function captureCookie() {
       return;
     }
 
-    const old = $persistentStore.read(BOXJS_KEY_COOKIE) || "";
+    const old = $prefs.valueForKey(BOXJS_KEY_COOKIE) || "";
 
     if (old.trim() !== cookie.trim()) {
-      $persistentStore.write(cookie, BOXJS_KEY_COOKIE);
+      $prefs.setValueForKey(cookie, BOXJS_KEY_COOKIE);
       console.log(`${SCRIPT_TAG} [捕获] Cookie 已更新并写入 BoxJS`);
       $notify(
         "V2EX Cookie ✅",
@@ -100,12 +100,12 @@ function captureCookie() {
 // ====================================================
 
 function getCookie() {
-  const val = $persistentStore.read(BOXJS_KEY_COOKIE);
+  const val = $prefs.valueForKey(BOXJS_KEY_COOKIE);
   return val ? val.trim() : null;
 }
 
 function getUA() {
-  const val = $persistentStore.read(BOXJS_KEY_UA);
+  const val = $prefs.valueForKey(BOXJS_KEY_UA);
   return (val && val.trim()) ? val.trim() : DEFAULT_UA;
 }
 
