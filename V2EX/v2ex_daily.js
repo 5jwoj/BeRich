@@ -66,8 +66,12 @@ function captureCookie() {
     const headers = $request.headers || {};
     const cookie  = headers["Cookie"] || headers["cookie"] || "";
 
-    if (!cookie || !cookie.includes("A2=")) {
-      // 未登录或无关请求，静默跳过
+    console.log(`${SCRIPT_TAG} [捕获] 触发 URL: ${$request.url}`);
+    console.log(`${SCRIPT_TAG} [捕获] Cookie 长度: ${cookie.length}, 前50字符: ${cookie.substring(0, 50)}`);
+
+    // 宽松判断：Cookie 存在且长度足够（已登录状态通常远超 10 字符）
+    if (!cookie || cookie.length < 10) {
+      console.log(`${SCRIPT_TAG} [捕获] Cookie 为空或过短，跳过`);
       $done({});
       return;
     }
@@ -76,12 +80,14 @@ function captureCookie() {
 
     if (old.trim() !== cookie.trim()) {
       $persistentStore.write(cookie, BOXJS_KEY_COOKIE);
-      console.log(`${SCRIPT_TAG} Cookie 已捕获并更新到 BoxJS`);
+      console.log(`${SCRIPT_TAG} [捕获] Cookie 已更新并写入 BoxJS`);
       $notify(
         "V2EX Cookie ✅",
         "Cookie 已自动保存",
         "下次定时签到将使用新 Cookie，无需手动操作"
       );
+    } else {
+      console.log(`${SCRIPT_TAG} [捕获] Cookie 未变化，跳过通知`);
     }
   } catch (e) {
     console.log(`${SCRIPT_TAG} Cookie 捕获出错: ${e}`);
