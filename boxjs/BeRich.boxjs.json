@@ -1,7 +1,7 @@
 {
     "id": "5jwoj.berich",
     "name": "BeRich 订阅合集",
-    "description": "包含京东Cookie同步、阿里云Cookie同步和微博签到的BoxJS订阅合集",
+    "description": "包含京东Cookie同步、阿里云Cookie同步、微博签到和V2EX每日签到的BoxJS订阅合集",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/available.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -147,6 +147,45 @@
                 "https://raw.githubusercontent.com/Orz-3/mini/master/Color/weibo.png"
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_qx.js"
+        },
+        {
+            "id": "v2ex_daily_qx",
+            "name": "V2EX 每日签到",
+            "keys": [
+                "v2ex_daily.cookie",
+                "v2ex_daily.ua"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/V2EX",
+            "icons": [
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/v2ex.png",
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/v2ex.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">自动领取 V2EX 每日登录奖励，签到后推送余额信息</h4>",
+                "<p>使用方式：在下方填写 V2EX Cookie，然后在 Quantumult X 定时任务中添加脚本即可。</p>",
+                "<p>多账号：将多个 Cookie 用<b>换行</b>分隔后填入同一文本框。</p>",
+                "<p align=\"center\">使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/tree/main/V2EX\">V2EX README</a></p>"
+            ],
+            "settings": [
+                {
+                    "id": "v2ex_daily.cookie",
+                    "name": "V2EX Cookie",
+                    "val": "",
+                    "type": "textarea",
+                    "autoGrow": true,
+                    "rows": 3,
+                    "desc": "登录 V2EX 后，从浏览器 F12 → Application → Cookies 复制完整 Cookie。多账号用换行分隔。"
+                },
+                {
+                    "id": "v2ex_daily.ua",
+                    "name": "User-Agent（可选）",
+                    "val": "",
+                    "type": "text",
+                    "desc": "自定义请求 UA，留空则使用默认 Chrome UA"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily.js"
         }
     ]
 }
