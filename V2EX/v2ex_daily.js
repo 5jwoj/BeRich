@@ -1,30 +1,31 @@
-/**
- * V2EX 每日签到 & Cookie 自动捕获
- * =====================================================
- * 版本: 1.2.0
- * 功能: ① 访问 V2EX 时自动捕获 Cookie 并保存到 BoxJS
- *       ② 定时任务自动签到并推送余额通知
- * BoxJS 订阅: https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
- * =====================================================
+/*
+ * V2EX 每日签到 & Cookie 自动捕获 - Quantumult X 版
  *
- * 【Quantumult X 配置 - 仅需添加以下三段】
- * -------------------------------------------------------
+ * 行为：
+ * 1) 访问 v2ex.com 时自动拦截请求头，捕获 Cookie 并保存到 BoxJS
+ * 2) 定时任务运行时自动执行每日签到并推送余额通知
+ * 3) Cookie 过期后只需重新打开 V2EX 网站即可自动更新，无需手动操作
+ *
+ * Version: v1.2.0
+ * Author: @5jwoj
+ *
+ * BoxJS 订阅:
+ * https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
+ *
+ * @script
+ * www.v2ex.com
+ *
+ * @config
+ * 在 Quantumult X 配置文件中加入以下内容（或直接导入 v2ex_daily.conf）：
  *
  * [rewrite_local]
- * # V2EX Cookie 自动捕获
- * ^https?://www\.v2ex\.com url script-request-header V2EX/v2ex_daily.js
+ * ^https?://www\.v2ex\.com url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily.js
  *
  * [task_local]
- * # V2EX 每日签到 - 每天早上 8:00
- * 0 8 * * * V2EX/v2ex_daily.js, tag=V2EX签到, img-url=https://www.v2ex.com/favicon.ico, enabled=true
+ * 0 8 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily.js, tag=V2EX每日签到, img-url=https://www.v2ex.com/favicon.ico, enabled=true
  *
  * [mitm]
  * hostname = www.v2ex.com
- *
- * -------------------------------------------------------
- * Cookie 获取方式：配置好后，用浏览器/App 打开 v2ex.com 并登录
- * 收到「Cookie 已更新」通知即表示自动保存成功，无需手动操作。
- * =====================================================
  */
 
 // ====================================================
@@ -52,7 +53,7 @@ if (typeof $request !== "undefined") {
 } else {
   main().catch((e) => {
     console.log(`${SCRIPT_TAG} 脚本执行出错: ${e}`);
-    $notify("[V2EX签到] 脚本错误", "执行出错", String(e));
+    $notify("V2EX签到", "脚本执行出错", String(e));
     $done({});
   });
 }
@@ -63,31 +64,23 @@ if (typeof $request !== "undefined") {
 function captureCookie() {
   try {
     const headers = $request.headers || {};
-    // 兼容大小写
-    const cookie = headers["Cookie"] || headers["cookie"] || "";
+    const cookie  = headers["Cookie"] || headers["cookie"] || "";
 
-    if (!cookie) {
-      $done({});
-      return;
-    }
-
-    // V2EX 登录态关键字段为 A2
-    if (!cookie.includes("A2=")) {
-      // 未登录，不保存
+    if (!cookie || !cookie.includes("A2=")) {
+      // 未登录或无关请求，静默跳过
       $done({});
       return;
     }
 
     const old = $persistentStore.read(BOXJS_KEY_COOKIE) || "";
 
-    // Cookie 有变化才更新，避免重复通知
     if (old.trim() !== cookie.trim()) {
       $persistentStore.write(cookie, BOXJS_KEY_COOKIE);
-      console.log(`${SCRIPT_TAG} Cookie 已捕获并更新`);
+      console.log(`${SCRIPT_TAG} Cookie 已捕获并更新到 BoxJS`);
       $notify(
         "V2EX Cookie ✅",
-        "Cookie 已自动保存到 BoxJS",
-        "下次签到将使用新 Cookie，无需手动操作"
+        "Cookie 已自动保存",
+        "下次定时签到将使用新 Cookie，无需手动操作"
       );
     }
   } catch (e) {
@@ -142,18 +135,18 @@ function extractOnceCode(html) {
 function parseBalance(html) {
   const result = { copper: null, silver: null, gold: null };
 
-  // 策略1：balance_area 区域
+  // 策略 1：balance_area 区域
   const areaMatch = html.match(/<a href="\/balance" class="balance_area"[^>]*>([\s\S]*?)<\/a>/);
   if (areaMatch) {
     const content = areaMatch[1];
-    // 图片格式
+    // 图片格式：数字 + <img alt="S/B/G">
     for (const [, amount, alt] of [...content.matchAll(/(\d+)\s*<img[^>]+alt="([^"]+)"/g)]) {
       const key = alt.trim().toUpperCase();
       if (["B", "BRONZE", "铜币"].includes(key)) result.copper = parseInt(amount);
       else if (["S", "SILVER", "银币"].includes(key)) result.silver = parseInt(amount);
       else if (["G", "GOLD",   "金币"].includes(key)) result.gold   = parseInt(amount);
     }
-    // 文本格式
+    // 文本格式：数字 + 铜币/银币/金币
     if (result.copper === null && result.silver === null && result.gold === null) {
       for (const [, amount, name] of [...content.matchAll(/(\d+)\s*(铜币|银币|金币)/g)]) {
         if (name === "铜币") result.copper = parseInt(amount);
@@ -163,7 +156,7 @@ function parseBalance(html) {
     }
   }
 
-  // 策略2：旧版 span.balance_l
+  // 策略 2：旧版 span.balance_l
   if (result.copper === null && result.silver === null && result.gold === null) {
     for (const [, amount, name] of [...html.matchAll(/<span class="balance_l">\s*(\d+)\s*<\/span>[\s\S]*?(铜币|银币|金币)/g)]) {
       if (name === "铜币") result.copper = parseInt(amount);
@@ -254,14 +247,12 @@ async function redeemReward(cookie, onceCode) {
 async function signInOnce(cookie, idx, total) {
   const prefix = total > 1 ? `账号${idx + 1} ` : "";
 
-  // 检查 Cookie
   const isValid = await checkCookieValid(cookie);
   if (!isValid) {
     notify(`V2EX签到 ${prefix}❌`, "Cookie 已失效", "请打开 v2ex.com 重新登录，Cookie 将自动更新");
     return;
   }
 
-  // 获取 Once Code
   const { onceCode, alreadyClaimed, cookieExpired } = await getOnceCode(cookie);
 
   if (cookieExpired) {
@@ -278,7 +269,6 @@ async function signInOnce(cookie, idx, total) {
     return;
   }
 
-  // 执行签到
   const result = await redeemReward(cookie, onceCode);
 
   if (result.success) {
