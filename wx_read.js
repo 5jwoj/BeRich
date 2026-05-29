@@ -8,7 +8,7 @@
  * 4. 自动提现：账户余额达到提现阈值（0.3元）时，自动取整并发起微信提现。
  * 5. 风控保护：遇到超时/链接失效等失败情况自动记录今日失败，后续运行将自动跳过，保护账号安全。
  *
- * Version: v1.0.0
+ * Version: v1.0.1
  * Author: Antigravity
  */
 
@@ -165,7 +165,7 @@ async function main() {
     let successCount = 0;
     let stopDueToBan = false;
 
-    for (let r = 0; r < rest; r++) {
+    while (rest > 0) {
       // 篇章间随机延迟 3 到 15 秒
       const interDelay = Math.floor(Math.random() * 13) + 3;
       console.log(`⏰ 篇章间延迟 ${interDelay} 秒后开始第 ${successCount + 1} 次阅读...`);
@@ -176,14 +176,15 @@ async function main() {
         successCount++;
         console.log(`✅ 第 ${successCount} 次阅读成功`);
         
-        // 每成功阅读 5 篇，刷新一次余额与剩余次数
-        if (successCount % 5 === 0) {
-          const freshInfo = await getUserInfo(token, ua);
-          if (freshInfo) {
-            balance = freshInfo.score;
-            rest = freshInfo.rest;
-            console.log(`📊 临时统计: 成功阅读 ${successCount} 篇，余额: ${balance.toFixed(2)} 元，剩余次数: ${rest}`);
-          }
+        // 每次阅读成功后，立即获取最新余额与剩余次数（兼容动态刷新下一轮）
+        const freshInfo = await getUserInfo(token, ua);
+        if (freshInfo) {
+          balance = freshInfo.score;
+          rest = freshInfo.rest;
+          console.log(`📊 实时统计: 成功阅读 ${successCount} 篇，最新余额: ${balance.toFixed(2)} 元，剩余可读次数: ${rest}`);
+        } else {
+          // 若获取异常，自动扣减 rest 以防死循环
+          rest--;
         }
       } else {
         console.log(`❌ 第 ${successCount + 1} 次阅读失败，终止该账号本日阅读`);
@@ -199,6 +200,8 @@ async function main() {
     }
 
     // 3. 获取最终余额并提现
+    // 稍微等待 2 秒确保最后一次收益完全入账
+    await sleep(2000);
     const finalInfo = await getUserInfo(token, ua);
     if (finalInfo) {
       const finalBalance = finalInfo.score;
