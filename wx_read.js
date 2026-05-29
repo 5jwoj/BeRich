@@ -9,7 +9,8 @@
  * 5. 风控保护：遇到超时/链接失效等失败情况自动记录今日失败，后续运行将自动跳过，保护账号安全。
  *
  * Version: v1.0.1
- * Author: Antigravity
+ * Author: z.W.
+ * 走个邀请：https://klrk0510001816.eos-shanghai-1.cmecloud.cn/index.html?i19=p1d&q3y=34a&upuid=7813937
  */
 
 // ====================================================
