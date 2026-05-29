@@ -8,7 +8,7 @@
  * 4. 自动提现：账户余额达到提现阈值（0.3元）时，自动取整并发起微信提现。
  * 5. 风控保护：遇到超时/链接失效等失败情况自动记录今日失败，后续运行将自动跳过，保护账号安全。
  *
- * Version: v1.0.1
+ * Version: v1.0.2
  * Author: z.W.
  * 走个邀请：https://klrk0510001816.eos-shanghai-1.cmecloud.cn/index.html?i19=p1d&q3y=34a&upuid=7813937
  */
@@ -133,7 +133,8 @@ async function main() {
     
     if (isAccountFailedToday(token)) {
       console.log(`\n⏭️ 跳过账号 [${name}]：今日已记录失败，不再重试`);
-      summary += `\n👤 [${name}]: ⏭️ 今日已记录失败，跳过`;
+      console.log(`💡 [提示] 若因网络波动误判或需强制重试，可在 BoxJS 中关闭“风控失败跳过保护”开关，或在首选项中清除 wxyd_failed_accounts 缓存`);
+      summary += `\n👤 [${name}]: ⏭️ 今日已记录失败，跳过 (可用 BoxJS 关闭保护重试)`;
       continue;
     }
 
@@ -144,9 +145,9 @@ async function main() {
     // 1. 获取初始用户信息
     const userInfo = await getUserInfo(token, ua);
     if (!userInfo) {
-      accountLog += "❌ 获取用户信息失败\n";
+      accountLog += "❌ 获取用户信息失败（可能是临时的网络波动，今日不标记失败）\n";
       console.log(accountLog);
-      markAccountFailed(token);
+      // 获取用户信息失败可能是临时网络问题，不标记今日失败，允许后续定时任务重试
       summary += `\n${accountLog}`;
       continue;
     }
@@ -534,6 +535,9 @@ function getTodayStr() {
  * 账号失败管理 (基于 $prefs 存储)
  */
 function isAccountFailedToday(token) {
+  // 读取 BoxJS 中的开关配置，默认开启失败跳过保护。如果设置为 false，则不跳过。
+  const failSkip = $prefs.valueForKey("wxyd_fail_skip") !== "false";
+  if (!failSkip) return false;
   try {
     const raw = $prefs.valueForKey("wxyd_failed_accounts");
     if (!raw) return false;

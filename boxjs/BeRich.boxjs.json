@@ -186,6 +186,45 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily.js"
+        },
+        {
+            "id": "wx_read_qx",
+            "name": "微信自动阅读",
+            "keys": [
+                "wxyd1",
+                "wxyd_fail_skip"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/blob/main/wx_read.js",
+            "icons": [
+                "https://raw.githubusercontent.com/5jwoj/BeRich/main/assets/wx_read.png",
+                "https://raw.githubusercontent.com/5jwoj/BeRich/main/assets/wx_read.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">微信自动阅读</h4>",
+                "<p>自动抓取凭证 (udtauth40) + 模拟真人自动阅读篇章与提现。</p>",
+                "<p>使用方式：打开微信阅读页面，脚本将自动拦截并捕获凭证。多账号格式为 <code>token1#name1&amp;token2#name2</code>，脚本已内置自动去重和捕获保存。</p>",
+                "<p>风控保护：当账号被判定失败或异常时，会自动记录今日失败并不再运行，以防被风控封号。您可以在下方关闭此保护或清空失败记录。</p>"
+            ],
+            "settings": [
+                {
+                    "id": "wxyd1",
+                    "name": "微信阅读凭证列表",
+                    "val": "",
+                    "type": "textarea",
+                    "autoGrow": true,
+                    "rows": 3,
+                    "desc": "微信阅读的凭证列表，格式为: token1#账号1&token2#账号2。微信内打开阅读页时会自动捕获并写入此变量，无需手动修改。"
+                },
+                {
+                    "id": "wxyd_fail_skip",
+                    "name": "今日失败跳过保护开关",
+                    "val": true,
+                    "type": "boolean",
+                    "desc": "【默认开启】开启后，如果账号今日运行失败（风控、链接失效），后续运行将自动跳过该账号以防止风控封号。关闭此选项则允许每次运行都进行重试。"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/wx_read.js"
         }
     ]
 }
