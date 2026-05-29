@@ -1,0 +1,24 @@
+#!name=农夫山泉
+#!desc=农夫山泉小程序自动抽奖，打开小程序自动抓取Cookie
+#!author=AI Assistant
+#!icon=https://is1-ssl.mzstatic.com/image/thumb/Purple126/v4/8c/3d/5e/8c3d5e6a-8d8c-5d9a-8f9d-7f5a4e8b5c3d/AppIcon-0-0-1x_U007emarketing-0-0-0-7-0-0-sRGB-0-0-0-GLES2_U002c0-512MB-85-220-0-0.png/60x60bb.png
+#!homepage=https://github.com
+#!date=2025-12-11
+
+[General]
+# 打开农夫山泉小程序后即可自动抓取Cookie，抓取成功后可关闭此插件的重写功能
+
+[Argument]
+TG_BOT_TOKEN = input,"",tag=Telegram Bot Token,desc=填入你的TG Bot Token
+TG_CHAT_ID = input,"",tag=Telegram Chat ID,desc=填入你的TG Chat ID
+PUSH_PLUS_TOKEN = input,"",tag=PushPlus推送Token(可选),desc=填入你的PushPlus Token用于中奖通知
+
+[Script]
+# Cookie抓取脚本 - 打开小程序时自动获取
+http-request ^https:\/\/sxs-consumer\.nfsq\.com\.cn\/geement script-path=nfsq_cookie.js, requires-body=false, timeout=10, tag=农夫山泉Cookie抓取, img-url=drop.fill.system
+
+# 定时抽奖脚本 - 每天早上8:15执行
+cron "15 8 * * *" script-path=nfsq.js, timeout=120, tag=农夫山泉抽奖, img-url=gift.fill.system
+
+[MITM]
+hostname = sxs-consumer.nfsq.com.cn

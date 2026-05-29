@@ -1,0 +1,18 @@
+#!name=Weibo Daily Sign v1.4.0
+#!desc=新浪微博每日签到（支持多账号｜Surge）
+#!author=5jwoj (modified)
+#!homepage=https://github.com/5jwoj/BeRich/tree/main/weibo
+
+[MITM]
+# 用 %APPEND% 避免覆盖你原来的 MITM hostname
+hostname = %APPEND% api.weibo.cn, pay.sc.weibo.com, m.weibo.cn, luck.sc.weibo.com
+
+[Script]
+# 1) 抓 Token：匹配 /d+/users/show 接口
+Weibo Token = type=http-request,pattern=^https?:\/\/api\.weibo\.cn\/\d+\/users\/show,requires-header=1,debug=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+
+# 2) 抓 Cookie：匹配微博移动端和钱包域名
+Weibo Cookie = type=http-request,pattern=^https?:\/\/(m\.weibo\.cn|pay\.sc\.weibo\.com)\/,requires-header=1,debug=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
+
+# 3) 定时签到：每天 8:15 / 23:15（启用唤醒通知，超时120秒）
+Weibo Sign = type=cron,cronexp=15 8,23 * * *,timeout=120,wake-system=1,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_sign.js
