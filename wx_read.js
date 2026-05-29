@@ -8,7 +8,7 @@
  * 4. 自动提现：账户余额达到提现阈值（0.3元）时，自动取整并发起微信提现。
  * 5. 风控保护：遇到超时/链接失效等失败情况自动记录今日失败，后续运行将自动跳过，保护账号安全。
  *
- * Version: v1.0.2
+ * Version: v1.0.3
  * Author: z.W.
  * 走个邀请：https://klrk0510001816.eos-shanghai-1.cmecloud.cn/index.html?i19=p1d&q3y=34a&upuid=7813937
  */
@@ -68,37 +68,22 @@ function captureCookie() {
 
     console.log(`${SCRIPT_TAG} [捕获] 检测到凭证 udtauth40: ${udtauth40.substring(0, 15)}...`);
 
-    const raw = $prefs.valueForKey("wxyd1") || "";
-    let accounts = [];
-    if (raw.trim()) {
-      accounts = raw.split("&").filter(Boolean).map(part => {
-        const fields = part.split("#");
-        return {
-          token: fields[0] ? fields[0].trim() : "",
-          name: fields[1] ? fields[1].trim() : ""
-        };
-      }).filter(a => a.token);
-    }
-
-    // 检查是否已存在此凭证
-    const index = accounts.findIndex(a => a.token === udtauth40);
-    if (index === -1) {
-      // 新增账号
-      const newName = `账号${accounts.length + 1}`;
-      accounts.push({ token: udtauth40, name: newName });
-      
-      const serialized = accounts.map(a => `${a.token}#${a.name}`).join("&");
-      $prefs.setValueForKey(serialized, "wxyd1");
-      
-      console.log(`${SCRIPT_TAG} [捕获] 新账号已保存: ${newName}`);
-      $notify(
-        "微信阅读 凭证捕获 ✅",
-        `成功添加 [${newName}]`,
-        "定时任务运行时将自动执行阅读与提现，一IP多号请注意风险！"
-      );
-    } else {
-      console.log(`${SCRIPT_TAG} [捕获] 该账号凭证已存在于列表中，无需重复保存`);
-    }
+    // 单账号直接覆盖模式，并自动清除今日失败缓存
+    const newName = "手动获取账号";
+    const serialized = `${udtauth40}#${newName}`;
+    
+    // 直接覆盖保存最新凭证
+    $prefs.setValueForKey(serialized, "wxyd1");
+    
+    // 手动进入表示需要重新运行，自动重置今日失败跳过缓存，确保接下来的定时任务能立刻成功运行
+    $prefs.removeValueForKey("wxyd_failed_accounts");
+    
+    console.log(`${SCRIPT_TAG} [捕获] 凭证已覆盖保存并自动清除今日失败缓存`);
+    $notify(
+      "微信阅读 凭证更新 🔄",
+      "手动获取成功，已覆盖旧凭证",
+      "已自动重置今日失败保护，请立刻运行定时任务开始阅读！"
+    );
   } catch (e) {
     console.log(`${SCRIPT_TAG} 捕获凭证过程出错: ${e}`);
   }
@@ -111,7 +96,7 @@ function captureCookie() {
 async function main() {
   const raw = $prefs.valueForKey("wxyd1") || "";
   if (!raw.trim()) {
-    console.log(`${SCRIPT_TAG} 未找到有效账号，请先在微信中打开阅读链接捕获凭证，或在 BoxJS 中配置变量 wxyd1`);
+    console.log(`${SCRIPT_TAG} 未找到有效账号，请先在微信中打开阅读链接捕获凭证`);
     $notify("微信阅读 ⚠️", "未找到有效凭证", "请先在微信中打开阅读页面进行自动抓包");
     $done({});
     return;
@@ -133,8 +118,8 @@ async function main() {
     
     if (isAccountFailedToday(token)) {
       console.log(`\n⏭️ 跳过账号 [${name}]：今日已记录失败，不再重试`);
-      console.log(`💡 [提示] 若因网络波动误判或需强制重试，可在 BoxJS 中关闭“风控失败跳过保护”开关，或在首选项中清除 wxyd_failed_accounts 缓存`);
-      summary += `\n👤 [${name}]: ⏭️ 今日已记录失败，跳过 (可用 BoxJS 关闭保护重试)`;
+      console.log(`💡 [提示] 若需强制重试，可手动进一次可乐阅读重新捕获凭证（会自动清除此失败记录），或在首选项中清除 wxyd_failed_accounts 缓存`);
+      summary += `\n👤 [${name}]: ⏭️ 今日已记录失败，跳过 (手动进一次可乐阅读即可重置保护)`;
       continue;
     }
 
