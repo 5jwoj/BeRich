@@ -1,7 +1,7 @@
 {
     "id": "5jwoj.berich",
     "name": "BeRich 订阅合集",
-    "description": "包含京东Cookie同步、阿里云Cookie同步、微博签到和V2EX每日签到的BoxJS订阅合集",
+    "description": "包含京东Cookie同步、阿里云Cookie同步、小阅阅全自动阅读、微博签到和V2EX每日签到的BoxJS订阅合集",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/available.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -225,6 +225,61 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/wx_read.js"
+        },
+        {
+            "id": "xyy_auto_read_qx",
+            "name": "小阅阅全自动阅读",
+            "keys": [
+                "xyy_cookie",
+                "xyy_unionid",
+                "xyy_entry_url",
+                "xyy_max_read"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/xyy",
+            "icons": [
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/wechat.png",
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/wechat.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">微信小阅阅全自动阅读金币结算</h4>",
+                "<p>使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/tree/main/xyy\">xyy README</a></p>"
+            ],
+            "settings": [
+                {
+                    "id": "xyy_cookie",
+                    "name": "小阅阅 Cookie",
+                    "val": "",
+                    "type": "textarea",
+                    "autoGrow": true,
+                    "rows": 2,
+                    "desc": "微信重写自动捕获，也可手动填入 (ysmuid=...)。多账号用 & 或 换行 分隔。"
+                },
+                {
+                    "id": "xyy_unionid",
+                    "name": "账号 UnionID",
+                    "val": "",
+                    "type": "textarea",
+                    "autoGrow": true,
+                    "rows": 2,
+                    "desc": "微信重写自动捕获，也可手动填入。多账号用 & 或 换行 分隔。"
+                },
+                {
+                    "id": "xyy_entry_url",
+                    "name": "入口链接/域名（可选）",
+                    "val": "",
+                    "type": "text",
+                    "desc": "动态解析基准域名，留空使用默认"
+                },
+                {
+                    "id": "xyy_max_read",
+                    "name": "单次运行最大篇数（可选）",
+                    "val": "30",
+                    "type": "text",
+                    "desc": "默认 30 篇"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/xyy/xyy_qx.js"
         }
     ]
 }
