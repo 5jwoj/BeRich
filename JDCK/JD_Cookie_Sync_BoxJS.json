@@ -1,6 +1,6 @@
 {
   "id": "jd_cookie_sync.sub",
-  "name": "京东Cookie同步",
+  "name": "京东助手与资产查询",
   "author": "@z.W.",
   "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/jd.png",
   "repo": "https://github.com/5jwoj/BeRich",
@@ -38,6 +38,66 @@
           "type": "text",
           "placeholder": "请输入Client Secret",
           "desc": "在青龙面板「系统设置→应用设置」中创建应用获取"
+        }
+      ],
+      "author": "@z.W.",
+      "repo": "https://github.com/5jwoj/BeRich",
+      "icons": [
+        "https://raw.githubusercontent.com/Orz-3/mini/master/Alpha/jd.png",
+        "https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png"
+      ]
+    },
+    {
+      "id": "jd_bean_query",
+      "name": "京豆资产查询",
+      "desc": "基于青龙面板日志查询指定账号的京豆详情",
+      "keys": [
+        "jd_ql_url",
+        "jd_ql_client_id",
+        "jd_ql_client_secret",
+        "jd_asset_script_name",
+        "jd_local_pin"
+      ],
+      "settings": [
+        {
+          "id": "jd_ql_url",
+          "name": "青龙面板地址",
+          "val": "",
+          "type": "text",
+          "placeholder": "http://192.168.1.1:5700",
+          "desc": "青龙面板地址(含端口)，共享Cookie同步配置"
+        },
+        {
+          "id": "jd_ql_client_id",
+          "name": "Client ID",
+          "val": "",
+          "type": "text",
+          "placeholder": "请输入 Client ID",
+          "desc": "青龙 Open API Client ID"
+        },
+        {
+          "id": "jd_ql_client_secret",
+          "name": "Client Secret",
+          "val": "",
+          "type": "text",
+          "placeholder": "请输入 Client Secret",
+          "desc": "青龙 Open API Client Secret"
+        },
+        {
+          "id": "jd_asset_script_name",
+          "name": "资产脚本名称",
+          "val": "jd_task_assets",
+          "type": "text",
+          "placeholder": "jd_task_assets",
+          "desc": "青龙中运行资产查询的脚本文件名，默认 jd_task_assets"
+        },
+        {
+          "id": "jd_local_pin",
+          "name": "指定京东账号 Pin",
+          "val": "",
+          "type": "text",
+          "placeholder": "例如: jd_123456 (多个用逗号分隔)",
+          "desc": "填写需要查询的京东 Pin (支持多个)，留空则输出日志中全部账号"
         }
       ],
       "author": "@z.W.",
