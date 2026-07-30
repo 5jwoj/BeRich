@@ -1,13 +1,12 @@
 /*
  * 📦 JD 京豆查询 - 青龙面板专属版 (Quantumult X / Loon / Surge / Stash)
- * Version: v1.3.4
+ * Version: v1.3.5
  * Author: z.W.
  * 
  * 功能说明:
  *   1. 读取 BoxJS 或 MANUAL_CONFIG 中配置的青龙面板信息 (地址/Client ID/Secret)。
  *   2. 读取 BoxJS 中指定的京东账号 Pin (jd_local_pin)，精准过滤并展示该账号在青龙资产日志中的京豆情况。
  *   3. 自动匹配最近一次运行的目标任务与最新历史日志。
- *   4. 增加全流程详细排查日志与多格式账号解析支持。
  * 
  * QX 任务配置 (task_local):
  * 0 9,20 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_QX.js, tag=京豆资产查询, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
@@ -32,13 +31,9 @@ const MANUAL_CONFIG = {
     const scriptName = MANUAL_CONFIG.script_name || $prefs.valueForKey("jd_asset_script_name") || "jd_task_assets";
     const userPinStr = MANUAL_CONFIG.pin || $prefs.valueForKey("jd_local_pin") || $prefs.valueForKey("jd_pin") || "";
 
-    console.log(`\n================== [京豆查询 v1.3.4 启动调试] ==================`);
-    console.log(`[配置检查] 目标脚本名称: "${scriptName}"`);
-    console.log(`[配置检查] 过滤 Pin 配置: "${userPinStr || "未指定(展示全部)"}"`);
-    console.log(`[配置检查] 青龙 URL: "${ql_url || "未配置"}"`);
+    console.log(`[京豆查询 v1.3.5] 目标脚本: ${scriptName} | 过滤Pin: ${userPinStr || "未指定(展示全部)"}`);
 
     if (!ql_url || !ql_client_id || !ql_client_secret) {
-        console.log(`[错误] 青龙参数配置不完整 (ql_url/client_id/client_secret)`);
         $notify("⚠️ 【京豆查询】请设置青龙面板参数", "", "请在 BoxJS 或脚本中配置青龙面板地址(ql_url)、Client ID 及 Secret");
         $done();
         return;
@@ -49,42 +44,27 @@ const MANUAL_CONFIG = {
 
     try {
         // ─── 2. 获取青龙 Token ───
-        console.log(`[步骤 1] 正在请求青龙 Token...`);
         const token = await getQlToken(qlBase, ql_client_id, ql_client_secret);
         if (!token) {
-            console.log(`[错误] 获取青龙 Token 失败！请检查 ID 与 Secret`);
             $notify("❌ 【京豆查询】获取青龙 Token 失败", "", "无法登录青龙面板，请检查 Client ID / Secret");
             $done();
             return;
         }
-        console.log(`[步骤 1] 成功获取 Token: ${token.substring(0, 10)}...`);
 
         // ─── 3. 读取资产脚本最近一次运行日志 ───
-        console.log(`[步骤 2] 正在检索青龙任务列表，匹配名称: "${scriptName}"...`);
         const logContent = await getQlCronLog(qlBase, token, scriptName);
         if (!logContent) {
-            console.log(`[错误] 未能找到匹配 "${scriptName}" 的任务或日志内容为空！`);
             $notify("⚠️ 【京豆查询】读取青龙日志失败", "", `未能找到匹配 ${scriptName} 的最近运行日志`);
             $done();
             return;
         }
 
-        console.log(`[步骤 2] 日志获取成功！总字符数: ${logContent.length}`);
-        console.log(`[日志片段预览 (前400字)]:\n----------------------------------------\n${logContent.substring(0, 400)}\n----------------------------------------`);
-
         // ─── 4. 解析日志数据 ───
-        console.log(`[步骤 3] 开始解析日志中的账号数据...`);
         const allRuns = parseQlLog(logContent);
         const logTimeMatch = logContent.match(/(\d{4}[-\/]\d{2}[-\/]\d{2}\s+\d{2}:\d{2}:\d{2})/);
         const logTimestamp = logTimeMatch ? logTimeMatch[1] : "最近一次运行";
 
-        console.log(`[步骤 3] 日志识别到运行时间: "${logTimestamp}"，已解析账号数量: ${allRuns.length}`);
-        if (allRuns.length > 0) {
-            console.log(`[步骤 3] 解析出的账号列表: [${allRuns.map(r => r.logPin).join(", ")}]`);
-        }
-
         if (allRuns.length === 0) {
-            console.log(`[警告] 日志中未成功正则匹配到账号字段！`);
             $notify("⚠️ 【京豆查询】日志中未找到账户数据", "", `日志时间: ${logTimestamp}`);
             $done();
             return;
@@ -96,7 +76,6 @@ const MANUAL_CONFIG = {
 
         if (userPinStr.trim()) {
             const userPins = userPinStr.split(/[,，\s]+/).filter(Boolean);
-            console.log(`[步骤 4] 正在按指定 Pin [${userPins.join(", ")}] 过滤结果...`);
             const matched = allRuns.filter(run => {
                 return userPins.some(pin => 
                     run.logPin.toLowerCase().includes(pin.toLowerCase()) || 
@@ -106,36 +85,31 @@ const MANUAL_CONFIG = {
             if (matched.length > 0) {
                 targetRuns = matched;
                 isFiltered = true;
-                console.log(`[步骤 4] 匹配成功！保留 ${targetRuns.length} 个目标账号`);
             } else {
-                console.log(`[警告] 用户指定的 Pin [${userPins.join(", ")}] 未能匹配到日志中的任何账号`);
                 $notify("⚠️ 【京豆查询】未在日志中匹配到指定 Pin", "", `配置的 Pin: ${userPinStr}\n日志时间: ${logTimestamp}`);
                 $done();
                 return;
             }
         }
 
+        console.log(`[京豆查询] 匹配成功，输出账号数: ${targetRuns.length} (${logTimestamp})`);
+
         // ─── 6. 转换格式并发送本地通知 ───
         let qlResults = targetRuns.map(run => {
             const { block, logPin } = run;
-            const todayIncome = extractField(block, ['今日收入', '今日增加', '今日获得', '今天收入']);
-            const currentBeans = extractField(block, ['当前京豆', '京豆余额', '当前余额', '总京豆', '余额']);
-            const expiringSoon = extractField(block, ['即将过期', '即将到期', '即将失效', '过期京豆']);
-            console.log(`[账号结果] Pin: ${logPin} | 余额: ${currentBeans} | 今日: ${todayIncome} | 过期: ${expiringSoon}`);
             return {
                 pin: logPin,
-                todayIncome,
-                currentBeans,
-                expiringSoon
+                todayIncome: extractField(block, ['今日收入', '今日增加', '今日获得', '今天收入']),
+                currentBeans: extractField(block, ['当前京豆', '京豆余额', '当前余额', '总京豆', '余额']),
+                expiringSoon: extractField(block, ['即将过期', '即将到期', '即将失效', '过期京豆'])
             };
         });
 
         const sourceLabel = isFiltered ? `指定 Pin 查询 (${logTimestamp})` : `全量日志查询 (${logTimestamp})`;
         sendLocalNotification(qlResults, sourceLabel);
-        console.log(`================== [京豆查询 v1.3.4 执行完毕] ==================\n`);
 
     } catch (e) {
-        console.log(`[异常] 脚本运行抛出错误: ${e.stack || e.message || e}`);
+        console.log(`[京豆查询] 发生异常: ${e.message || e}`);
         $notify("❌ 【京豆查询】脚本执行错误", "", String(e.message || e));
     } finally {
         $done();
@@ -164,7 +138,6 @@ async function getQlCronLog(qlBase, token, scriptName) {
         list = Array.isArray(d.data.data) ? d.data.data : (Array.isArray(d.data) ? d.data : []);
     }
     
-    console.log(`[调试-Task列表] 青龙获取到的任务总数: ${list.length}`);
     const baseName = scriptName.split('/').pop().replace(/\.js$/i, '').toLowerCase();
     
     // 查找包含目标脚本名称的所有任务
@@ -173,11 +146,6 @@ async function getQlCronLog(qlBase, token, scriptName) {
         const name = (c.name || '').toLowerCase();
         const val = (c.value || '').toLowerCase();
         return cmd.includes(baseName) || name.includes(baseName) || val.includes(baseName);
-    });
-
-    console.log(`[调试-Task列表] 包含关键词 "${baseName}" 的任务数量: ${targets.length}`);
-    targets.forEach((t, idx) => {
-        console.log(`  └─ [${idx + 1}] ID: ${t.id || t._id} | Name: "${t.name}" | Command: "${t.command}" | LastRun: ${t.last_execution_time || '未记'}`);
     });
 
     if (targets.length === 0) return null;
@@ -191,7 +159,6 @@ async function getQlCronLog(qlBase, token, scriptName) {
 
     const target = targets[0];
     const targetId = target.id || target._id;
-    console.log(`[调试-Task选中] 锁定最新目标任务: "${target.name}" (ID: ${targetId})`);
 
     // 1. 获取该任务当前最新运行日志
     const logRes = await $task.fetch({
@@ -204,7 +171,6 @@ async function getQlCronLog(qlBase, token, scriptName) {
 
     // 2. 备用逻辑：如果主日志为空，尝试获取任务的历史日志列表
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
-        console.log(`[调试-Log] 主日志为空，尝试调用 /logs 接口获取历史日志列表...`);
         try {
             const historyRes = await $task.fetch({
                 url: `${qlBase}/open/crons/${targetId}/logs`,
@@ -215,11 +181,8 @@ async function getQlCronLog(qlBase, token, scriptName) {
             if (hd && hd.data && Array.isArray(hd.data) && hd.data.length > 0) {
                 const lastLog = hd.data[hd.data.length - 1];
                 content = typeof lastLog === 'string' ? lastLog : (lastLog.content || lastLog.log);
-                console.log(`[调试-Log] 从历史日志列表中获取成功`);
             }
-        } catch (e) {
-            console.log(`[调试-Log] 历史日志获取异常: ${e.message || e}`);
-        }
+        } catch (e) {}
     }
 
     return content;
@@ -229,9 +192,6 @@ function parseQlLog(logContent) {
     const allRuns = [];
     
     // 多模式匹配账号 header
-    // 模式1: [Run] 运行账户: xxx
-    // 模式2: 【京东账号1】xxx 或 【账号1】xxx
-    // 模式3: 账号1：xxx 或 账号 1: xxx
     const runPatterns = [
         /\[Run\]\s*运行账户:\s*(\S+)/g,
         /【(?:京东)?账号\s*\d*】\s*(\S+)/g,
@@ -241,17 +201,15 @@ function parseQlLog(logContent) {
     let matches = [];
     for (const pattern of runPatterns) {
         let rm;
-        pattern.lastIndex = 0; // 重置正则游标
+        pattern.lastIndex = 0;
         while ((rm = pattern.exec(logContent)) !== null) {
             matches.push({ logPin: rm[1].trim(), index: rm.index });
         }
-        if (matches.length > 0) break; // 如果某种模式匹配成功，则采用该模式
+        if (matches.length > 0) break;
     }
 
-    // 按在文本中的出现顺序排序
     matches.sort((a, b) => a.index - b.index);
 
-    // 去重相邻或相同索引的匹配
     const uniqueRuns = [];
     matches.forEach(m => {
         if (!uniqueRuns.some(u => u.index === m.index || u.logPin === m.logPin)) {
