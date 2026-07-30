@@ -1,12 +1,12 @@
 /*
  * 📦 JD 京豆查询 - 青龙面板专属版 (Quantumult X / Loon / Surge / Stash)
- * Version: v1.3.2
+ * Version: v1.3.3
  * Author: z.W.
  * 
  * 功能说明:
  *   1. 读取 BoxJS 或 MANUAL_CONFIG 中配置的青龙面板信息 (地址/Client ID/Secret)。
  *   2. 读取 BoxJS 中指定的京东账号 Pin (jd_local_pin)，精准过滤并展示该账号在青龙资产日志中的京豆情况。
- *   3. 无需手机端捕获 Cookie 或抓包，完全基于青龙面板日志数据进行汇报。
+ *   3. 自动匹配最近一次运行的目标任务与最新历史日志（不限制必须今天运行）。
  * 
  * QX 任务配置 (task_local):
  * 0 9,20 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_QX.js, tag=京豆资产查询, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
@@ -31,7 +31,7 @@ const MANUAL_CONFIG = {
     const scriptName = MANUAL_CONFIG.script_name || $prefs.valueForKey("jd_asset_script_name") || "jd_task_assets";
     const userPinStr = MANUAL_CONFIG.pin || $prefs.valueForKey("jd_local_pin") || $prefs.valueForKey("jd_pin") || "";
 
-    console.log(`[京豆查询 v1.3.2] 目标脚本名称: ${scriptName}, 目标 Pin 配置: ${userPinStr || "未指定(展示全部)"}`);
+    console.log(`[京豆查询 v1.3.3] 目标脚本名称: ${scriptName}, 目标 Pin 配置: ${userPinStr || "未指定(展示全部)"}`);
 
     if (!ql_url || !ql_client_id || !ql_client_secret) {
         $notify("⚠️ 【京豆查询】请设置青龙面板参数", "", "请在 BoxJS 或脚本中配置青龙面板地址(ql_url)、Client ID 及 Secret");
@@ -51,18 +51,18 @@ const MANUAL_CONFIG = {
             return;
         }
 
-        // ─── 3. 读取资产脚本运行日志 ───
+        // ─── 3. 读取资产脚本最近一次运行日志 ───
         const logContent = await getQlCronLog(qlBase, token, scriptName);
         if (!logContent) {
-            $notify("⚠️ 【京豆查询】读取青龙日志失败", "", `未能找到 ${scriptName} 的最新运行日志`);
+            $notify("⚠️ 【京豆查询】读取青龙日志失败", "", `未能找到匹配 ${scriptName} 的最近运行日志`);
             $done();
             return;
         }
 
         // ─── 4. 解析日志数据 ───
         const allRuns = parseQlLog(logContent);
-        const logTimeMatch = logContent.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
-        const logTimestamp = logTimeMatch ? logTimeMatch[1] : "未知时间";
+        const logTimeMatch = logContent.match(/(\d{4}[-\/]\d{2}[-\/]\d{2}\s+\d{2}:\d{2}:\d{2})/);
+        const logTimestamp = logTimeMatch ? logTimeMatch[1] : "最近一次运行";
 
         if (allRuns.length === 0) {
             $notify("⚠️ 【京豆查询】日志中未找到账户数据", "", `日志时间: ${logTimestamp}`);
@@ -134,17 +134,55 @@ async function getQlCronLog(qlBase, token, scriptName) {
     if (d && d.data) {
         list = Array.isArray(d.data.data) ? d.data.data : (Array.isArray(d.data) ? d.data : []);
     }
-    const baseName = scriptName.split('/').pop().replace(/\.js$/i, '');
-    const target = list.find(c => (c.command || '').includes(baseName) || (c.name || '').includes(baseName));
-    if (!target) return null;
+    
+    const baseName = scriptName.split('/').pop().replace(/\.js$/i, '').toLowerCase();
+    
+    // 查找包含目标脚本名称的所有任务
+    const targets = list.filter(c => {
+        const cmd = (c.command || '').toLowerCase();
+        const name = (c.name || '').toLowerCase();
+        const val = (c.value || '').toLowerCase();
+        return cmd.includes(baseName) || name.includes(baseName) || val.includes(baseName);
+    });
 
+    if (targets.length === 0) return null;
+
+    // 按最后一次运行时间 (last_execution_time / updatedAt / id) 倒序排列，优先取最新运行过的任务
+    targets.sort((a, b) => {
+        const timeA = new Date(a.last_execution_time || a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.last_execution_time || b.updatedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+    });
+
+    const target = targets[0];
+    const targetId = target.id || target._id;
+
+    // 1. 获取该任务当前最新运行日志
     const logRes = await $task.fetch({
-        url: `${qlBase}/open/crons/${target.id || target._id}/log`,
+        url: `${qlBase}/open/crons/${targetId}/log`,
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
     });
     const ld = typeof logRes.body === "string" ? JSON.parse(logRes.body) : logRes.body;
-    return ld && ld.data ? (typeof ld.data === 'string' ? ld.data : ld.data.log || ld.data.content) : null;
+    let content = ld && ld.data ? (typeof ld.data === 'string' ? ld.data : ld.data.log || ld.data.content) : null;
+
+    // 2. 备用逻辑：如果主日志为空，尝试获取任务的历史日志列表中的最新一份
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+        try {
+            const historyRes = await $task.fetch({
+                url: `${qlBase}/open/crons/${targetId}/logs`,
+                method: "GET",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const hd = typeof historyRes.body === "string" ? JSON.parse(historyRes.body) : historyRes.body;
+            if (hd && hd.data && Array.isArray(hd.data) && hd.data.length > 0) {
+                const lastLog = hd.data[hd.data.length - 1];
+                content = typeof lastLog === 'string' ? lastLog : (lastLog.content || lastLog.log);
+            }
+        } catch (e) {}
+    }
+
+    return content;
 }
 
 function parseQlLog(logContent) {
