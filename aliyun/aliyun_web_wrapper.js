@@ -145,14 +145,32 @@ async function start() {
     console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v10.0...');
     console.log('═'.repeat(45));
 
-    // 尝试多种可能的 Key
-    const ckVal = $prefs.valueForKey('aliyunWeb_data') || $prefs.valueForKey('aliyunWeb_Cookie');
-    if (!ckVal) {
-        console.log('⚠️ 【重要提示】在 QX 本地存储 ($prefs) 中未读到 aliyunWeb_data！');
+    // 尝试多种可能的 Key 并自动转换 QX 抓包格式
+    let rawCk = $prefs.valueForKey('aliyunWeb_data') || $prefs.valueForKey('aliyunWeb_Cookie');
+    
+    function normalizeCookie(raw) {
+        if (!raw) return '';
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                console.log(`💡 检测到 QX JSON 格式的 Cookie 数组 (含 ${parsed.length} 个账号)，正在自动解析提纯...`);
+                const tokens = parsed.map(item => (typeof item === 'object' && item) ? (item.token || item.cookie || item.Cookie || String(item)) : String(item));
+                return tokens.filter(Boolean).join('@');
+            } else if (typeof parsed === 'object' && parsed) {
+                return parsed.token || parsed.cookie || parsed.Cookie || raw;
+            }
+        } catch (e) {}
+        return raw;
+    }
+
+    const cleanCk = normalizeCookie(rawCk);
+
+    if (!cleanCk) {
+        console.log('⚠️ 【重要提示】在 QX 本地存储 ($prefs) 中未读到有效的 aliyunWeb_data！');
         console.log('💡 请打开【阿里云 APP】 -> 【积分商城】进行抓包，或在 BoxJs 中配置并保存 Cookie。');
         $notify('阿里云社区', '⚠️ 未检测到 Cookie (aliyunWeb_data)', '请先打开阿里云 APP -> 积分商城 抓取 Cookie');
     } else {
-        console.log(`✅ 已成功从 QX 存储读取 Cookie (长度: ${ckVal.length} 字符)`);
+        console.log(`✅ 已成功解析并准备 Cookie (提纯后长度: ${cleanCk.length} 字符)`);
     }
 
     const cheerioCode = await getCheerioCode();
@@ -167,6 +185,18 @@ async function start() {
         $done(); return;
     }
 
+    // 拦截与修复 Env.prototype.getdata 以返回提纯后的 Cookie
+    const CurrentEnv = globalThis.Env;
+    if (CurrentEnv && CurrentEnv.prototype) {
+        const origGetdata = CurrentEnv.prototype.getdata;
+        CurrentEnv.prototype.getdata = function(key) {
+            if (key === 'aliyunWeb_data' || key === 'aliyunWeb_Cookie') {
+                return cleanCk || origGetdata.call(this, key);
+            }
+            return origGetdata.call(this, key);
+        };
+    }
+
     console.log('📥 正在下载阿里云社区主脚本...');
     try {
         const mainScript = await httpGet(MAIN_SCRIPT_URL, 30000);
@@ -174,12 +204,8 @@ async function start() {
         console.log('═'.repeat(45));
         console.log('▶️ 开始执行主脚本...');
         
-        // 独立作用域执行
-        const runMain = new Function(mainScript + '\nif (typeof main === "function") { return main(); }');
-        const res = runMain();
-        if (res && typeof res.then === 'function') {
-            await res;
-        }
+        // 直接 eval 执行主脚本（其底部 IIFE 会自动触发 checkEnv 及 main 运行）
+        eval(mainScript);
         
         console.log('═'.repeat(45));
         console.log('🎉 阿里云社区任务全部执行完成！');
