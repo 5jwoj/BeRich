@@ -1,10 +1,10 @@
 /*
-阿里云社区任务脚本 - Quantumult X 专用包装器 (v5.0 终极拦截版)
+阿里云社区任务脚本 - Quantumult X 专用包装器 (v6.0 深度拦截版)
 @Repository: https://github.com/5jwoj/BeRich
 @Description: 
-  1. 下载完整版 cheerio.js 并缓存
-  2. 注入 cheerio 到全局
-  3. 彻底拦截 Env.prototype.initCheerio，阻止原始脚本再次发起 404 下载
+  1. 下载完整版 cheerio.js 并缓存 (96KB)
+  2. 深度劫持 QX 环境中的 Env 类与原型链
+  3. 强制在 new Env() 实例化时给 $ 挂载 $.Cheerio 并彻底封锁 initCheerio 下载
 */
 
 const CHEERIO_URLS = [
@@ -16,8 +16,8 @@ const CHEERIO_URLS = [
 
 const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/leiyiyan/resource/main/script/aliyun_web/aliyun_web.js';
 
-// v5 强刷新 Key
-const CACHE_KEY = '5jwoj_cheerio_code_v5';
+// v6 强刷新 Key
+const CACHE_KEY = '5jwoj_cheerio_code_v6';
 
 function httpGet(url, timeout = 30000) {
     return new Promise((resolve, reject) => {
@@ -62,14 +62,15 @@ async function getCheerioCode() {
     return null;
 }
 
-function injectAndLockCheerio(cheerioCode) {
+function injectAndHijackEnv(cheerioCode) {
     try {
+        // 1. 执行 cheerio 代码定义 createCheerio()
         eval(cheerioCode);
         if (typeof createCheerio !== 'function') throw new Error('未找到 createCheerio 函数');
         const cheerioInstance = createCheerio();
         if (!cheerioInstance || typeof cheerioInstance.load !== 'function') throw new Error('createCheerio() 初始化失败');
 
-        // 1. 挂载到全局作用域的所有可能名字
+        // 2. 挂载到全局
         globalThis.Cheerio = cheerioInstance;
         globalThis.cheerio = cheerioInstance;
         if (typeof self !== 'undefined') {
@@ -77,52 +78,54 @@ function injectAndLockCheerio(cheerioCode) {
             self.cheerio = cheerioInstance;
         }
 
-        // 辅助：给实例添加 cheerio 和 initCheerio 拦截
-        function patchInstance(inst) {
+        // 辅助补丁函数：确保任何 $ 实例都有 Cheerio
+        function patchEnvInstance(inst) {
             inst.Cheerio = cheerioInstance;
             inst.cheerio = cheerioInstance;
             inst.initCheerio = function() {
-                console.log('⚡ [拦截成功] 阻止主脚本二次下载，直接返回已注入的 Cheerio');
+                console.log('⚡ [成功拦截] 阻止 $.initCheerio() 二次下载 404 链接，直接返回预载 Cheerio');
                 this.Cheerio = cheerioInstance;
                 this.cheerio = cheerioInstance;
                 return Promise.resolve(cheerioInstance);
             };
         }
 
-        // 2. 劫持 Env 类，确保只要一创建 Env 实例或调用 initCheerio，都返回已加载的 cheerio
-        let _realEnv = globalThis.Env;
-        Object.defineProperty(globalThis, 'Env', {
-            get() {
-                return function(...args) {
-                    const inst = _realEnv ? new _realEnv(...args) : {};
-                    patchInstance(inst);
-                    return inst;
-                };
-            },
-            set(v) {
-                _realEnv = v;
-                if (_realEnv && _realEnv.prototype) {
-                    _realEnv.prototype.initCheerio = function() {
-                        console.log('⚡ [拦截成功] 阻止 Env.prototype 二次下载，直接返回已注入的 Cheerio');
-                        this.Cheerio = cheerioInstance;
-                        this.cheerio = cheerioInstance;
-                        return Promise.resolve(cheerioInstance);
-                    };
-                }
-            },
-            configurable: true
-        });
+        // 3. 拦截现有全局 Env 类
+        const CurrentEnv = globalThis.Env || (typeof Env !== 'undefined' ? Env : null);
 
-        console.log('✅ Cheerio 模块及 Env.initCheerio 拦截器成功注入！');
+        if (CurrentEnv) {
+            // A. 补丁原型链
+            if (CurrentEnv.prototype) {
+                CurrentEnv.prototype.Cheerio = cheerioInstance;
+                CurrentEnv.prototype.cheerio = cheerioInstance;
+                CurrentEnv.prototype.initCheerio = function() {
+                    console.log('⚡ [成功拦截] 阻止 Env.prototype.initCheerio 二次下载，使用预载 Cheerio');
+                    this.Cheerio = cheerioInstance;
+                    this.cheerio = cheerioInstance;
+                    return Promise.resolve(cheerioInstance);
+                };
+            }
+
+            // B. 劫持构造函数：当执行 const $ = new Env(...) 时强制挂载 $.Cheerio
+            function ProxyEnv(name, opts) {
+                const inst = new CurrentEnv(name, opts);
+                patchEnvInstance(inst);
+                return inst;
+            }
+            ProxyEnv.prototype = CurrentEnv.prototype;
+            globalThis.Env = ProxyEnv;
+        }
+
+        console.log('✅ Cheerio 模块及 Env 类劫持补丁注入成功！');
         return true;
     } catch (e) {
-        console.log(`❌ Cheerio 注入失败: ${e}`);
+        console.log(`❌ Cheerio 注入/劫持失败: ${e}`);
         return false;
     }
 }
 
 async function main() {
-    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v5.0...');
+    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v6.0...');
     console.log('═'.repeat(45));
 
     const cheerioCode = await getCheerioCode();
@@ -132,7 +135,7 @@ async function main() {
         $done(); return;
     }
 
-    if (!injectAndLockCheerio(cheerioCode)) {
+    if (!injectAndHijackEnv(cheerioCode)) {
         $notify('阿里云社区', '❌ Cheerio 注入失败', '初始化 createCheerio() 失败');
         $done(); return;
     }
