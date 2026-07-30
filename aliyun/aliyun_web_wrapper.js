@@ -1,10 +1,10 @@
 /*
-阿里云社区任务脚本 - Quantumult X 专用包装器 (v6.0 深度拦截版)
+阿里云社区任务脚本 - Quantumult X 专用包装器 (v7.0 终极完成版)
 @Repository: https://github.com/5jwoj/BeRich
 @Description: 
-  1. 下载完整版 cheerio.js 并缓存 (96KB)
-  2. 深度劫持 QX 环境中的 Env 类与原型链
-  3. 强制在 new Env() 实例化时给 $ 挂载 $.Cheerio 并彻底封锁 initCheerio 下载
+  1. 缓存并注入完整版 Cheerio.js (96KB)
+  2. 劫持 Env 避免二次下载 404 链接
+  3. 显式调用 $done() 彻底解决 QX 界面一直显示“正在下载/运行中”停不下来的问题！
 */
 
 const CHEERIO_URLS = [
@@ -16,8 +16,8 @@ const CHEERIO_URLS = [
 
 const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/leiyiyan/resource/main/script/aliyun_web/aliyun_web.js';
 
-// v6 强刷新 Key
-const CACHE_KEY = '5jwoj_cheerio_code_v6';
+// v7 缓存 Key
+const CACHE_KEY = '5jwoj_cheerio_code_v7';
 
 function httpGet(url, timeout = 30000) {
     return new Promise((resolve, reject) => {
@@ -64,13 +64,11 @@ async function getCheerioCode() {
 
 function injectAndHijackEnv(cheerioCode) {
     try {
-        // 1. 执行 cheerio 代码定义 createCheerio()
         eval(cheerioCode);
         if (typeof createCheerio !== 'function') throw new Error('未找到 createCheerio 函数');
         const cheerioInstance = createCheerio();
         if (!cheerioInstance || typeof cheerioInstance.load !== 'function') throw new Error('createCheerio() 初始化失败');
 
-        // 2. 挂载到全局
         globalThis.Cheerio = cheerioInstance;
         globalThis.cheerio = cheerioInstance;
         if (typeof self !== 'undefined') {
@@ -78,35 +76,31 @@ function injectAndHijackEnv(cheerioCode) {
             self.cheerio = cheerioInstance;
         }
 
-        // 辅助补丁函数：确保任何 $ 实例都有 Cheerio
         function patchEnvInstance(inst) {
             inst.Cheerio = cheerioInstance;
             inst.cheerio = cheerioInstance;
             inst.initCheerio = function() {
-                console.log('⚡ [成功拦截] 阻止 $.initCheerio() 二次下载 404 链接，直接返回预载 Cheerio');
+                console.log('⚡ [成功拦截] 阻止 $.initCheerio() 二次下载 404 链接');
                 this.Cheerio = cheerioInstance;
                 this.cheerio = cheerioInstance;
                 return Promise.resolve(cheerioInstance);
             };
         }
 
-        // 3. 拦截现有全局 Env 类
         const CurrentEnv = globalThis.Env || (typeof Env !== 'undefined' ? Env : null);
 
         if (CurrentEnv) {
-            // A. 补丁原型链
             if (CurrentEnv.prototype) {
                 CurrentEnv.prototype.Cheerio = cheerioInstance;
                 CurrentEnv.prototype.cheerio = cheerioInstance;
                 CurrentEnv.prototype.initCheerio = function() {
-                    console.log('⚡ [成功拦截] 阻止 Env.prototype.initCheerio 二次下载，使用预载 Cheerio');
+                    console.log('⚡ [成功拦截] 阻止 Env.prototype.initCheerio 二次下载');
                     this.Cheerio = cheerioInstance;
                     this.cheerio = cheerioInstance;
                     return Promise.resolve(cheerioInstance);
                 };
             }
 
-            // B. 劫持构造函数：当执行 const $ = new Env(...) 时强制挂载 $.Cheerio
             function ProxyEnv(name, opts) {
                 const inst = new CurrentEnv(name, opts);
                 patchEnvInstance(inst);
@@ -116,20 +110,27 @@ function injectAndHijackEnv(cheerioCode) {
             globalThis.Env = ProxyEnv;
         }
 
-        console.log('✅ Cheerio 模块及 Env 类劫持补丁注入成功！');
+        console.log('✅ Cheerio 模块及 Env 拦截器成功注入！');
         return true;
     } catch (e) {
-        console.log(`❌ Cheerio 注入/劫持失败: ${e}`);
+        console.log(`❌ Cheerio 注入失败: ${e}`);
         return false;
     }
 }
 
-async function main() {
-    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v6.0...');
+async function runWrapper() {
+    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v7.0...');
     console.log('═'.repeat(45));
+
+    // 检查 Cookie 提示
+    const userCookie = $prefs.valueForKey('aliyunWeb_data');
+    if (!userCookie) {
+        console.log('⚠️ 提醒：当前未检测到 aliyunWeb_data (Cookie)，请确保已在 QX 节点/BoxJs 中配置。');
+    }
 
     const cheerioCode = await getCheerioCode();
     if (!cheerioCode) {
+
         console.log('❌ 无法获取完整的 cheerio.js');
         $notify('阿里云社区', '❌ Cheerio 加载失败', '请检查网络或代理');
         $done(); return;
@@ -146,12 +147,24 @@ async function main() {
         console.log(`✅ 主脚本获取成功 (${mainScript.length} 字节)`);
         console.log('═'.repeat(45));
         console.log('▶️ 开始执行主脚本...');
+        
+        // 关键点：用 eval 执行主脚本，并等待 async main() 完成后显式调用 $done()
         eval(mainScript);
+        
+        // 如果主脚本中定义了 main()，确保等待它执行完
+        if (typeof main === 'function') {
+            await main();
+        }
+        
+        console.log('═'.repeat(45));
+        console.log('🎉 阿里云社区任务全部执行完成！');
     } catch (e) {
-        console.log(`❌ 主脚本运行失败: ${e}`);
-        $notify('阿里云社区', '❌ 主脚本运行失败', String(e));
+        console.log(`❌ 主脚本运行出错: ${e}`);
+        $notify('阿里云社区', '❌ 主脚本运行出错', String(e));
+    } finally {
+        // 必须调用 $done() 告诉 Quantumult X 脚本已彻底结束！
         $done();
     }
 }
 
-main();
+runWrapper();
