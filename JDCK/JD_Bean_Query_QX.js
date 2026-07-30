@@ -1,6 +1,6 @@
 /*
  * 📦 JD 京豆查询 - 青龙面板专属版 (Quantumult X / Loon / Surge / Stash)
- * Version: v1.3.1
+ * Version: v1.3.2
  * Author: z.W.
  * 
  * 功能说明:
@@ -18,7 +18,7 @@ const MANUAL_CONFIG = {
     url: "",                 // 青龙面板地址，例如 "http://192.168.1.1:5700"
     id: "",                  // Client ID
     secret: "",              // Client Secret
-    script_name: "jd_task_assets", // 资产脚本名称
+    script_name: "",         // 资产脚本名称（留空优先从 BoxJS 中读取 jd_asset_script_name，默认 jd_task_assets）
     pin: ""                  // 指定京东账号 Pin (例如 "jd_123456" 或多个逗号分隔 "jd_12,jd_34"，留空则展示日志内全部账号)
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
@@ -31,7 +31,7 @@ const MANUAL_CONFIG = {
     const scriptName = MANUAL_CONFIG.script_name || $prefs.valueForKey("jd_asset_script_name") || "jd_task_assets";
     const userPinStr = MANUAL_CONFIG.pin || $prefs.valueForKey("jd_local_pin") || $prefs.valueForKey("jd_pin") || "";
 
-    console.log(`[京豆查询 v1.3.1] 目标 Pin 配置: ${userPinStr || "未指定(展示全部)"}`);
+    console.log(`[京豆查询 v1.3.2] 目标脚本名称: ${scriptName}, 目标 Pin 配置: ${userPinStr || "未指定(展示全部)"}`);
 
     if (!ql_url || !ql_client_id || !ql_client_secret) {
         $notify("⚠️ 【京豆查询】请设置青龙面板参数", "", "请在 BoxJS 或脚本中配置青龙面板地址(ql_url)、Client ID 及 Secret");
