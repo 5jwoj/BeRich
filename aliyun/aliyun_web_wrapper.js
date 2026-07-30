@@ -1,10 +1,10 @@
 /*
-阿里云社区任务脚本 - Quantumult X 专用包装器 (v9.0 完美完美版)
+阿里云社区任务脚本 - Quantumult X 专用包装器 (v10.0 任务/抓包双模全能版)
 @Repository: https://github.com/5jwoj/BeRich
 @Description: 
-  1. 预加载 352KB 完整版 Cheerio
-  2. 拦截全局 loadCheerio 及 $.initCheerio，完全接管 HTML 解析引擎
-  3. 支持自动/手动 Cookie 提示与安全闭环
+  1. 支持 Cron 定时任务与 HTTP Rewrite 抓包双重模式
+  2. 预加载 352KB 完整版 Cheerio
+  3. 兼容 BoxJs 及 $prefs 的 aliyunWeb_data Key 检查与打印
 */
 
 const CHEERIO_URLS = [
@@ -16,8 +16,8 @@ const CHEERIO_URLS = [
 
 const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/leiyiyan/resource/main/script/aliyun_web/aliyun_web.js';
 
-// v9 缓存 Key
-const CACHE_KEY = '5jwoj_cheerio_code_v9';
+// v10 缓存 Key
+const CACHE_KEY = '5jwoj_cheerio_code_v10';
 
 function httpGet(url, timeout = 30000) {
     return new Promise((resolve, reject) => {
@@ -66,7 +66,6 @@ function injectAndHijackEnv(cheerioCode) {
         const cheerioInstance = createCheerio();
         if (!cheerioInstance || typeof cheerioInstance.load !== 'function') throw new Error('createCheerio() 初始化失败');
 
-        // 全局挂载
         globalThis.Cheerio = cheerioInstance;
         globalThis.cheerio = cheerioInstance;
         if (typeof self !== 'undefined') {
@@ -74,9 +73,8 @@ function injectAndHijackEnv(cheerioCode) {
             self.cheerio = cheerioInstance;
         }
 
-        // 拦截全局 loadCheerio
         globalThis.loadCheerio = function() {
-            console.log('⚡ [成功拦截] 直接返回本地预载完成的 Cheerio 模块');
+            console.log('⚡ [拦截成功] 返回预载完成的 Cheerio 模块');
             return Promise.resolve(cheerioInstance);
         };
 
@@ -84,15 +82,11 @@ function injectAndHijackEnv(cheerioCode) {
             inst.Cheerio = cheerioInstance;
             inst.cheerio = cheerioInstance;
             inst.initCheerio = function() {
-                console.log('⚡ [成功拦截] 阻止 $.initCheerio() 二次下载');
                 this.Cheerio = cheerioInstance;
-                this.cheerio = cheerioInstance;
                 return Promise.resolve(cheerioInstance);
             };
             inst.loadCheerio = function() {
-                console.log('⚡ [成功拦截] 阻止 $.loadCheerio() 二次下载');
                 this.Cheerio = cheerioInstance;
-                this.cheerio = cheerioInstance;
                 return Promise.resolve(cheerioInstance);
             };
         }
@@ -130,16 +124,34 @@ function injectAndHijackEnv(cheerioCode) {
     }
 }
 
-async function runWrapper() {
-    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v9.0...');
+async function start() {
+    // 判别模式：如果是 Rewrite 抓包触发（存在 $request 或 $response），直接运行主脚本抓包逻辑
+    const isRewrite = (typeof $request !== 'undefined') || (typeof $response !== 'undefined');
+
+    if (isRewrite) {
+        console.log('🌐 [抓包模式] 检测到阿里云 API 请求，正在抓取/更新 Cookie...');
+        try {
+            const mainScript = await httpGet(MAIN_SCRIPT_URL, 30000);
+            eval(mainScript);
+        } catch (e) {
+            console.log(`❌ 抓包脚本运行失败: ${e}`);
+        } finally {
+            $done({});
+        }
+        return;
+    }
+
+    // 定时任务 / 手动运行模式
+    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v10.0...');
     console.log('═'.repeat(45));
 
-    const userCk = $prefs.valueForKey('aliyunWeb_data');
-    if (!userCk) {
-        console.log('⚠️ 【重要提醒】当前未检测到 Cookie (aliyunWeb_data)！');
-        console.log('💡 请打开【阿里云 APP】 -> 首页 -> 积分商城 抓取 Cookie 后再运行。');
+    // 尝试多种可能的 Key
+    const ckVal = $prefs.valueForKey('aliyunWeb_data') || $prefs.valueForKey('aliyunWeb_Cookie');
+    if (!ckVal) {
+        console.log('⚠️ 【重要提示】在 QX 本地存储 ($prefs) 中未读到 aliyunWeb_data！');
+        console.log('💡 如果您在 BoxJs 中能看到，请在 BoxJs 点击【保存】或在 BoxJs 中应用订阅数据。');
     } else {
-        console.log('✅ 已检测到阿里云 Cookie，准备开始自动任务...');
+        console.log(`✅ 已成功从 QX 存储读取 Cookie (长度: ${ckVal.length} 字符)`);
     }
 
     const cheerioCode = await getCheerioCode();
@@ -161,6 +173,7 @@ async function runWrapper() {
         console.log('═'.repeat(45));
         console.log('▶️ 开始执行主脚本...');
         
+        // 独立作用域执行
         const runMain = new Function(mainScript + '\nif (typeof main === "function") { return main(); }');
         const res = runMain();
         if (res && typeof res.then === 'function') {
@@ -177,4 +190,4 @@ async function runWrapper() {
     }
 }
 
-runWrapper();
+start();
