@@ -1,11 +1,10 @@
 /*
-阿里云社区任务脚本 - Quantumult X 专用包装器 (v8.0 作用域隔离修复版)
+阿里云社区任务脚本 - Quantumult X 专用包装器 (v9.0 完美完美版)
 @Repository: https://github.com/5jwoj/BeRich
 @Description: 
-  1. 缓存并注入完整版 Cheerio.js (352KB)
-  2. 劫持 Env 避免二次下载 404 链接
-  3. 使用 new Function 隔离作用域，彻底解决 userCookie 重复变量声明冲突
-  4. 显式调用 $done() 完成脚本任务闭环
+  1. 预加载 352KB 完整版 Cheerio
+  2. 拦截全局 loadCheerio 及 $.initCheerio，完全接管 HTML 解析引擎
+  3. 支持自动/手动 Cookie 提示与安全闭环
 */
 
 const CHEERIO_URLS = [
@@ -17,8 +16,8 @@ const CHEERIO_URLS = [
 
 const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/leiyiyan/resource/main/script/aliyun_web/aliyun_web.js';
 
-// v8 缓存 Key
-const CACHE_KEY = '5jwoj_cheerio_code_v8';
+// v9 缓存 Key
+const CACHE_KEY = '5jwoj_cheerio_code_v9';
 
 function httpGet(url, timeout = 30000) {
     return new Promise((resolve, reject) => {
@@ -47,14 +46,11 @@ async function getCheerioCode() {
     console.log('📥 正在获取完整版 cheerio.js (需约 96KB)...');
     for (const url of CHEERIO_URLS) {
         try {
-            console.log(`🔄 尝试下载: ${url}`);
             code = await httpGet(url, 25000);
             if (code && code.includes('createCheerio') && code.length > 80000) {
                 console.log(`✅ 下载成功！文件完整 (${code.length} 字节)，写入本地缓存`);
                 $prefs.setValueForKey(code, CACHE_KEY);
                 return code;
-            } else if (code) {
-                console.log(`⚠️ 文件不完整 (仅 ${code.length} 字节)，跳过此源`);
             }
         } catch (e) {
             console.log(`⚠️ 下载失败: ${e}`);
@@ -70,6 +66,7 @@ function injectAndHijackEnv(cheerioCode) {
         const cheerioInstance = createCheerio();
         if (!cheerioInstance || typeof cheerioInstance.load !== 'function') throw new Error('createCheerio() 初始化失败');
 
+        // 全局挂载
         globalThis.Cheerio = cheerioInstance;
         globalThis.cheerio = cheerioInstance;
         if (typeof self !== 'undefined') {
@@ -77,11 +74,23 @@ function injectAndHijackEnv(cheerioCode) {
             self.cheerio = cheerioInstance;
         }
 
+        // 拦截全局 loadCheerio
+        globalThis.loadCheerio = function() {
+            console.log('⚡ [成功拦截] 直接返回本地预载完成的 Cheerio 模块');
+            return Promise.resolve(cheerioInstance);
+        };
+
         function patchEnvInstance(inst) {
             inst.Cheerio = cheerioInstance;
             inst.cheerio = cheerioInstance;
             inst.initCheerio = function() {
-                console.log('⚡ [成功拦截] 阻止 $.initCheerio() 二次下载 404 链接');
+                console.log('⚡ [成功拦截] 阻止 $.initCheerio() 二次下载');
+                this.Cheerio = cheerioInstance;
+                this.cheerio = cheerioInstance;
+                return Promise.resolve(cheerioInstance);
+            };
+            inst.loadCheerio = function() {
+                console.log('⚡ [成功拦截] 阻止 $.loadCheerio() 二次下载');
                 this.Cheerio = cheerioInstance;
                 this.cheerio = cheerioInstance;
                 return Promise.resolve(cheerioInstance);
@@ -95,9 +104,11 @@ function injectAndHijackEnv(cheerioCode) {
                 CurrentEnv.prototype.Cheerio = cheerioInstance;
                 CurrentEnv.prototype.cheerio = cheerioInstance;
                 CurrentEnv.prototype.initCheerio = function() {
-                    console.log('⚡ [成功拦截] 阻止 Env.prototype.initCheerio 二次下载');
                     this.Cheerio = cheerioInstance;
-                    this.cheerio = cheerioInstance;
+                    return Promise.resolve(cheerioInstance);
+                };
+                CurrentEnv.prototype.loadCheerio = function() {
+                    this.Cheerio = cheerioInstance;
                     return Promise.resolve(cheerioInstance);
                 };
             }
@@ -111,7 +122,7 @@ function injectAndHijackEnv(cheerioCode) {
             globalThis.Env = ProxyEnv;
         }
 
-        console.log('✅ Cheerio 模块及 Env 拦截器成功注入！');
+        console.log('✅ Cheerio 模块及环境拦截补丁注入成功！');
         return true;
     } catch (e) {
         console.log(`❌ Cheerio 注入失败: ${e}`);
@@ -120,12 +131,15 @@ function injectAndHijackEnv(cheerioCode) {
 }
 
 async function runWrapper() {
-    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v8.0...');
+    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v9.0...');
     console.log('═'.repeat(45));
 
-    const _chkCk = $prefs.valueForKey('aliyunWeb_data');
-    if (!_chkCk) {
-        console.log('⚠️ 提醒：当前未检测到 aliyunWeb_data (Cookie)，请确保已在 QX / BoxJs 中配置。');
+    const userCk = $prefs.valueForKey('aliyunWeb_data');
+    if (!userCk) {
+        console.log('⚠️ 【重要提醒】当前未检测到 Cookie (aliyunWeb_data)！');
+        console.log('💡 请打开【阿里云 APP】 -> 首页 -> 积分商城 抓取 Cookie 后再运行。');
+    } else {
+        console.log('✅ 已检测到阿里云 Cookie，准备开始自动任务...');
     }
 
     const cheerioCode = await getCheerioCode();
@@ -147,7 +161,6 @@ async function runWrapper() {
         console.log('═'.repeat(45));
         console.log('▶️ 开始执行主脚本...');
         
-        // 使用 new Function 提供完全干净独立的局部作用域，避免与外层变量(如 userCookie)同名冲突
         const runMain = new Function(mainScript + '\nif (typeof main === "function") { return main(); }');
         const res = runMain();
         if (res && typeof res.then === 'function') {
