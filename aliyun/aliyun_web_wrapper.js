@@ -5,7 +5,7 @@
 
 const CHEERIO_URLS = [
     'https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/cheerio.js',
-    'https://raw.githubusercontent.com/5jwoj/BeRich/main/aliyun/cheerio.js'
+    'https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/cheerio.js'
 ];
 const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/leiyiyan/resource/main/script/aliyun_web/aliyun_web.js';
 const CACHE_KEY = '5jwoj_cheerio_code_cache';
