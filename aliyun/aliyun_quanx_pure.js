@@ -1,5 +1,7 @@
 /*
  * 阿里云社区日常任务 - Quantumult X 纯净独立单文件版 (v12.0)
+ * @Repository: https://github.com/5jwoj/BeRich
+ * @ScriptURL: https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_quanx_pure.js
  * 
  * 核心特色:
  * 1. 0 外部依赖: 原生正则解析 HTML 页面，无需下载/加载 cheerio.js 模块。
@@ -7,13 +9,13 @@
  * 3. QuanX 原生 API 适配: 完全支持 $task.fetch, $prefs, $notify, $done()。
  * 4. 5~10 秒随机防风控延时: 安全稳定。
  * 
- * [QuanX 配置文件说明]
+ * [QuanX 配置粘贴即用]
  * ------------------------------------------------------------------------------
  * [rewrite_local]
- * ^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser url script-response-header https://raw.githubusercontent.com/.../aliyun_quanx_pure.js
+ * ^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser url script-response-header https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_quanx_pure.js
  * 
  * [task_local]
- * 0 7,13 * * * https://raw.githubusercontent.com/.../aliyun_quanx_pure.js, tag=阿里云社区任务, img-url=https://raw.githubusercontent.com/or2kx/quanX/master/Icon/aliyun.png
+ * 0 7,13 * * * https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_quanx_pure.js, tag=阿里云社区任务, img-url=https://raw.githubusercontent.com/or2kx/quanX/master/Icon/aliyun.png
  * 
  * [mitm]
  * hostname = developer.aliyun.com
