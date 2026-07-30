@@ -38,22 +38,22 @@ function httpGet(url, timeout = 30000) {
 
 async function getCheerioCode() {
     let code = $prefs.valueForKey(CACHE_KEY);
-    if (code && code.length > 80000) {
+    if (code && code.length > 30000 && code.includes('createCheerio')) {
         console.log(`✅ 使用本地缓存的完整 Cheerio (${code.length} 字节)`);
         return code;
     }
 
-    console.log('📥 正在获取完整版 cheerio.js (需约 96KB)...');
+    console.log('📥 正在获取完整版 cheerio.js...');
     for (const url of CHEERIO_URLS) {
         try {
             code = await httpGet(url, 25000);
-            if (code && code.includes('createCheerio') && code.length > 80000) {
+            if (code && code.includes('createCheerio') && code.length > 30000) {
                 console.log(`✅ 下载成功！文件完整 (${code.length} 字节)，写入本地缓存`);
                 $prefs.setValueForKey(code, CACHE_KEY);
                 return code;
             }
         } catch (e) {
-            console.log(`⚠️ 下载失败: ${e}`);
+            console.log(`⚠️ 下载失败 [${url}]: ${e}`);
         }
     }
     return null;
@@ -149,7 +149,8 @@ async function start() {
     const ckVal = $prefs.valueForKey('aliyunWeb_data') || $prefs.valueForKey('aliyunWeb_Cookie');
     if (!ckVal) {
         console.log('⚠️ 【重要提示】在 QX 本地存储 ($prefs) 中未读到 aliyunWeb_data！');
-        console.log('💡 如果您在 BoxJs 中能看到，请在 BoxJs 点击【保存】或在 BoxJs 中应用订阅数据。');
+        console.log('💡 请打开【阿里云 APP】 -> 【积分商城】进行抓包，或在 BoxJs 中配置并保存 Cookie。');
+        $notify('阿里云社区', '⚠️ 未检测到 Cookie (aliyunWeb_data)', '请先打开阿里云 APP -> 积分商城 抓取 Cookie');
     } else {
         console.log(`✅ 已成功从 QX 存储读取 Cookie (长度: ${ckVal.length} 字符)`);
     }
