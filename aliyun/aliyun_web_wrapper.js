@@ -1,10 +1,11 @@
 /*
-阿里云社区任务脚本 - Quantumult X 专用包装器 (v7.0 终极完成版)
+阿里云社区任务脚本 - Quantumult X 专用包装器 (v8.0 作用域隔离修复版)
 @Repository: https://github.com/5jwoj/BeRich
 @Description: 
-  1. 缓存并注入完整版 Cheerio.js (96KB)
+  1. 缓存并注入完整版 Cheerio.js (352KB)
   2. 劫持 Env 避免二次下载 404 链接
-  3. 显式调用 $done() 彻底解决 QX 界面一直显示“正在下载/运行中”停不下来的问题！
+  3. 使用 new Function 隔离作用域，彻底解决 userCookie 重复变量声明冲突
+  4. 显式调用 $done() 完成脚本任务闭环
 */
 
 const CHEERIO_URLS = [
@@ -16,8 +17,8 @@ const CHEERIO_URLS = [
 
 const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/leiyiyan/resource/main/script/aliyun_web/aliyun_web.js';
 
-// v7 缓存 Key
-const CACHE_KEY = '5jwoj_cheerio_code_v7';
+// v8 缓存 Key
+const CACHE_KEY = '5jwoj_cheerio_code_v8';
 
 function httpGet(url, timeout = 30000) {
     return new Promise((resolve, reject) => {
@@ -119,18 +120,16 @@ function injectAndHijackEnv(cheerioCode) {
 }
 
 async function runWrapper() {
-    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v7.0...');
+    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v8.0...');
     console.log('═'.repeat(45));
 
-    // 检查 Cookie 提示
-    const userCookie = $prefs.valueForKey('aliyunWeb_data');
-    if (!userCookie) {
-        console.log('⚠️ 提醒：当前未检测到 aliyunWeb_data (Cookie)，请确保已在 QX 节点/BoxJs 中配置。');
+    const _chkCk = $prefs.valueForKey('aliyunWeb_data');
+    if (!_chkCk) {
+        console.log('⚠️ 提醒：当前未检测到 aliyunWeb_data (Cookie)，请确保已在 QX / BoxJs 中配置。');
     }
 
     const cheerioCode = await getCheerioCode();
     if (!cheerioCode) {
-
         console.log('❌ 无法获取完整的 cheerio.js');
         $notify('阿里云社区', '❌ Cheerio 加载失败', '请检查网络或代理');
         $done(); return;
@@ -148,12 +147,11 @@ async function runWrapper() {
         console.log('═'.repeat(45));
         console.log('▶️ 开始执行主脚本...');
         
-        // 关键点：用 eval 执行主脚本，并等待 async main() 完成后显式调用 $done()
-        eval(mainScript);
-        
-        // 如果主脚本中定义了 main()，确保等待它执行完
-        if (typeof main === 'function') {
-            await main();
+        // 使用 new Function 提供完全干净独立的局部作用域，避免与外层变量(如 userCookie)同名冲突
+        const runMain = new Function(mainScript + '\nif (typeof main === "function") { return main(); }');
+        const res = runMain();
+        if (res && typeof res.then === 'function') {
+            await res;
         }
         
         console.log('═'.repeat(45));
@@ -162,7 +160,6 @@ async function runWrapper() {
         console.log(`❌ 主脚本运行出错: ${e}`);
         $notify('阿里云社区', '❌ 主脚本运行出错', String(e));
     } finally {
-        // 必须调用 $done() 告诉 Quantumult X 脚本已彻底结束！
         $done();
     }
 }
