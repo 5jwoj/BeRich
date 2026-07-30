@@ -1,71 +1,66 @@
 /*
  * 📦 JD 京豆查询 - 本地账号专属版 (Quantumult X 版本)
- * Version: v1.2.0
+ * Version: v1.2.1
  * Author: z.W.
  * 
  * 功能说明:
- *   1. 【只查本手机账号】：仅提取并展示当前手机 Quan X 捕获/登录过的京东账号的京豆数据，过滤青龙面板上的其他无关账号。
- *   2. 【双模自动支持】：
- *      - 模式 A（推荐）：通过 Quan X 本地抓到的 Cookie 直接请求京东官方接口，查当前登录账号的实时京豆、今日收益、即将过期；
- *      - 模式 B（青龙日志）：若需要通过青龙日志查询，脚本会自动用本手机登录的 Pin 去匹配青龙日志，仅展示本手机账号。
+ *   1. 优先提取当前手机 Quan X 捕获到的京东账号 Cookie 进行直连查询。
+ *   2. 支持通过 BoxJS 或 MANUAL_CONFIG 配置指定 Pin (local_pin) 或青龙面板信息。
+ *   3. 若本地尚未捕获到 Cookie，会自动回退从青龙面板资产日志中读取数据，保证一定有查询结果！
  * 
  * QX 任务配置 (task_local):
  * 0 9,20 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_QX.js, tag=京豆资产查询, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
  */
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-// 可选：如果不使用 BoxJS 且想通过青龙日志查询，可在下方手动填写
+// 可选：如果不使用 BoxJS，可在下方手动填写配置
 const MANUAL_CONFIG = {
     url: "",                 // 青龙面板地址，例如 "http://192.168.1.1:5700"
     id: "",                  // Client ID
     secret: "",              // Client Secret
     script_name: "jd_task_assets", // 资产脚本名称
-    only_local: true         // 是否仅查询本手机登录的账号（默认 true）
+    local_pin: ""            // 指定本机京东账号 Pin (例如 "jd_123456"，留空自动识别)
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 (async () => {
-    // ─── 0. 获取本手机 Quan X 捕获到的所有 Cookie 与 Pin ───
-    const localCookiesMap = getLocalJdCookies();
+    // ─── 0. 获取本手机 Quan X 捕获到的 Cookie 与 Pin ───
+    const manualPin = MANUAL_CONFIG.local_pin || $prefs.valueForKey("jd_local_pin");
+    const localCookiesMap = getLocalJdCookies(manualPin);
     const localPins = Object.keys(localCookiesMap);
 
-    console.log(`[京豆查询 v1.2.0] 本设备已捕获到的京东账号数量: ${localPins.length} (${localPins.join(", ") || "暂无"})`);
+    console.log(`[京豆查询 v1.2.1] 本设备识别到账号数: ${localPins.length} (${localPins.join(", ") || "暂未捕获"})`);
 
-    if (localPins.length === 0) {
-        $notify("⚠️ 【京豆查询】未找到本设备登录账号", "", "请先在手机打开京东App/小程序完成Cookie捕获，或检查 Cookie 同步脚本是否运行。");
-        $done();
-        return;
-    }
-
-    // ─── 尝试模式 A: 直接使用本地 Cookie 查询京东官方接口 ───
-    let directResults = [];
-    for (const pin of localPins) {
-        const cookieStr = localCookiesMap[pin];
-        try {
-            const beanData = await queryJdBeanDirect(cookieStr, pin);
-            if (beanData && beanData.success) {
-                directResults.push(beanData);
+    // ─── 1. 尝试模式 A: 本地 Cookie 直连京东官方 API ───
+    if (localPins.length > 0) {
+        let directResults = [];
+        for (const pin of localPins) {
+            const cookieStr = localCookiesMap[pin];
+            try {
+                const beanData = await queryJdBeanDirect(cookieStr, pin);
+                if (beanData && beanData.success) {
+                    directResults.push(beanData);
+                }
+            } catch (e) {
+                console.log(`[京豆查询] 直连查询账号 ${pin} 异常: ${e.message || e}`);
             }
-        } catch (e) {
-            console.log(`[京豆查询] 直连查询账号 ${pin} 异常: ${e.message || e}`);
+        }
+
+        if (directResults.length > 0) {
+            sendLocalNotification(directResults, "官方接口直连 (本机账号)");
+            $done();
+            return;
         }
     }
 
-    if (directResults.length > 0) {
-        // 成功通过官方接口查到了本手机账号的最新京豆
-        sendLocalNotification(directResults, "官方接口直连");
-        $done();
-        return;
-    }
-
-    // ─── 模式 B: 回退使用青龙日志，并基于本手机 localPins 强行过滤 ───
+    // ─── 2. 模式 B: 回退使用青龙面板日志数据 ───
     let ql_url = MANUAL_CONFIG.url || $prefs.valueForKey("jd_ql_url");
     const ql_client_id = MANUAL_CONFIG.id || $prefs.valueForKey("jd_ql_client_id");
     const ql_client_secret = MANUAL_CONFIG.secret || $prefs.valueForKey("jd_ql_client_secret");
     const scriptName = MANUAL_CONFIG.script_name || $prefs.valueForKey("jd_asset_script_name") || "jd_task_assets";
 
     if (!ql_url || !ql_client_id || !ql_client_secret) {
-        $notify("⚠️ 【京豆查询】直连失败且青龙配置不完整", "", "无法查询本手机账号的京豆数据，请检查京东 Cookie 是否有效。");
+        $notify("⚠️ 【京豆查询】请设置青龙参数", "", "尚未捕获到本地 Cookie，且未在 BoxJS/脚本中配置青龙面板(ql_url/client_id/client_secret)");
         $done();
         return;
     }
@@ -76,14 +71,14 @@ const MANUAL_CONFIG = {
     try {
         const token = await getQlToken(qlBase, ql_client_id, ql_client_secret);
         if (!token) {
-            $notify("❌ 【京豆查询】获取青龙 Token 失败", "", "无法从青龙获取日志数据");
+            $notify("❌ 【京豆查询】获取青龙 Token 失败", "", "无法登录青龙面板，请检查 Client ID / Secret");
             $done();
             return;
         }
 
         const logContent = await getQlCronLog(qlBase, token, scriptName);
         if (!logContent) {
-            $notify("⚠️ 【京豆查询】读取青龙日志失败", "", "未能在青龙找到资产脚本日志");
+            $notify("⚠️ 【京豆查询】读取青龙日志失败", "", `未能找到 ${scriptName} 的最新运行日志`);
             $done();
             return;
         }
@@ -93,22 +88,31 @@ const MANUAL_CONFIG = {
         const logTimeMatch = logContent.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
         const logTimestamp = logTimeMatch ? logTimeMatch[1] : "未知时间";
 
-        // 🎯 核心过滤逻辑：仅保留属于本手机 localPins 的运行块
-        const matchedRuns = allRuns.filter(run => {
-            return localPins.some(pin => 
-                run.logPin.toLowerCase().includes(pin.toLowerCase()) || 
-                pin.toLowerCase().includes(run.logPin.toLowerCase())
-            );
-        });
-
-        if (matchedRuns.length === 0) {
-            $notify("⚠️ 【京豆查询】青龙日志未包含本手机账号", "", `本设备账号 [${localPins.join(', ')}] 未在青龙最新日志中找到记录`);
+        if (allRuns.length === 0) {
+            $notify("⚠️ 【京豆查询】日志中未找到账户数据", "", `日志时间: ${logTimestamp}`);
             $done();
             return;
         }
 
-        // 解析并推送属于本手机的账号数据
-        let qlResults = matchedRuns.map(run => {
+        // 🎯 过滤逻辑：优先按本手机 localPins 或 manualPin 匹配，若无则展示全部并提示
+        let targetRuns = allRuns;
+        let isFiltered = false;
+
+        const activeFilterPins = manualPin ? [manualPin] : localPins;
+        if (activeFilterPins.length > 0) {
+            const matched = allRuns.filter(run => {
+                return activeFilterPins.some(pin => 
+                    run.logPin.toLowerCase().includes(pin.toLowerCase()) || 
+                    pin.toLowerCase().includes(run.logPin.toLowerCase())
+                );
+            });
+            if (matched.length > 0) {
+                targetRuns = matched;
+                isFiltered = true;
+            }
+        }
+
+        let qlResults = targetRuns.map(run => {
             const { block, logPin } = run;
             return {
                 pin: logPin,
@@ -118,7 +122,8 @@ const MANUAL_CONFIG = {
             };
         });
 
-        sendLocalNotification(qlResults, `青龙日志 (${logTimestamp})`);
+        const sourceLabel = isFiltered ? `青龙日志 (本机精简 ${logTimestamp})` : `青龙日志 (全量 ${logTimestamp})`;
+        sendLocalNotification(qlResults, sourceLabel);
 
     } catch (e) {
         $notify("❌ 【京豆查询】脚本执行错误", "", String(e.message || e));
@@ -128,17 +133,20 @@ const MANUAL_CONFIG = {
 })();
 
 // ─── 辅助函数: 获取本设备 Quan X 捕获过的所有 JD Cookie ───
-function getLocalJdCookies() {
+function getLocalJdCookies(manualPin) {
     let cookiesMap = {};
     
-    // 1. 尝试直接获取当前标准的 CookieJD
+    if (manualPin) {
+        const c = $prefs.valueForKey(`JD_COOKIE_CACHE_${manualPin}`) || $prefs.valueForKey("CookieJD") || $prefs.valueForKey("jd_cookie");
+        if (c) cookiesMap[manualPin] = c;
+    }
+
     const mainCookie = $prefs.valueForKey("CookieJD") || $prefs.valueForKey("jd_cookie");
     if (mainCookie) {
         const pin = getPinFromCookie(mainCookie);
         if (pin) cookiesMap[pin] = mainCookie;
     }
 
-    // 2. 扫描所有由 JD_Cookie_Sync_QX.js 缓存的账号 Cookie (JD_COOKIE_CACHE_*)
     const currentPin = $prefs.valueForKey("JD_CURRENT_PIN") || $prefs.valueForKey("jd_pin");
     if (currentPin) {
         const cached = $prefs.valueForKey(`JD_COOKIE_CACHE_${currentPin}`);

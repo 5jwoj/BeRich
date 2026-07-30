@@ -5,7 +5,7 @@
  * 1) 抓到 pt_key + pt_pin 后检查是否需要同步（冷却时间机制）
  * 2) Cookie 有效且未变化且在冷却期内则静默跳过
  * 3) Cookie 失效或变化或超过冷却时间时才同步青龙
- * Version: v1.0.2
+ * Version: v1.0.3
  * Author: z.W.
  * 
  * @script
@@ -78,6 +78,17 @@ const MANUAL_CONFIG = {
         const jd_cookie = `pt_key=${pt_key};pt_pin=${pt_pin};`;
 
         console.log(`[JD Cookie Sync] Captured Cookie for pt_pin=${pt_pin}`);
+
+        // 保存当前抓到的 Pin 及更新本地设备 Pin 列表
+        $prefs.setValueForKey(pt_pin, "JD_CURRENT_PIN");
+        $prefs.setValueForKey(jd_cookie, `JD_COOKIE_CACHE_${pt_pin}`);
+        try {
+            let pinsArr = JSON.parse($prefs.valueForKey("QX_LOCAL_JD_PINS") || "[]");
+            if (!pinsArr.includes(pt_pin)) {
+                pinsArr.push(pt_pin);
+                $prefs.setValueForKey(JSON.stringify(pinsArr), "QX_LOCAL_JD_PINS");
+            }
+        } catch (e) {}
 
         // 2. 检查本地缓存和冷却时间
         const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
