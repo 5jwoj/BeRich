@@ -22,6 +22,143 @@
  * ------------------------------------------------------------------------------
  */
 
+// ------------------------------------------------------------------------------
+// 工具与基础框架类 (需定义在头部，防止 iOS JSVM 提升报错)
+// ------------------------------------------------------------------------------
+function cleanHeaderValue(str) {
+    if (typeof str !== 'string') return String(str || '');
+    return str.replace(/[^\x20-\x7E]/g, '').trim();
+}
+
+function normalizeCookie(raw) {
+    if (!raw) return '';
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            const tokens = parsed.map(item => (typeof item === 'object' && item) ? (item.token || item.cookie || item.Cookie || String(item)) : String(item));
+            return tokens.filter(Boolean).map(cleanHeaderValue).join('@');
+        } else if (typeof parsed === 'object' && parsed) {
+            return cleanHeaderValue(parsed.token || parsed.cookie || parsed.Cookie || raw);
+        }
+    } catch (e) {}
+    return cleanHeaderValue(raw);
+}
+
+function EnvQuanX(name) {
+    this.name = name;
+    this.getdata = (key) => typeof $prefs !== 'undefined' ? $prefs.valueForKey(key) || '' : '';
+    this.setdata = (val, key) => typeof $prefs !== 'undefined' ? $prefs.setValueForKey(val, key) : false;
+    this.notify = (title, subtitle, message) => typeof $notify !== 'undefined' ? $notify(title, subtitle, message) : console.log(`${title} - ${subtitle}: ${message}`);
+    this.wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+}
+
+let userIdx = 0;
+class UserInfoQuanX {
+    constructor(token) {
+        this.id = ++userIdx;
+        this.token = cleanHeaderValue(token);
+        this.headers = {
+            'Cookie': this.token,
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 AliApp(Aliyun/6.7.1)',
+            'Referer': 'https://developer.aliyun.com/'
+        };
+    }
+
+    getRandomTime() {
+        return Math.floor(Math.random() * 6) + 5; // 5 ~ 10 秒
+    }
+
+    getRandomDelayMs() {
+        return this.getRandomTime() * 1000;
+    }
+
+    async request(options) {
+        return new Promise((resolve) => {
+            const cleanHeaders = {};
+            const baseHeaders = { ...this.headers, ...(options.headers || {}) };
+            for (let k in baseHeaders) {
+                cleanHeaders[k] = cleanHeaderValue(baseHeaders[k]);
+            }
+
+            const req = {
+                url: options.url,
+                method: options.type || 'GET',
+                headers: cleanHeaders,
+                opts: { hints: false }
+            };
+
+            if (typeof $task !== 'undefined') {
+                $task.fetch(req).then(response => {
+                    let body = response.body;
+                    if (!body) return resolve(null);
+                    if (typeof body === 'string') {
+                        const trimmed = body.trim();
+                        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                            try { resolve(JSON.parse(trimmed)); } catch(e) { resolve({ text: trimmed }); }
+                        } else {
+                            resolve({ text: trimmed });
+                        }
+                    } else {
+                        resolve(body);
+                    }
+                }, reason => {
+                    console.log(`⛔️ QuanX 网络请求失败: ${reason.error || reason}`);
+                    resolve(null);
+                });
+            } else {
+                resolve(null);
+            }
+        });
+    }
+
+    async getUserScore() {
+        const res = await this.request({ url: 'https://developer.aliyun.com/developer/api/my/score/getUserScore?appCode=developer' });
+        return res?.data;
+    }
+
+    async getUserSpaceSignInDetail(code) {
+        const res = await this.request({ url: `https://developer.aliyun.com/developer/api/my/userSpace/getUserSpaceSignInDetail?code=${code}` });
+        return res?.data?.taskGroupId || null;
+    }
+
+    async assessSignInBonusQualification(groupId) {
+        if (!groupId) return false;
+        const res = await this.request({ url: `https://developer.aliyun.com/developer/api/my/userSpace/assessSignInBonusQualification?taskGroupId=${groupId}` });
+        return res?.data || false;
+    }
+
+    async drawLottery(groupId, name) {
+        console.log(`🎉 [QuanX] 参与 [${name}] 每日抽奖...`);
+    }
+
+    // 原生正则提取 HTML 中的文章 ID，无需 cheerio.js
+    async getArticles() {
+        const res = await this.request({ url: 'https://developer.aliyun.com/article/' });
+        if (res && res.text) {
+            const match = res.text.match(/data-id="(\d+)"/);
+            if (match) return match[1];
+        }
+        return '1939005';
+    }
+
+    async likeOrNotLike(objectId, actionCode, status) {
+        console.log(`✅ [QuanX] 文章 [${objectId}] ${status === 0 ? '' : '取消'}${actionCode === 'like' ? '点赞' : '收藏'}`);
+    }
+
+    async getUserTotalPendingScore() {
+        const res = await this.request({ url: 'https://developer.aliyun.com/developer/api/score/pending/getUserTotalPendingScore' });
+        return res?.data || 0;
+    }
+
+    async receiveAllPendingScore() {
+        const res = await this.request({ url: 'https://developer.aliyun.com/developer/api/score/pending/receiveAllPendingScore?appCode=developer' });
+        console.log(`🎉 [QuanX] 一键领取待收取积分: ${res?.data || 0}`);
+    }
+}
+
+// ------------------------------------------------------------------------------
+// 主程序逻辑
+// ------------------------------------------------------------------------------
 const $quanx = new EnvQuanX("阿里云社区");
 const CK_KEY = "aliyunWeb_data";
 
@@ -37,7 +174,9 @@ const isRewrite = (typeof $request !== 'undefined') || (typeof $response !== 'un
         console.log("🚀 [Quantumult X] 阿里云社区日常任务启动中...");
         await runCronTasks();
     }
-})().catch(e => console.log("⛔️ 运行异常: " + (e.stack || e))).finally(() => $done());
+})().catch(e => console.log("⛔️ 运行捕获异常: " + (e.message || e))).finally(() => {
+    if (typeof $done !== 'undefined') $done();
+});
 
 // ------------------------------------------------------------------------------
 // 抓包模式逻辑
@@ -46,7 +185,6 @@ function captureCookie() {
     let headers = $request ? $request.headers : ($response ? $response.headers : null);
     if (!headers) return;
     
-    // 不区分大小写寻找 Cookie / Cookie 头
     let cookieVal = '';
     for (let k in headers) {
         if (k.toLowerCase() === 'cookie') {
@@ -56,7 +194,7 @@ function captureCookie() {
     }
 
     if (cookieVal && (cookieVal.includes('c_csrf=') || cookieVal.includes('aliyun'))) {
-        let cleanCk = cookieVal.replace(/[^\x20-\x7E]/g, '').trim();
+        let cleanCk = cleanHeaderValue(cookieVal);
         let oldCk = $quanx.getdata(CK_KEY);
         if (oldCk !== cleanCk) {
             $quanx.setdata(cleanCk, CK_KEY);
@@ -80,10 +218,6 @@ async function runCronTasks() {
     }
 
     const controlTime = $quanx.getdata('aliyunWeb_time') || '12';
-    const controlScene = $quanx.getdata('aliyunWeb_scene') || 'true';
-    const controlStock = $quanx.getdata('aliyunWeb_stock') || 'true';
-    const controlVideo = $quanx.getdata('aliyunWeb_video') || 'true';
-
     let userList = [];
     let cookies = cleanCk.split('@');
     for (let ck of cookies) {
@@ -155,131 +289,4 @@ async function runCronTasks() {
             $quanx.notify("阿里云社区", "🌙 积分收取完毕", `🎉 本次获得: ${pendingScore} 积分，最新总积分: ${finalScore}`);
         }
     }
-}
-
-// ------------------------------------------------------------------------------
-// 用户操作类（无需 Cheerio，纯原生正则提取）
-// ------------------------------------------------------------------------------
-let userIdx = 0;
-class UserInfoQuanX {
-    constructor(token) {
-        this.id = ++userIdx;
-        this.token = token;
-        this.headers = {
-            'Cookie': this.token,
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 AliApp(Aliyun/6.7.1)',
-            'Referer': 'https://developer.aliyun.com/'
-        };
-    }
-
-    getRandomTime() {
-        return Math.floor(Math.random() * 6) + 5; // 5 ~ 10 秒
-    }
-
-    getRandomDelayMs() {
-        return this.getRandomTime() * 1000;
-    }
-
-    async request(options) {
-        return new Promise((resolve) => {
-            const req = {
-                url: options.url,
-                method: options.type || 'GET',
-                headers: { ...this.headers, ...(options.headers || {}) },
-                opts: { hints: false }
-            };
-
-            $task.fetch(req).then(response => {
-                let body = response.body;
-                if (!body) return resolve(null);
-                if (typeof body === 'string') {
-                    const trimmed = body.trim();
-                    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-                        try { resolve(JSON.parse(trimmed)); } catch(e) { resolve({ text: trimmed }); }
-                    } else {
-                        resolve({ text: trimmed });
-                    }
-                } else {
-                    resolve(body);
-                }
-            }, reason => {
-                console.log(`⛔️ QuanX 网络请求失败: ${reason.error || reason}`);
-                resolve(null);
-            });
-        });
-    }
-
-    async getUserScore() {
-        const res = await this.request({ url: 'https://developer.aliyun.com/developer/api/my/score/getUserScore?appCode=developer' });
-        return res?.data;
-    }
-
-    async getUserSpaceSignInDetail(code) {
-        const res = await this.request({ url: `https://developer.aliyun.com/developer/api/my/userSpace/getUserSpaceSignInDetail?code=${code}` });
-        return res?.data?.taskGroupId || null;
-    }
-
-    async assessSignInBonusQualification(groupId) {
-        if (!groupId) return false;
-        const res = await this.request({ url: `https://developer.aliyun.com/developer/api/my/userSpace/assessSignInBonusQualification?taskGroupId=${groupId}` });
-        return res?.data || false;
-    }
-
-    async drawLottery(groupId, name) {
-        console.log(`🎉 [QuanX] 参与 [${name}] 每日抽奖...`);
-    }
-
-    // 原生正则提取 HTML 中的文章 ID，无需 cheerio.js
-    async getArticles() {
-        const res = await this.request({ url: 'https://developer.aliyun.com/article/' });
-        if (res && res.text) {
-            const match = res.text.match(/data-id="(\d+)"/);
-            if (match) return match[1];
-        }
-        return '1939005';
-    }
-
-    async likeOrNotLike(objectId, actionCode, status) {
-        console.log(`✅ [QuanX] 文章 [${objectId}] ${status === 0 ? '' : '取消'}${actionCode === 'like' ? '点赞' : '收藏'}`);
-    }
-
-    async getUserTotalPendingScore() {
-        const res = await this.request({ url: 'https://developer.aliyun.com/developer/api/score/pending/getUserTotalPendingScore' });
-        return res?.data || 0;
-    }
-
-    async receiveAllPendingScore() {
-        const res = await this.request({ url: 'https://developer.aliyun.com/developer/api/score/pending/receiveAllPendingScore?appCode=developer' });
-        console.log(`🎉 [QuanX] 一键领取待收取积分: ${res?.data || 0}`);
-    }
-}
-
-// ------------------------------------------------------------------------------
-// 工具函数
-// ------------------------------------------------------------------------------
-function cleanHeaderValue(str) {
-    if (typeof str !== 'string') return String(str || '');
-    return str.replace(/[^\x20-\x7E]/g, '').trim();
-}
-
-function normalizeCookie(raw) {
-    if (!raw) return '';
-    try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-            const tokens = parsed.map(item => (typeof item === 'object' && item) ? (item.token || item.cookie || item.Cookie || String(item)) : String(item));
-            return tokens.filter(Boolean).map(cleanHeaderValue).join('@');
-        } else if (typeof parsed === 'object' && parsed) {
-            return cleanHeaderValue(parsed.token || parsed.cookie || parsed.Cookie || raw);
-        }
-    } catch (e) {}
-    return cleanHeaderValue(raw);
-}
-
-function EnvQuanX(name) {
-    this.name = name;
-    this.getdata = (key) => $prefs.valueForKey(key) || '';
-    this.setdata = (val, key) => $prefs.setValueForKey(val, key);
-    this.notify = (title, subtitle, message) => $notify(title, subtitle, message);
-    this.wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 }
