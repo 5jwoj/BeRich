@@ -1,13 +1,16 @@
 /*
-阿里云社区任务脚本 - Quantumult X 专用包装器
+阿里云社区任务脚本 - Quantumult X 专用包装器 (v3.0 修复版)
 @Repository: https://github.com/5jwoj/BeRich
 */
 
 const CHEERIO_URLS = [
-    'https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/cheerio.js'
+    'https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/cheerio.js',
+    'https://raw.githubusercontent.com/5jwoj/BeRich/main/aliyun/cheerio.js'
 ];
 const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/leiyiyan/resource/main/script/aliyun_web/aliyun_web.js';
-const CACHE_KEY = '5jwoj_cheerio_code_cache';
+
+// 更新缓存 Key (v3)，强制 QX 重新下载修复后的 cheerio.js
+const CACHE_KEY = '5jwoj_cheerio_code_v3';
 
 function httpGet(url, timeout = 30000) {
     return new Promise((resolve, reject) => {
@@ -32,7 +35,7 @@ async function getCheerioCode() {
         console.log(`✅ 使用本地缓存的 Cheerio (${code.length} 字节)`);
         return code;
     }
-    console.log('📥 正在从 GitHub (5jwoj/BeRich) 下载 cheerio.js...');
+    console.log('📥 正在从 GitHub (5jwoj/BeRich) 下载修复后的 cheerio.js...');
     for (const url of CHEERIO_URLS) {
         try {
             code = await httpGet(url, 20000);
