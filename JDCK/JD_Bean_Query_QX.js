@@ -1,6 +1,6 @@
 /*
  * 📦 JD 京豆查询 - 本地账号专属版 (Quantumult X 版本)
- * Version: v1.2.1
+ * Version: v1.2.2
  * Author: z.W.
  * 
  * 功能说明:
@@ -29,7 +29,7 @@ const MANUAL_CONFIG = {
     const localCookiesMap = getLocalJdCookies(manualPin);
     const localPins = Object.keys(localCookiesMap);
 
-    console.log(`[京豆查询 v1.2.1] 本设备识别到账号数: ${localPins.length} (${localPins.join(", ") || "暂未捕获"})`);
+    console.log(`[京豆查询 v1.2.2] 本设备识别到账号数: ${localPins.length} (${localPins.join(", ") || "暂未捕获"})`);
 
     // ─── 1. 尝试模式 A: 本地 Cookie 直连京东官方 API ───
     if (localPins.length > 0) {
