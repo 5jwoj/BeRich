@@ -142,7 +142,7 @@ async function start() {
     }
 
     // 定时任务 / 手动运行模式
-    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v10.0...');
+    console.log('🚀 [5jwoj/BeRich] 阿里云社区任务启动 v10.5 (自动修正 Cookie 版)...');
     console.log('═'.repeat(45));
 
     // 尝试多种可能的 Key 并自动转换 QX 抓包格式
@@ -153,7 +153,7 @@ async function start() {
         try {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
-                console.log(`💡 检测到 QX JSON 格式的 Cookie 数组 (含 ${parsed.length} 个账号)，正在自动解析提纯...`);
+                console.log(`💡 检测到 QX JSON 格式的 Cookie 数组 (含 ${parsed.length} 个账号)，正在自动提纯...`);
                 const tokens = parsed.map(item => (typeof item === 'object' && item) ? (item.token || item.cookie || item.Cookie || String(item)) : String(item));
                 return tokens.filter(Boolean).join('@');
             } else if (typeof parsed === 'object' && parsed) {
@@ -170,7 +170,9 @@ async function start() {
         console.log('💡 请打开【阿里云 APP】 -> 【积分商城】进行抓包，或在 BoxJs 中配置并保存 Cookie。');
         $notify('阿里云社区', '⚠️ 未检测到 Cookie (aliyunWeb_data)', '请先打开阿里云 APP -> 积分商城 抓取 Cookie');
     } else {
-        console.log(`✅ 已成功解析并准备 Cookie (提纯后长度: ${cleanCk.length} 字符)`);
+        console.log(`✅ 已成功自动修正并覆盖保存 Cookie 至 QX 本地存储 (长度: ${cleanCk.length} 字符)`);
+        // 关键点：直接将提纯后的干净 Cookie 覆盖写入 QX 存储，供主脚本使用
+        $prefs.setValueForKey(cleanCk, 'aliyunWeb_data');
     }
 
     const cheerioCode = await getCheerioCode();
@@ -185,18 +187,6 @@ async function start() {
         $done(); return;
     }
 
-    // 拦截与修复 Env.prototype.getdata 以返回提纯后的 Cookie
-    const CurrentEnv = globalThis.Env;
-    if (CurrentEnv && CurrentEnv.prototype) {
-        const origGetdata = CurrentEnv.prototype.getdata;
-        CurrentEnv.prototype.getdata = function(key) {
-            if (key === 'aliyunWeb_data' || key === 'aliyunWeb_Cookie') {
-                return cleanCk || origGetdata.call(this, key);
-            }
-            return origGetdata.call(this, key);
-        };
-    }
-
     console.log('📥 正在下载阿里云社区主脚本...');
     try {
         const mainScript = await httpGet(MAIN_SCRIPT_URL, 30000);
@@ -204,7 +194,7 @@ async function start() {
         console.log('═'.repeat(45));
         console.log('▶️ 开始执行主脚本...');
         
-        // 直接 eval 执行主脚本（其底部 IIFE 会自动触发 checkEnv 及 main 运行）
+        // 执行主脚本
         eval(mainScript);
         
         console.log('═'.repeat(45));
