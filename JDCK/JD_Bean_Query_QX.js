@@ -9,7 +9,7 @@
  *   3. 自动匹配最近一次运行的目标任务与最新历史日志。
  * 
  * QX 任务配置 (task_local):
- * 15,23 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_QX.js, tag=京豆资产查询, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
+ * 15 23 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_QX.js, tag=京豆资产查询, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
  */
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
