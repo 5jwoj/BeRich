@@ -1,13 +1,13 @@
 /*
  * 📦 日志检测与PIN通知脚本 (Quantumult X / Loon / Surge / Stash / 青龙面板)
- * Version: v1.0.5
+ * Version: v1.0.6
  * Author: 5jwoj
  * 
  * 功能说明:
  *   1. 支持在 Quantumult X 等 iOS / 软路由代理工具及青龙面板 Node.js 环境中双模运行。
  *   2. 支持通过 BoxJS 或 MANUAL_CONFIG 配置青龙面板地址、密钥、目标脚本名、指定 PIN 列表及检测阈值。
- *   3. 精简过程日志，自动提取指定 PIN 账号的数值。
- *   4. 当检测到数值高于 11 (或设定阈值) 时，第一时间推送“可兑换话费”的提示！
+ *   3. 无论数值是否达到阈值，均实时显示指定 PIN 账号的最新数值。
+ *   4. 当检测到数值高于 11 (或设定阈值) 时，第一时间推送“可兑换话费”提示！
  * 
  * --------------------------------------------------------------------------------
  * QX 任务配置 (task_local):
@@ -37,7 +37,7 @@ try {
 }
 
 (async () => {
-    $.log(`\n================== [日志检测通知 v1.0.5] ==================`);
+    $.log(`\n================== [日志检测通知 v1.0.6] ==================`);
 
     // 1. 加载配置
     const config = await loadAllConfig();
@@ -87,22 +87,34 @@ try {
         return;
     }
 
-    // 3. 解析与分析日志
-    const alertList = analyzeLogContent(logContent, config);
+    // 3. 解析与分析日志中的所有 PIN 数值
+    const parseResult = analyzeLogContent(logContent, config);
+    const { allMatchedRecords, alertList } = parseResult;
 
-    // 4. 结果预警与通知推送
+    // 4. 无论是否达到阈值，均在日志中清晰打印指定 PIN 当前提取到的数值
+    if (allMatchedRecords && allMatchedRecords.length > 0) {
+        $.log(`\n📊 ---------------- [目标 PIN 数值明细] ----------------`);
+        allMatchedRecords.forEach(item => {
+            const isExceeded = item.value > config.threshold;
+            const statusStr = isExceeded ? `🔥 高于 ${config.threshold} (满足可兑换话费条件!)` : `未达到阈值 ${config.threshold}`;
+            $.log(`👤 账号: ${maskPin(item.pin)} | 当前数值: ${item.value} [${statusStr}]`);
+        });
+    } else {
+        $.log(`⚠️ 日志中未匹配到指定 PIN 的有效数值记录`);
+    }
+
+    // 5. 满足兑换条件 (> 11) 的触发通知
     if (alertList && alertList.length > 0) {
         let msgTitle = `🎁 话费可兑换提醒 [${config.script_name}]`;
         
         let msgContentList = alertList.map(item => {
-            $.log(`👤 账号: ${maskPin(item.pin)} | 当前数值: ${item.value} (满足条件: > ${config.threshold})`);
             return `👤 账号 PIN: ${maskPin(item.pin)}\n💰 当前数值: ${item.value}\n🎉 消息提示: 当前数值大于 ${config.threshold}，可以去兑换话费啦！`;
         });
 
         let msgContent = msgContentList.join("\n----------------------------------------\n");
         let subTitle = `账号: ${maskPin(alertList[0].pin)} (数值: ${alertList[0].value})`;
 
-        $.log(`\n🎉 [检测结果] 当前数值高于 ${config.threshold}，可以前往兑换话费！`);
+        $.log(`\n🎉 [检测结果] 当前数值已达 ${alertList[0].value} (高于 ${config.threshold})，可以前往兑换话费！`);
 
         // 发送 App 系统弹窗/推送通知
         $.msg(msgTitle, subTitle, `当前数值已达到 ${alertList[0].value}，高于 ${config.threshold}，可以去兑换话费啦！`);
@@ -111,8 +123,6 @@ try {
         if (notify && notify.sendNotify) {
             await notify.sendNotify(msgTitle, msgContent);
         }
-    } else {
-        $.log(`✅ 日志检测完毕，未发现数值大于 ${config.threshold} 且匹配指定 PIN 的记录。`);
     }
 
 })()
@@ -314,7 +324,8 @@ function findLatestLogFiles(scriptName) {
  */
 function analyzeLogContent(content, config) {
     let lines = content.split("\n");
-    let results = [];
+    let allMatchedRecords = [];
+    let alertList = [];
     let currentPin = "未匹配到PIN";
 
     let regex;
@@ -346,30 +357,32 @@ function analyzeLogContent(content, config) {
             let numVal = parseFloat(valStr);
 
             if (!isNaN(numVal)) {
-                if (numVal > config.threshold) {
-                    let isTargetPin = false;
-                    if (!config.target_pins || config.target_pins.length === 0) {
-                        isTargetPin = true;
-                    } else {
-                        isTargetPin = config.target_pins.some(p =>
-                            currentPin.toLowerCase().includes(p.toLowerCase()) ||
-                            p.toLowerCase().includes(currentPin.toLowerCase())
-                        );
-                    }
+                let isTargetPin = false;
+                if (!config.target_pins || config.target_pins.length === 0) {
+                    isTargetPin = true;
+                } else {
+                    isTargetPin = config.target_pins.some(p =>
+                        currentPin.toLowerCase().includes(p.toLowerCase()) ||
+                        p.toLowerCase().includes(currentPin.toLowerCase())
+                    );
+                }
 
-                    if (isTargetPin) {
-                        results.push({
-                            pin: currentPin,
-                            value: numVal,
-                            lineText: line
-                        });
+                if (isTargetPin) {
+                    const record = {
+                        pin: currentPin,
+                        value: numVal,
+                        lineText: line
+                    };
+                    allMatchedRecords.push(record);
+                    if (numVal > config.threshold) {
+                        alertList.push(record);
                     }
                 }
             }
         }
     }
 
-    return results;
+    return { allMatchedRecords, alertList };
 }
 
 /**
