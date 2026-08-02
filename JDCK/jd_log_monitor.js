@@ -1,14 +1,13 @@
 /*
  * 📦 日志检测与PIN通知脚本 (Quantumult X / Loon / Surge / Stash / 青龙面板)
- * Version: v1.0.4
+ * Version: v1.0.5
  * Author: 5jwoj
  * 
  * 功能说明:
  *   1. 支持在 Quantumult X 等 iOS / 软路由代理工具及青龙面板 Node.js 环境中双模运行。
  *   2. 支持通过 BoxJS 或 MANUAL_CONFIG 配置青龙面板地址、密钥、目标脚本名、指定 PIN 列表及检测阈值。
- *   3. 核心隐私保护：对青龙面板地址 URL、端口及账号 PIN 格式进行全流程脱敏掩码展示。
- *   4. 自动读取目标脚本最近一次运行日志，提取 "现有: XX.XX" 数值。
- *   5. 当数值大于设定阈值 (如 > 11) 且匹配指定 PIN 时，第一时间发送系统弹窗与日志警报！
+ *   3. 精简过程日志，自动提取指定 PIN 账号的数值。
+ *   4. 当检测到数值高于 11 (或设定阈值) 时，第一时间推送“可兑换话费”的提示！
  * 
  * --------------------------------------------------------------------------------
  * QX 任务配置 (task_local):
@@ -24,7 +23,7 @@ const MANUAL_CONFIG = {
     secret: "",                   // 青龙 Client Secret
     script_name: "",              // 检测的目标脚本名称 (留空优先读取 BoxJS 中的配置)
     pins: "",                     // 指定需要通知的账号 PIN (多个用逗号隔开，留空匹配所有账号)
-    threshold: "",                // 触发通知的数值阈值 (例如: 11)
+    threshold: "",                // 触发通知的数值阈值 (默认: 11)
     keyword: ""                   // 提取数值的正则表达式
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
@@ -38,14 +37,11 @@ try {
 }
 
 (async () => {
-    $.log(`\n================== [日志检测通知 v1.0.4] ==================`);
+    $.log(`\n================== [日志检测通知 v1.0.5] ==================`);
 
     // 1. 加载配置
     const config = await loadAllConfig();
-    $.log(`[配置信息] 青龙地址: ${maskUrl(config.ql_url) || "未配置(尝试本地扫描)"}`);
-    $.log(`[配置信息] 目标脚本: ${config.script_name}`);
-    $.log(`[配置信息] 判定阈值: > ${config.threshold}`);
-    $.log(`[配置信息] 目标 PIN : ${config.target_pins ? config.target_pins.map(p => maskPin(p)).join(', ') : "所有账号 (未单独指定)"}`);
+    $.log(`[配置信息] 目标脚本: ${config.script_name} | 判定阈值: > ${config.threshold} | 目标 PIN: ${config.target_pins ? config.target_pins.map(p => maskPin(p)).join(', ') : "全部账号"}`);
 
     if (!config.script_name) {
         $.msg("⚠️ 【日志检测】未配置目标脚本", "", "请在 BoxJS 或 MANUAL_CONFIG 中配置需要检测的脚本名称");
@@ -61,13 +57,12 @@ try {
         if (!qlUrl.startsWith("http://") && !qlUrl.startsWith("https://")) qlUrl = "http://" + qlUrl;
         qlUrl = qlUrl.replace(/\/$/, "");
 
-        $.log(`🌐 正在请求青龙 Open API [${maskUrl(qlUrl)}] 读取日志...`);
         try {
             const token = await getQlToken(qlUrl, config.ql_client_id, config.ql_client_secret);
             if (token) {
                 logContent = await getQlCronLog(qlUrl, token, config.script_name);
             } else {
-                $.log(`❌ 从青龙 API 获取 Token 失败，请检查 Client ID / Secret`);
+                $.log(`❌ 青龙 Token 获取失败，请检查 Client ID / Secret`);
             }
         } catch (e) {
             $.log(`❌ 请求青龙 API 失败: ${e.message || e}`);
@@ -76,10 +71,8 @@ try {
 
     // 若通过 API 未拿到日志，且处在 Node.js 本地环境，尝试从本地文件系统检索
     if (!logContent && $.isNode()) {
-        $.log(`📂 尝试从本地青龙日志目录检索日志...`);
         const localLogFile = findLatestLogFiles(config.script_name);
         if (localLogFile) {
-            $.log(`🔍 找到本地日志文件`);
             const fs = require("fs");
             logContent = fs.readFileSync(localLogFile, "utf8");
         }
@@ -99,16 +92,20 @@ try {
 
     // 4. 结果预警与通知推送
     if (alertList && alertList.length > 0) {
-        let msgTitle = `🚨 日志检测预警 [${config.script_name}]`;
-        let msgContent = alertList.map(item => {
-            return `👤 账号 PIN: ${maskPin(item.pin)}\n📊 检测数值: ${item.value} (阈值: > ${config.threshold})\n⏰ 匹配行: ${item.lineText.trim()}`;
-        }).join("\n----------------------------------------\n");
+        let msgTitle = `🎁 话费可兑换提醒 [${config.script_name}]`;
+        
+        let msgContentList = alertList.map(item => {
+            $.log(`👤 账号: ${maskPin(item.pin)} | 当前数值: ${item.value} (满足条件: > ${config.threshold})`);
+            return `👤 账号 PIN: ${maskPin(item.pin)}\n💰 当前数值: ${item.value}\n🎉 消息提示: 当前数值大于 ${config.threshold}，可以去兑换话费啦！`;
+        });
 
-        $.log(`\n================ [发现符合条件的记录，准备发送通知] ================`);
-        $.log(msgContent);
+        let msgContent = msgContentList.join("\n----------------------------------------\n");
+        let subTitle = `账号: ${maskPin(alertList[0].pin)} (数值: ${alertList[0].value})`;
+
+        $.log(`\n🎉 [检测结果] 当前数值高于 ${config.threshold}，可以前往兑换话费！`);
 
         // 发送 App 系统弹窗/推送通知
-        $.msg(msgTitle, "", msgContent);
+        $.msg(msgTitle, subTitle, `当前数值已达到 ${alertList[0].value}，高于 ${config.threshold}，可以去兑换话费啦！`);
 
         // 如果在青龙 Node.js 且有 sendNotify
         if (notify && notify.sendNotify) {
@@ -154,7 +151,6 @@ async function loadAllConfig() {
     let threshold_raw = getVal("log_monitor_threshold", "LOG_MONITOR_THRESHOLD") || getVal("threshold") || "11";
     let keyword_regex = getVal("log_monitor_keyword", "LOG_MONITOR_KEYWORD") || getVal("keyword") || "现有:\\s*([0-9]+(?:\\.[0-9]+)?)";
 
-    // 如果运行在 Node.js 且调用 API
     if ($.isNode()) {
         try {
             const boxData = await fetchBoxJsHttp();
@@ -190,47 +186,6 @@ async function loadAllConfig() {
         threshold,
         keyword_regex: keyword_regex.trim()
     };
-}
-
-/**
- * 青龙 URL 掩码脱敏函数
- */
-function maskUrl(rawUrl) {
-    if (!rawUrl) return "";
-    try {
-        let str = String(rawUrl).trim();
-        const hasProtocol = str.startsWith("http://") || str.startsWith("https://");
-        const urlObj = new URL(hasProtocol ? str : "http://" + str);
-        const protocol = urlObj.protocol;
-        const host = urlObj.hostname;
-        const port = urlObj.port ? ":" + urlObj.port : "";
-        
-        let maskedHost = host;
-        if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) {
-            const parts = host.split(".");
-            maskedHost = `${parts[0]}.***.***.${parts[3]}`;
-        } else if (host.length > 5) {
-            const parts = host.split(".");
-            if (parts.length >= 2) {
-                const sub = parts[0];
-                const domain = parts.slice(1).join(".");
-                maskedHost = `${sub[0]}***.${domain}`;
-            } else {
-                maskedHost = host.substring(0, 2) + "***" + host.substring(host.length - 2);
-            }
-        } else {
-            maskedHost = "***";
-        }
-        
-        let maskedPort = port;
-        if (port.length > 2) {
-            maskedPort = ":" + port.substring(1, 3) + "***";
-        }
-
-        return `${protocol}//${maskedHost}${maskedPort}`;
-    } catch (e) {
-        return "http://***";
-    }
 }
 
 /**
@@ -277,7 +232,7 @@ async function getQlCronLog(qlBase, token, scriptName) {
 
     const baseName = scriptName.split("/").pop().replace(/\.js$/i, "").toLowerCase();
 
-    // 匹配包含 target 脚本的任务 (包含命令名或任务名)
+    // 匹配包含 target 脚本的任务
     const targetCron = list.find(c => {
         const cmd = (c.command || "").toLowerCase();
         const name = (c.name || "").toLowerCase();
@@ -285,14 +240,13 @@ async function getQlCronLog(qlBase, token, scriptName) {
     });
 
     if (!targetCron) {
-        $.log(`⚠️ 青龙面板定时任务列表中未匹配到脚本名包含 [${baseName}] 的任务`);
+        $.log(`⚠️ 青龙任务列表中未找到匹配 [${baseName}] 的脚本`);
         return null;
     }
 
     const cronId = targetCron.id || targetCron._id;
-    $.log(`🎯 匹配到定时任务: [${targetCron.name || targetCron.command}] (ID: ${cronId})`);
 
-    // 获取日志
+    // 获取最新运行日志
     const logRes = await $.fetch({
         url: `${qlBase}/open/crons/${cronId}/log`,
         method: "GET",
@@ -409,8 +363,6 @@ function analyzeLogContent(content, config) {
                             value: numVal,
                             lineText: line
                         });
-                    } else {
-                        $.log(`[跳过通知] PIN [${maskPin(currentPin)}] 数值 ${numVal} > ${config.threshold}，但不在指定的 PIN 列表中`);
                     }
                 }
             }
