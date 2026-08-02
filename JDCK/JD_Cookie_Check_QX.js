@@ -10,7 +10,7 @@
  *   4. 一旦检测到目标账号过期或失效，第一时间通过本地通知推送预警！
  * 
  * QX 任务配置 (task_local):
- * 0 9,18 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_QX.js, tag=JD账号过期检测, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
+ * 35 6-23 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_QX.js, tag=JD账号过期检测, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
  */
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
