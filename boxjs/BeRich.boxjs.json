@@ -1,7 +1,7 @@
 {
     "id": "5jwoj.berich",
     "name": "BeRich 订阅合集",
-    "description": "包含京东Cookie同步、京豆资产查询、京东账号过期检测、阿里云Cookie同步和V2EX每日签到的BoxJS订阅合集",
+    "description": "包含京东Cookie同步、京豆资产查询、京东账号过期检测、日志检测与PIN通知、阿里云Cookie同步和V2EX每日签到的BoxJS订阅合集",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/available.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -275,6 +275,61 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily.js"
+        },
+        {
+            "id": "jd.log.monitor",
+            "name": "日志检测与PIN通知",
+            "keys": [
+                "log_monitor_script_name",
+                "log_monitor_pins",
+                "log_monitor_threshold",
+                "log_monitor_keyword"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">青龙脚本日志数值检测与 PIN 定向通知</h4>",
+                "<p>自动扫描青龙面板中指定脚本的最新日志，当提取到 '现有: XX.XX' 数值大于设定阈值时，针对指定的 PIN 账户发送通知预警。</p>"
+            ],
+            "settings": [
+                {
+                    "id": "log_monitor_script_name",
+                    "name": "检测的目标脚本名称",
+                    "val": "jd_test.js",
+                    "type": "text",
+                    "placeholder": "如: jd_test.js",
+                    "desc": "青龙中需要检测日志的脚本文件名，例如: jd_test.js"
+                },
+                {
+                    "id": "log_monitor_pins",
+                    "name": "指定通知的 PIN 列表",
+                    "val": "",
+                    "type": "textarea",
+                    "placeholder": "如: jd_123456,jd_789012",
+                    "desc": "需要通知的账号 pin，多个用逗号或换行分隔。留空则通知所有账号"
+                },
+                {
+                    "id": "log_monitor_threshold",
+                    "name": "触发通知的数值阈值",
+                    "val": "11",
+                    "type": "text",
+                    "placeholder": "默认 11",
+                    "desc": "当日志中检测到的数值大于此设定值时触发通知，默认: 11"
+                },
+                {
+                    "id": "log_monitor_keyword",
+                    "name": "日志匹配正则表达式",
+                    "val": "现有:\\s*([0-9]+(?:\\.[0-9]+)?)",
+                    "type": "text",
+                    "placeholder": "现有:\\s*([0-9]+(?:\\.[0-9]+)?)",
+                    "desc": "用于匹配日志数值的正则表达式（默认匹配 现有: 17.28 中的数值）"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/jd_log_monitor.js"
         }
     ]
 }
