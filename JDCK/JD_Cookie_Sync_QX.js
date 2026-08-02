@@ -2,10 +2,9 @@
  * JD Cookie Sync to Qinglong - Quantumult X Version
  * 
  * 行为：
- * 1) 抓到 pt_key + pt_pin 后先验证 Cookie 有效性
- * 2) Cookie 有效且未变化则静默跳过，无需同步青龙
- * 3) Cookie 失效或变化时才同步青龙
- * Version: v1.0.4
+ * 1) 抓到 pt_key + pt_pin 后直接同步至青龙面板（不进行有效性校验）
+ * 2) 青龙端 Cookie 已存在且一致则静默同步（不发弹窗通知），不同或被禁用时自动更新/启用并提示
+ * Version: v1.0.5
  * Author: z.W.
  * 
  * @script
@@ -85,29 +84,9 @@ const MANUAL_CONFIG = {
                 pinsArr.push(pt_pin);
                 $prefs.setValueForKey(JSON.stringify(pinsArr), "QX_LOCAL_JD_PINS");
             }
-        } catch (e) {}
+        } catch (e) { }
 
-        // 2. 检查本地缓存（去重）
-        const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
-        const cachedCookie = $prefs.valueForKey(cacheKey);
-
-        if (cachedCookie === jd_cookie) {
-            console.log(`[JD Cookie Sync] Cookie unchanged for ${pt_pin}, validating...`);
-
-            // 2.1 验证Cookie有效性
-            const validation = await validateJDCookie(jd_cookie);
-
-            if (validation.valid) {
-                console.log(`[JD Cookie Sync] Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Skip sync.`);
-                $done();
-                return;
-            } else {
-                console.log(`[JD Cookie Sync] Cookie invalid for ${pt_pin}. Need to re-sync.`);
-                // 继续执行同步逻辑
-            }
-        }
-
-        // 3. 获取青龙Token
+        // 2. 获取青龙Token
         const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
         if (!token) {
             $notify("同步失败", "获取青龙Token失败", "请检查配置信息是否正确");
@@ -115,7 +94,7 @@ const MANUAL_CONFIG = {
             return;
         }
 
-        // 4. 同步Cookie到青龙
+        // 3. 每次打开京东均同步Cookie到青龙
         const result = await syncCookieToQL(ql_url, token, pt_pin, jd_cookie);
 
         if (!result.ok) {
@@ -124,12 +103,12 @@ const MANUAL_CONFIG = {
             return;
         }
 
-        // 5. 同步成功后更新缓存
+        // 4. 青龙端数据变动或重新启用时通知
         if (result.changed) {
-            $prefs.setValueForKey(jd_cookie, cacheKey);
+            $prefs.setValueForKey(jd_cookie, `JD_COOKIE_CACHE_${pt_pin}`);
             $notify(result.title, result.subtitle, result.body);
         } else {
-            console.log(`[JD Cookie Sync] No change for ${pt_pin}. No notification.`);
+            console.log(`[JD Cookie Sync] Cookie synced for ${pt_pin} (no status/value change in QL). Skipping notification.`);
         }
 
     } catch (e) {
@@ -159,39 +138,6 @@ function safeDecodeURIComponent(s) {
         return decodeURIComponent(s);
     } catch (_) {
         return s;
-    }
-}
-
-/**
- * 验证京东Cookie是否有效
- */
-async function validateJDCookie(jd_cookie) {
-    const options = {
-        url: "https://me-api.jd.com/user_new/info/GetJDUserInfoUnion",
-        method: "GET",
-        headers: {
-            "Cookie": jd_cookie,
-            "User-Agent": "jdapp;iPhone;10.0.0;14.0;network/wifi;Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
-            "Referer": "https://home.m.jd.com/"
-        }
-    };
-
-    try {
-        const response = await $task.fetch(options);
-        const body = JSON.parse(response.body);
-
-        // 检查返回数据是否包含用户信息
-        if (body && body.retcode === "0" && body.data && body.data.userInfo) {
-            const nickname = body.data.userInfo.baseInfo?.nickname || "";
-            console.log(`[JD Cookie Sync] Cookie validation success: ${nickname}`);
-            return { valid: true, nickname };
-        } else {
-            console.log(`[JD Cookie Sync] Cookie validation failed: ${JSON.stringify(body).substring(0, 100)}`);
-            return { valid: false };
-        }
-    } catch (e) {
-        console.log(`[JD Cookie Sync] Cookie validation error: ${e.message || e}`);
-        return { valid: false };
     }
 }
 
