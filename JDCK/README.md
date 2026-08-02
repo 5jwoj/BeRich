@@ -77,7 +77,7 @@ hostname = api.m.jd.com
 | 类型 | 链接 |
 | :--- | :--- |
 | **覆写地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Stash.stoverride` |
-| **BoxJS订阅** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json` |
+| **BoxJS订阅** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json` |
 
 **详细说明**
 

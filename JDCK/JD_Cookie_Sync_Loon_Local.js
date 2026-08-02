@@ -11,7 +11,7 @@
  * 支持三种配置方式（优先级递减）：
  * 1. 脚本内置 MANUAL_CONFIG
  * 2. 插件 Argument 参数配置
- * 3. BoxJS 面板配置 (需订阅 JD_Cookie_Sync_BoxJS.json)
+ * 3. BoxJS 面板配置 (需订阅 BeRich.boxjs.json)
  *
  * @script
  * api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com

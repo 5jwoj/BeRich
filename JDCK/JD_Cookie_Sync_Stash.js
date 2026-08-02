@@ -5,7 +5,7 @@
  * Author: z.W.
  * 
  * 支持通过BoxJS配置青龙面板信息
- * BoxJS订阅地址: https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json
+ * BoxJS订阅地址: https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
  *
  * 行为：
  * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
@@ -36,7 +36,7 @@ const MANUAL_CONFIG = {
     console.log(`[jd_cookie_sync] Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
 
     if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
-      $notification.post("配置未生效", "参数未正确设置", "请在BoxJS或脚本中配置青龙信息。\nBoxJS订阅: https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json");
+      $notification.post("配置未生效", "参数未正确设置", "请在BoxJS或脚本中配置青龙信息。\nBoxJS订阅: https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json");
       $done({});
       return;
     }

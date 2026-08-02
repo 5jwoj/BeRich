@@ -40,7 +40,7 @@
 3. 在浏览器中访问 `http://boxjs.com`
 4. 进入「订阅」页面，添加应用订阅：
    ```
-   https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_BoxJS.json
+   https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
    ```
 5. 刷新页面，找到「京东Cookie同步」应用
 
