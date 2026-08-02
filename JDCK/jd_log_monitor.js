@@ -11,7 +11,7 @@
  * 
  * --------------------------------------------------------------------------------
  * QX 任务配置 (task_local):
- * 0 0-23/1 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/jd_log_monitor.js, tag=日志数值检测通知, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
+ * 0 7 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/jd_log_monitor.js, tag=日志数值检测通知, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/jd.png, enabled=true
  * 
  * Loon 脚本配置:
  * cron "0 0-23/1 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/jd_log_monitor.js, tag=日志数值检测通知
