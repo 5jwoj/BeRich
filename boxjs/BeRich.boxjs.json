@@ -280,6 +280,9 @@
             "id": "jd.log.monitor",
             "name": "日志检测与PIN通知",
             "keys": [
+                "jd_ql_url",
+                "jd_ql_client_id",
+                "jd_ql_client_secret",
                 "log_monitor_script_name",
                 "log_monitor_pins",
                 "log_monitor_threshold",
@@ -292,10 +295,34 @@
                 "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
             ],
             "descs_html": [
-                "<h4 align=\"center\">青龙脚本日志数值检测与 PIN 定向通知</h4>",
-                "<p>自动扫描青龙面板中指定脚本的最新日志，当提取到 '现有: XX.XX' 数值大于设定阈值时，针对指定的 PIN 账户发送通知预警。</p>"
+                "<h4 align=\"center\">青龙脚本日志数值检测与 PIN 定向通知 (QuanX / 青龙)</h4>",
+                "<p>自动读取青龙面板中指定脚本的最新日志，当提取到 '现有: XX.XX' 数值大于设定阈值时，针对指定的 PIN 账户发送系统弹窗通知。</p>"
             ],
             "settings": [
+                {
+                    "id": "jd_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板完整地址 (含端口)，QuanX 环境必填"
+                },
+                {
+                    "id": "jd_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入 Client ID",
+                    "desc": "青龙 Open API Client ID"
+                },
+                {
+                    "id": "jd_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入 Client Secret",
+                    "desc": "青龙 Open API Client Secret"
+                },
                 {
                     "id": "log_monitor_script_name",
                     "name": "检测的目标脚本名称",
