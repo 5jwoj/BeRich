@@ -1,7 +1,7 @@
 {
     "id": "5jwoj.berich",
     "name": "BeRich 订阅合集",
-    "description": "包含京东Cookie同步、京豆资产查询、京东账号过期检测、阿里云Cookie同步、微信自动阅读、小阅阅全自动阅读、微博签到和V2EX每日签到的BoxJS订阅合集",
+    "description": "包含京东Cookie同步、京豆资产查询、京东账号过期检测、阿里云Cookie同步和V2EX每日签到的BoxJS订阅合集",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/available.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -238,45 +238,6 @@
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/aliyun/aliyun_web_cookie_qx.js"
         },
         {
-            "id": "weibo_sign_qx",
-            "name": "微博每日签到",
-            "keys": [
-                "sy_token_wb",
-                "wb_cookie"
-            ],
-            "author": "@5jwoj",
-            "repo": "https://github.com/5jwoj/BeRich/tree/main/weibo",
-            "descs_html": [
-                "请先在 QuanX 配置文件中添加重写和 MITM 规则，然后打开微博 APP 获取 Token 和 Cookie。",
-                "脚本会自动去重和验证有效性。"
-            ],
-            "settings": [
-                {
-                    "id": "sy_token_wb",
-                    "name": "微博 Token",
-                    "val": "",
-                    "type": "textarea",
-                    "autoGrow": true,
-                    "rows": 3,
-                    "desc": "多个账号用 # 连接 (脚本会自动处理，通常无需手动修改)"
-                },
-                {
-                    "id": "wb_cookie",
-                    "name": "微博 Cookie (SUB)",
-                    "val": "",
-                    "type": "textarea",
-                    "autoGrow": true,
-                    "rows": 3,
-                    "desc": "多个账号用 # 连接 (用于钱包签到)"
-                }
-            ],
-            "icons": [
-                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/weibo.png",
-                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/weibo.png"
-            ],
-            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo_qx.js"
-        },
-        {
             "id": "v2ex_daily_qx",
             "name": "V2EX 每日签到",
             "keys": [
@@ -314,100 +275,6 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily.js"
-        },
-        {
-            "id": "wx_read_qx",
-            "name": "微信自动阅读",
-            "keys": [
-                "wxyd1",
-                "wxyd_fail_skip"
-            ],
-            "author": "@5jwoj",
-            "repo": "https://github.com/5jwoj/BeRich/blob/main/wx_read.js",
-            "icons": [
-                "https://raw.githubusercontent.com/5jwoj/BeRich/main/assets/wx_read.png",
-                "https://raw.githubusercontent.com/5jwoj/BeRich/main/assets/wx_read.png"
-            ],
-            "descs_html": [
-                "<h4 align=\"center\">微信自动阅读</h4>",
-                "<p>自动抓取凭证 (udtauth40) + 模拟真人自动阅读篇章与提现。</p>",
-                "<p>使用方式：打开微信阅读页面，脚本将自动拦截并捕获凭证。多账号格式为 <code>token1#name1&amp;token2#name2</code>，脚本已内置自动去重和捕获保存。</p>",
-                "<p>风控保护：当账号被判定失败或异常时，会自动记录今日失败并不再运行，以防被风控封号。您可以在下方关闭此保护或清空失败记录。</p>"
-            ],
-            "settings": [
-                {
-                    "id": "wxyd1",
-                    "name": "微信阅读凭证列表",
-                    "val": "",
-                    "type": "textarea",
-                    "autoGrow": true,
-                    "rows": 3,
-                    "desc": "微信阅读的凭证列表，格式为: token1#账号1&token2#账号2。微信内打开阅读页时会自动捕获并写入此变量，无需手动修改。"
-                },
-                {
-                    "id": "wxyd_fail_skip",
-                    "name": "今日失败跳过保护开关",
-                    "val": true,
-                    "type": "boolean",
-                    "desc": "【默认开启】开启后，如果账号今日运行失败（风控、链接失效），后续运行将自动跳过该账号以防止风控封号。关闭此选项则允许每次运行都进行重试。"
-                }
-            ],
-            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/wx_read.js"
-        },
-        {
-            "id": "xyy_auto_read_qx",
-            "name": "小阅阅全自动阅读",
-            "keys": [
-                "xyy_cookie",
-                "xyy_unionid",
-                "xyy_entry_url",
-                "xyy_max_read"
-            ],
-            "author": "@5jwoj",
-            "repo": "https://github.com/5jwoj/BeRich/tree/main/xyy",
-            "icons": [
-                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/wechat.png",
-                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/wechat.png"
-            ],
-            "descs_html": [
-                "<h4 align=\"center\">微信小阅阅全自动阅读金币结算</h4>",
-                "<p>使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/tree/main/xyy\">xyy README</a></p>"
-            ],
-            "settings": [
-                {
-                    "id": "xyy_cookie",
-                    "name": "小阅阅 Cookie",
-                    "val": "",
-                    "type": "textarea",
-                    "autoGrow": true,
-                    "rows": 2,
-                    "desc": "微信重写自动捕获，也可手动填入 (ysmuid=...)。多账号用 & 或 换行 分隔。"
-                },
-                {
-                    "id": "xyy_unionid",
-                    "name": "账号 UnionID",
-                    "val": "",
-                    "type": "textarea",
-                    "autoGrow": true,
-                    "rows": 2,
-                    "desc": "微信重写自动捕获，也可手动填入。多账号用 & 或 换行 分隔。"
-                },
-                {
-                    "id": "xyy_entry_url",
-                    "name": "入口链接/域名（可选）",
-                    "val": "",
-                    "type": "text",
-                    "desc": "动态解析基准域名，留空使用默认"
-                },
-                {
-                    "id": "xyy_max_read",
-                    "name": "单次运行最大篇数（可选）",
-                    "val": "30",
-                    "type": "text",
-                    "desc": "默认 30 篇"
-                }
-            ],
-            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/xyy/xyy_qx.js"
         }
     ]
 }

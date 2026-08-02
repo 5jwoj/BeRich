@@ -11,7 +11,10 @@
 ## 📦 包含的应用
 
 1. **京东Cookie同步** - 自动捕获京东Cookie并同步到青龙面板
-2. **微博每日签到** - 微博自动签到脚本
+2. **京豆资产查询** - 基于青龙面板日志查询指定账号的京豆详情
+3. **京东账号过期检测** - 青龙京东账号 Cookie 过期自动检测通知
+4. **阿里云Cookie同步** - 自动捕获阿里云社区Cookie并同步到青龙面板
+5. **V2EX 每日签到** - 自动领取 V2EX 每日登录奖励
 
 ## 🚀 使用方法
 
@@ -33,14 +36,6 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
 - **Client Secret**：在青龙面板创建的应用密钥
 
 详细使用说明请查看：[JDCK/README_QX.md](../JDCK/README_QX.md)
-
-### 微博每日签到
-
-需要配置以下参数：
-- **微博 Token**：通过重写规则自动获取
-- **微博 Cookie (SUB)**：用于钱包签到
-
-详细使用说明请查看：[weibo/README.md](../weibo/README.md)
 
 ## ⚙️ Quantumult X 配置
 
