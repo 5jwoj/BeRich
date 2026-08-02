@@ -53,6 +53,70 @@
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.js"
         },
         {
+            "id": "jd.cookie.check.qx",
+            "name": "京东账号过期检测",
+            "keys": [
+                "jd_ql_url",
+                "jd_ql_client_id",
+                "jd_ql_client_secret",
+                "jd_cookie_check_script",
+                "jd_check_pin"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">青龙京东账号 Cookie 过期 / 失效自动检测通知</h4>",
+                "<p>自动读取青龙资产/签到日志，检测指定的 Pin (或全部 Pin) 是否失效，若过期则触发通知报警。</p>"
+            ],
+            "settings": [
+                {
+                    "id": "jd_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板的完整地址，包括端口号"
+                },
+                {
+                    "id": "jd_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取"
+                },
+                {
+                    "id": "jd_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "在青龙面板 -> 系统设置 -> 应用设置中创建应用获取"
+                },
+                {
+                    "id": "jd_cookie_check_script",
+                    "name": "检测目标脚本名称",
+                    "val": "jd_task_assets",
+                    "type": "text",
+                    "placeholder": "jd_task_assets",
+                    "desc": "在青龙日志中检测的目标脚本名，默认 jd_task_assets"
+                },
+                {
+                    "id": "jd_check_pin",
+                    "name": "检测的京东账号 Pin",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "如: jd_123456,jd_789012",
+                    "desc": "指定检测的京东账号 Pin，多个用逗号或空格分隔。留空则检测日志内全部账号"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_QX.js"
+        },
+        {
             "id": "aliyun.cookie.sync.qx",
             "name": "阿里云Cookie同步",
             "keys": [
