@@ -1,13 +1,13 @@
 /*
  * 📦 日志检测与PIN通知脚本 (Quantumult X / Loon / Surge / Stash / 青龙面板)
- * Version: v1.0.6
+ * Version: v1.0.7
  * Author: 5jwoj
  * 
  * 功能说明:
  *   1. 支持在 Quantumult X 等 iOS / 软路由代理工具及青龙面板 Node.js 环境中双模运行。
  *   2. 支持通过 BoxJS 或 MANUAL_CONFIG 配置青龙面板地址、密钥、目标脚本名、指定 PIN 列表及检测阈值。
- *   3. 无论数值是否达到阈值，均实时显示指定 PIN 账号的最新数值。
- *   4. 当检测到数值高于 11 (或设定阈值) 时，第一时间推送“可兑换话费”提示！
+ *   3. 完美兼容各种青龙日志格式 (包含 [Run] 运行账户: xxx / [Msg xxx] / [Log xxx] / pt_pin=xxx 等)。
+ *   4. 实时提取并显示指定 PIN 账号的最新数值，达到阈值(如 > 11)提示兑换话费！
  * 
  * --------------------------------------------------------------------------------
  * QX 任务配置 (task_local):
@@ -37,7 +37,7 @@ try {
 }
 
 (async () => {
-    $.log(`\n================== [日志检测通知 v1.0.6] ==================`);
+    $.log(`\n================== [日志检测通知 v1.0.7] ==================`);
 
     // 1. 加载配置
     const config = await loadAllConfig();
@@ -335,14 +335,19 @@ function analyzeLogContent(content, config) {
         regex = new RegExp("现有:\\s*([0-9]+(?:\\.[0-9]+)?)", "i");
     }
 
+    // 增强型 PIN 匹配模式 (全方位适配各种青龙脚本日志输出)
     const pinRegexPatterns = [
+        /运行账户[：:\s]*([^\s;,\n\r]+)/i,
+        /\[(?:Msg|Log|Temp|Run)\s+([^\]\s]+)\]/i,
+        /\[(?:Msg|Log|Temp|Run)\]\s*([^\s\]]+)/i,
         /pt_pin=([^; \n\r\t]+)/i,
-        /pin[:：]\s*([^\s;,\n\r]+)/i,
-        /【账号\d*】\s*([^\s\n\r;]+)/i,
-        /账号[：:]\s*([^\s\n\r;]+)/i
+        /pin[：:\s]*([^\s;,\n\r]+)/i,
+        /【(?:京东)?账号\s*\d*】\s*([^\s\n\r;]+)/i,
+        /账号\s*\d*[：:\s]*([^\s\n\r;]+)/i
     ];
 
     for (let line of lines) {
+        // 尝试从当前行更新当前 PIN
         for (let pRegex of pinRegexPatterns) {
             let pinMatch = line.match(pRegex);
             if (pinMatch && pinMatch[1]) {
@@ -351,6 +356,7 @@ function analyzeLogContent(content, config) {
             }
         }
 
+        // 尝试从当前行匹配数值
         let match = line.match(regex);
         if (match) {
             let valStr = match[1] || match[0];
@@ -373,9 +379,22 @@ function analyzeLogContent(content, config) {
                         value: numVal,
                         lineText: line
                     };
-                    allMatchedRecords.push(record);
+                    
+                    // 仅对同一个 PIN 记录最新一次（覆盖之前旧行中的中间过程记录）
+                    let existingIdx = allMatchedRecords.findIndex(r => r.pin === currentPin);
+                    if (existingIdx !== -1) {
+                        allMatchedRecords[existingIdx] = record;
+                    } else {
+                        allMatchedRecords.push(record);
+                    }
+
                     if (numVal > config.threshold) {
-                        alertList.push(record);
+                        let alertIdx = alertList.findIndex(r => r.pin === currentPin);
+                        if (alertIdx !== -1) {
+                            alertList[alertIdx] = record;
+                        } else {
+                            alertList.push(record);
+                        }
                     }
                 }
             }
