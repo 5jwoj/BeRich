@@ -1,14 +1,22 @@
 /**
  * 快手极速版看广告/宝箱刷金币 - Quantumult X 专用版
- * @version v1.0.0
+ * @version v1.1.0
  * 
  * ==================== Quantumult X 配置说明 ====================
  * [task_local]
+ * # 自动看广告/宝箱刷金币定时任务
  * 0 8,12,18 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/kuaishou/ks_qx.js, tag=快手看广告, img-url=https://raw.githubusercontent.com/kwai/logo.png, enabled=true
  * 
- * ==================== 单机/多账号环境变量配置 ====================
- * 可在下方的 USER_CONFIG 中直接配置账号，也可以在 Quantumult X 构造的持久化存储(BoxJS / Prefs) 中设置 'ksck'
- * 格式：cookie#salt 或 备注#cookie#salt (多账号用 & 连接)
+ * [rewrite_local]
+ * # 打开快手极速版【Earn/任务】页面自动抓取 Cookie
+ * ^https?:\/\/nebula\.kuaishou\.com\/rest\/n\/nebula\/activity\/earn\/overview\/basicInfo url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/kuaishou/ks_qx.js
+ * 
+ * [mitm]
+ * hostname = nebula.kuaishou.com
+ * 
+ * ==================== 账号配置与抓包说明 ====================
+ * 1. 【自动抓包】：配置好 [rewrite_local] 与 [mitm] 后，打开快手极速版 App 进入【任务页面】，即可自动抓取并保存 Cookie。
+ * 2. 【手动配置】：也可在 BoxJS 或 QX 持久化存储设置 `ksck`，格式：`cookie#salt` 或 `备注#cookie#salt` (多账号用 & 分隔)
  */
 
 // ==================== 用户配置区 ====================
@@ -529,8 +537,54 @@ class KuaishouAdTask {
   }
 }
 
-// ==================== 主流程执行 ====================
-(async () => {
+// ==================== 自动重写抓包入口 ====================
+function GetCookie() {
+  if ($request && $request.url.includes("/earn/overview/basicInfo")) {
+    const headers = $request.headers;
+    const cookie = headers["Cookie"] || headers["cookie"];
+    if (cookie && cookie.includes("kuaishou.api_st")) {
+      const userId = cookie.match(/userId=([^;]+)/)?.[1] || "未知用户";
+      let oldKsck = $.getdata("ksck") || "";
+      let salt = "12345678";
+      
+      if (oldKsck) {
+        let parts = oldKsck.split("#");
+        if (parts.length >= 2) salt = parts[parts.length - 1];
+      }
+      
+      let newAcc = `${cookie}#${salt}`;
+      let updated = false;
+
+      if (!oldKsck) {
+        $.setdata(newAcc, "ksck");
+        updated = true;
+      } else {
+        let accList = oldKsck.split("&");
+        let foundIndex = accList.findIndex(acc => acc.includes(`userId=${userId}`));
+        if (foundIndex !== -1) {
+          let oldParts = accList[foundIndex].split("#");
+          let oldSalt = oldParts.length >= 2 ? oldParts[oldParts.length - 1] : salt;
+          accList[foundIndex] = `${cookie}#${oldSalt}`;
+          $.setdata(accList.join("&"), "ksck");
+          updated = true;
+        } else {
+          accList.push(newAcc);
+          $.setdata(accList.join("&"), "ksck");
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        $.msg("快手极速版", "🎉 Cookie 自动抓取成功", `已成功保存/更新账号[${userId}]的信息！`);
+        $.log(`[抓包成功] 用户ID: ${userId}`);
+      }
+    }
+  }
+  $done({});
+}
+
+// ==================== 定时任务主流程入口 ====================
+async function Main() {
   const accounts = loadAccounts();
   const title = getEnvVal("SCRIPT_TITLE", "小飞独享版 (QX版)");
   
@@ -539,8 +593,8 @@ class KuaishouAdTask {
   $.log(`═══════════════════════════════════════`);
 
   if (!accounts.length) {
-    $.log("❌ 未检测到有效账号，请配置 'ksck' (格式: cookie#salt)");
-    $.msg(title, "运行失败", "未设置账号 COOKIE");
+    $.log("❌ 未检测到有效账号，请配置 'ksck' 或使用 App 进入任务页自动抓包");
+    $.msg(title, "运行失败", "未设置账号 COOKIE，请进入 App 任务页进行自动抓包");
     return;
   }
 
@@ -574,9 +628,16 @@ class KuaishouAdTask {
   if (notifyMsg.length > 0) {
     $.msg(title, "任务执行完毕", notifyMsg.join("\n"));
   }
-})()
-.catch((e) => $.logErr(e))
-.finally(() => $done());
+}
+
+// 入口判断：请求拦截(重写) OR 定时任务
+if (typeof $request !== "undefined") {
+  GetCookie();
+} else {
+  Main()
+    .catch((e) => $.logErr(e))
+    .finally(() => $done());
+}
 
 // ==================== Env 兼容类实现 ====================
 function Env(name) {
@@ -591,6 +652,10 @@ function Env(name) {
   this.getdata = (key) => {
     if (typeof $prefs !== "undefined") return $prefs.valueForKey(key);
     return null;
+  };
+  this.setdata = (val, key) => {
+    if (typeof $prefs !== "undefined") return $prefs.setValueForKey(val, key);
+    return false;
   };
   this.msg = (title, subtitle, body) => {
     if (typeof $notify !== "undefined") $notify(title, subtitle, body);
