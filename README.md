@@ -17,6 +17,7 @@
 | [**Ninebot (九号出行)**](./Ninebot) | 九号出行自动签到，支持自动领取任务奖励。 | 青龙面板 |
 | [**xyy (小阅阅)**](./xyy) | 微信小阅阅全自动阅读与金币结算。 | Quantumult X |
 | [**tyqh (统一茄皇)**](./tyqh) | 统一茄皇的家五期，自动做任务、浇水与偷能量。 | Quantumult X |
+| [**kuaishou (快手看广告)**](./kuaishou) | 快手/快手极速版看广告宝箱刷金币。 | Quantumult X |
 
 ---
 
