@@ -32,7 +32,7 @@ const USER_CONFIG = {
   KS_CONTINUE_MAX_COUNT: 3,         // 追加广告最大次数
   KS_EXTRA_TASK_ENABLE: true,       // 是否开启额外任务翻倍
   Task: "box,look",                 // 任务类型，支持 box (宝箱广告), look (观看广告)
-  SCRIPT_TITLE: "小飞独享版 (QX版)"
+  SCRIPT_TITLE: "z.W. (QX版)"
 };
 
 // ==================== QX 基础环境适配 ====================
