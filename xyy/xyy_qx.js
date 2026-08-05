@@ -1,7 +1,7 @@
 /*
  * 小阅阅全自动阅读 - Quantumult X 适配版
  * 
- * @version v1.0.1
+ * @version v1.0.2
  * @author @5jwoj
  * 
  * ==================== Quantumult X 配置说明 ====================
@@ -11,7 +11,7 @@
  * ^https?:\/\/.*\/xiaoxinxin\/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/xyy/xyy_qx.js
  * 
  * [mitm]
- * hostname = *.9d0hl2.info, *.ohqnjl.asia, *.info
+ * hostname = *.info, *.asia, *.9d0hl2.info, *.ohqnjl.asia
  * 
  * 2. 定时任务配置 (task):
  * [task_local]
@@ -51,7 +51,7 @@ const USER_AGENT = "Mozilla/5.0 (Linux; Android 16; V2405A Build/BP2A.250605.031
 
     // 2. 否则为定时任务模式
     console.log("==================================================");
-    console.log("   小阅阅全自动阅读脚本 v1.0.1 (Quantumult X 版)  ");
+    console.log("   小阅阅全自动阅读脚本 v1.0.2 (Quantumult X 版)  ");
     console.log("==================================================");
 
     const accounts = getAccounts();
