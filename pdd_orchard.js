@@ -1,5 +1,7 @@
 /**
  * 拼多多果园 - Quantumult X 自动浇水领水滴脚本
+ * 版本: v1.0.2
+ * 更新内容: 支持从 URL 提取 pdduid 自动组装 Cookie，日志增加版本号标识
  * 
  * [rewrite_local]
  * ^https?:\/\/(mobile|api)\.(yangkeduo|pinduoduo)\.com\/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
@@ -11,7 +13,8 @@
  * hostname = mobile.yangkeduo.com, *.yangkeduo.com, api.pinduoduo.com, *.pinduoduo.com
  */
 
-const LOG_PREFIX = "[拼多多果园]";
+const VERSION = "v1.0.2";
+const LOG_PREFIX = `[拼多多果园 ${VERSION}]`;
 const DEBUG = true;
 
 const MANOR_BASE = "https://mobile.yangkeduo.com/proxy/api/api";
@@ -31,7 +34,7 @@ function log(msg, detail = null) {
 
 // ===== 1. Cookie 抓取（Rewrite 模式） =====
 function getCookie() {
-  log(">>> 开始执行重写抓取 Cookie 流程 <<<");
+  log(`>>> 开始执行重写抓取 Cookie 流程 (${VERSION}) <<<`);
   if (!$request || !$request.headers) {
     $done({});
     return;
@@ -84,7 +87,7 @@ function getCookie() {
     // 只在首次或 UID/Cookie 变化时提醒
     if (savedUid !== pdduid || !savedCookie) {
       $notify(
-        "拼多多果园 🎉",
+        `拼多多果园 ${VERSION} 🎉`,
         "Cookie & UID 提取成功！",
         `用户ID: ${pdduid || "已记录"}\n已自动匹配并保存凭据，可运行自动化任务！`
       );
@@ -497,7 +500,7 @@ async function stealFromFriends(pdduid, cookieStr, tubetoken) {
 
 // ===== 4. Task 模式主入口 =====
 async function main() {
-  log(">>> 开始执行拼多多果园定时自动化任务 <<<");
+  log(`>>> 开始执行拼多多果园定时自动化任务 (${VERSION}) <<<`);
 
   const cookieStr = $prefs.getValueForKey("pdd_orchard_cookie");
   let pdduid = $prefs.getValueForKey("pdd_orchard_uid");
@@ -505,7 +508,7 @@ async function main() {
 
   if (!cookieStr) {
     log("[错误] 未检测到存储的 Cookie！请先开启 QuanX 重写并在微信中打开拼多多果园页面！");
-    $notify("拼多多果园 ❌", "未配置或获取到 Cookie", "请打开重写并进入拼多多果园小程序页面自动抓取");
+    $notify(`拼多多果园 ${VERSION} ❌`, "未配置或获取到 Cookie", "请打开重写并进入拼多多果园小程序页面自动抓取");
     $done();
     return;
   }
@@ -517,7 +520,7 @@ async function main() {
 
   if (!pdduid) {
     log("[错误] Cookie 中未能识别 pdd_user_id！");
-    $notify("拼多多果园 ❌", "Cookie 无效", "缺失 pdd_user_id 字段，请重新抓取");
+    $notify(`拼多多果园 ${VERSION} ❌`, "Cookie 无效", "缺失 pdd_user_id 字段，请重新抓取");
     $done();
     return;
   }
@@ -527,7 +530,7 @@ async function main() {
   // 1. 刷新首页并刷新 tubetoken
   const { newToken, water: startWater } = await getHomePage(pdduid, cookieStr, tubetoken);
   if (newToken === null) {
-    $notify("拼多多果园 ❌", "Cookie 已失效", "请重新在手机上打开拼多多果园抓取最新 Cookie");
+    $notify(`拼多多果园 ${VERSION} ❌`, "Cookie 已失效", "请重新在手机上打开拼多多果园抓取最新 Cookie");
     $done();
     return;
   }
@@ -557,7 +560,7 @@ async function main() {
   const summaryMsg = `账号ID: ${pdduid}\n初始水滴: ${startWater} -> 最终水滴: ${finalWater}\n自动浇水: ${wateredTimes}次\n任务奖励: +${claimedWater}水滴\n偷水收益: +${stolenWater}水滴`;
   log("--- [6/6] 任务汇总 ---", summaryMsg);
 
-  $notify("拼多多果园 自动任务完成 🎉", `水滴余额: ${finalWater}`, summaryMsg);
+  $notify(`拼多多果园 ${VERSION} 自动任务完成 🎉`, `水滴余额: ${finalWater}`, summaryMsg);
   $done();
 }
 
@@ -567,7 +570,7 @@ if (isRequest) {
 } else {
   main().catch(err => {
     log("[致命错误] 任务运行捕获到未处理异常:", err);
-    $notify("拼多多果园 ❌", "运行发生未捕获异常", String(err));
+    $notify(`拼多多果园 ${VERSION} ❌`, "运行发生未捕获异常", String(err));
     $done();
   });
 }
