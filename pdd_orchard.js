@@ -31,7 +31,7 @@ function log(msg, detail = null) {
 
 // ===== 1. Cookie 抓取（Rewrite 模式） =====
 function getCookie() {
-  log(">>> 拦截到拼多多相关请求 <<<");
+  log(">>> 开始执行重写抓取 Cookie 流程 <<<");
   if (!$request || !$request.headers) {
     $done({});
     return;
@@ -39,9 +39,9 @@ function getCookie() {
 
   const url = $request.url || "";
   const headers = $request.headers;
-  log("请求 URL:", url);
+  log("拦截到的请求 URL:", url);
 
-  // 匹配 Cookie 字段
+  // 匹配 Cookie 字段 (忽略大小写)
   let cookieHeader = "";
   for (let key in headers) {
     if (key.toLowerCase() === "cookie") {
@@ -50,19 +50,28 @@ function getCookie() {
     }
   }
 
-  // 尝试从 Cookie 或 URL Query 中解析 uid 与 tubetoken
+  log("获取到的原生 Header Cookie:", cookieHeader || "(无)");
+
+  // 从 Cookie 或 URL Query 中提取 UID (如 pdduid=3306171662)
   const uidInCookie = cookieHeader ? cookieHeader.match(/pdd_user_id=(\d+)/) : null;
-  const uidInUrl = url.match(/pdduid=(\d+)/);
+  const uidInUrl = url.match(/[?&]pdduid=(\d+)/) || url.match(/[?&]pdd_user_id=(\d+)/);
   const tubeInCookie = cookieHeader ? cookieHeader.match(/tubetoken=([^;]+)/) : null;
 
   const pdduid = uidInCookie ? uidInCookie[1] : (uidInUrl ? uidInUrl[1] : null);
   const tubetoken = tubeInCookie ? tubeInCookie[1] : "";
 
-  if (cookieHeader && (pdduid || cookieHeader.indexOf("PDDAccessToken") !== -1 || cookieHeader.indexOf("api_uid") !== -1)) {
-    // 成功捕获有效 Cookie
-    const oldCookie = $prefs.getValueForKey("pdd_orchard_cookie");
-    
-    $prefs.setValueForKey(cookieHeader, "pdd_orchard_cookie");
+  if (pdduid || cookieHeader) {
+    // 组装并拼接完整 Cookie
+    let fullCookie = cookieHeader || "";
+    if (pdduid && fullCookie.indexOf("pdd_user_id=") === -1) {
+      fullCookie = fullCookie ? `${fullCookie}; pdd_user_id=${pdduid}` : `pdd_user_id=${pdduid}`;
+    }
+
+    const savedUid = $prefs.getValueForKey("pdd_orchard_uid");
+    const savedCookie = $prefs.getValueForKey("pdd_orchard_cookie");
+
+    // 保存凭据
+    $prefs.setValueForKey(fullCookie, "pdd_orchard_cookie");
     if (pdduid) {
       $prefs.setValueForKey(pdduid, "pdd_orchard_uid");
     }
@@ -70,14 +79,16 @@ function getCookie() {
       $prefs.setValueForKey(tubetoken, "pdd_orchard_tubetoken");
     }
 
-    log(`[成功] Cookie 匹配并成功保存！UID: ${pdduid || "已记录"}`);
+    log(`[成功] 已提取拼多多凭据！\nUID: ${pdduid || "未获取"}\n完整 Cookie: ${fullCookie}`);
 
-    // 防止频繁弹窗，只在 Cookie 变化或首次抓取时弹窗通知
-    if (oldCookie !== cookieHeader) {
-      $notify("拼多多果园 🎉", "Cookie 抓取成功！", `用户ID: ${pdduid || "已获取"}\n凭据已自动保存，可运行自动化任务。`);
+    // 只在首次或 UID/Cookie 变化时提醒
+    if (savedUid !== pdduid || !savedCookie) {
+      $notify(
+        "拼多多果园 🎉",
+        "Cookie & UID 提取成功！",
+        `用户ID: ${pdduid || "已记录"}\n已自动匹配并保存凭据，可运行自动化任务！`
+      );
     }
-  } else {
-    log("[提示] 请求缺少核心 Cookie 凭据，等待后续数据包...");
   }
 
   $done({});
