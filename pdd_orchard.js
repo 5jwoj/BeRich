@@ -1,7 +1,7 @@
 /**
  * 拼多多果园 - Quantumult X 自动浇水领水滴脚本
- * 版本: v1.0.2
- * 更新内容: 支持从 URL 提取 pdduid 自动组装 Cookie，日志增加版本号标识
+ * 版本: v1.0.3
+ * 修复: 修正 QuanX $prefs.valueForKey API 方法调用的异常错误
  * 
  * [rewrite_local]
  * ^https?:\/\/(mobile|api)\.(yangkeduo|pinduoduo)\.com\/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
@@ -13,7 +13,7 @@
  * hostname = mobile.yangkeduo.com, *.yangkeduo.com, api.pinduoduo.com, *.pinduoduo.com
  */
 
-const VERSION = "v1.0.2";
+const VERSION = "v1.0.3";
 const LOG_PREFIX = `[拼多多果园 ${VERSION}]`;
 const DEBUG = true;
 
@@ -21,6 +21,28 @@ const MANOR_BASE = "https://mobile.yangkeduo.com/proxy/api/api";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254193e) XWEB/19841";
 
 const isRequest = typeof $request !== "undefined";
+
+// 跨平台存储安全适配器 (QuanX: $prefs.valueForKey / $prefs.setValueForKey)
+const storage = {
+  get: (key) => {
+    if (typeof $prefs !== "undefined") {
+      return $prefs.valueForKey(key);
+    }
+    if (typeof $persistentStore !== "undefined") {
+      return $persistentStore.read(key);
+    }
+    return null;
+  },
+  set: (val, key) => {
+    if (typeof $prefs !== "undefined") {
+      return $prefs.setValueForKey(val, key);
+    }
+    if (typeof $persistentStore !== "undefined") {
+      return $persistentStore.write(val, key);
+    }
+    return false;
+  }
+};
 
 function log(msg, detail = null) {
   if (!DEBUG) return;
@@ -70,16 +92,16 @@ function getCookie() {
       fullCookie = fullCookie ? `${fullCookie}; pdd_user_id=${pdduid}` : `pdd_user_id=${pdduid}`;
     }
 
-    const savedUid = $prefs.getValueForKey("pdd_orchard_uid");
-    const savedCookie = $prefs.getValueForKey("pdd_orchard_cookie");
+    const savedUid = storage.get("pdd_orchard_uid");
+    const savedCookie = storage.get("pdd_orchard_cookie");
 
     // 保存凭据
-    $prefs.setValueForKey(fullCookie, "pdd_orchard_cookie");
+    storage.set(fullCookie, "pdd_orchard_cookie");
     if (pdduid) {
-      $prefs.setValueForKey(pdduid, "pdd_orchard_uid");
+      storage.set(pdduid, "pdd_orchard_uid");
     }
     if (tubetoken) {
-      $prefs.setValueForKey(tubetoken, "pdd_orchard_tubetoken");
+      storage.set(tubetoken, "pdd_orchard_tubetoken");
     }
 
     log(`[成功] 已提取拼多多凭据！\nUID: ${pdduid || "未获取"}\n完整 Cookie: ${fullCookie}`);
@@ -502,9 +524,9 @@ async function stealFromFriends(pdduid, cookieStr, tubetoken) {
 async function main() {
   log(`>>> 开始执行拼多多果园定时自动化任务 (${VERSION}) <<<`);
 
-  const cookieStr = $prefs.getValueForKey("pdd_orchard_cookie");
-  let pdduid = $prefs.getValueForKey("pdd_orchard_uid");
-  let tubetoken = $prefs.getValueForKey("pdd_orchard_tubetoken") || "";
+  const cookieStr = storage.get("pdd_orchard_cookie");
+  let pdduid = storage.get("pdd_orchard_uid");
+  let tubetoken = storage.get("pdd_orchard_tubetoken") || "";
 
   if (!cookieStr) {
     log("[错误] 未检测到存储的 Cookie！请先开启 QuanX 重写并在微信中打开拼多多果园页面！");
@@ -536,7 +558,7 @@ async function main() {
   }
   if (newToken && newToken !== tubetoken) {
     tubetoken = newToken;
-    $prefs.setValueForKey(tubetoken, "pdd_orchard_tubetoken");
+    storage.set(tubetoken, "pdd_orchard_tubetoken");
   }
 
   // 2. 签到
