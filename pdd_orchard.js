@@ -1,7 +1,7 @@
 /**
  * 拼多多果园 - Quantumult X 自动浇水领水滴脚本
- * 版本: v1.0.3
- * 修复: 修正 QuanX $prefs.valueForKey API 方法调用的异常错误
+ * 版本: v1.0.4
+ * 改进: 实现 Cookie 智能增量融合（确保包含 PDDAccessToken、pdd_user_id、api_uid）
  * 
  * [rewrite_local]
  * ^https?:\/\/(mobile|api)\.(yangkeduo|pinduoduo)\.com\/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
@@ -13,7 +13,7 @@
  * hostname = mobile.yangkeduo.com, *.yangkeduo.com, api.pinduoduo.com, *.pinduoduo.com
  */
 
-const VERSION = "v1.0.3";
+const VERSION = "v1.0.4";
 const LOG_PREFIX = `[拼多多果园 ${VERSION}]`;
 const DEBUG = true;
 
@@ -22,7 +22,7 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 const isRequest = typeof $request !== "undefined";
 
-// 跨平台存储安全适配器 (QuanX: $prefs.valueForKey / $prefs.setValueForKey)
+// 跨平台存储安全适配器
 const storage = {
   get: (key) => {
     if (typeof $prefs !== "undefined") {
@@ -54,9 +54,28 @@ function log(msg, detail = null) {
   }
 }
 
-// ===== 1. Cookie 抓取（Rewrite 模式） =====
+// Cookie 工具辅助函数
+function parseCookieStr(str) {
+  const map = {};
+  if (!str) return map;
+  str.split(';').forEach(item => {
+    const parts = item.split('=');
+    if (parts.length >= 2) {
+      const k = parts[0].trim();
+      const v = parts.slice(1).join('=').trim();
+      if (k && v) map[k] = v;
+    }
+  });
+  return map;
+}
+
+function stringifyCookieMap(map) {
+  return Object.keys(map).map(k => `${k}=${map[k]}`).join('; ');
+}
+
+// ===== 1. Cookie 抓取（Rewrite 模式：智能融合累积） =====
 function getCookie() {
-  log(`>>> 开始执行重写抓取 Cookie 流程 (${VERSION}) <<<`);
+  log(`>>> 拦截到拼多多数据请求 (${VERSION}) <<<`);
   if (!$request || !$request.headers) {
     $done({});
     return;
@@ -64,9 +83,9 @@ function getCookie() {
 
   const url = $request.url || "";
   const headers = $request.headers;
-  log("拦截到的请求 URL:", url);
+  log("拦截请求 URL:", url);
 
-  // 匹配 Cookie 字段 (忽略大小写)
+  // 提取 Header 中的 Cookie
   let cookieHeader = "";
   for (let key in headers) {
     if (key.toLowerCase() === "cookie") {
@@ -75,45 +94,49 @@ function getCookie() {
     }
   }
 
-  log("获取到的原生 Header Cookie:", cookieHeader || "(无)");
+  // 1. 读取以往积累的 Cookie map
+  const oldCookieStr = storage.get("pdd_orchard_cookie") || "";
+  const cookieMap = parseCookieStr(oldCookieStr);
 
-  // 从 Cookie 或 URL Query 中提取 UID (如 pdduid=3306171662)
-  const uidInCookie = cookieHeader ? cookieHeader.match(/pdd_user_id=(\d+)/) : null;
+  // 2. 将本次拦截到的新 Cookie 增量合并
+  const newMap = parseCookieStr(cookieHeader);
+  for (let k in newMap) {
+    cookieMap[k] = newMap[k];
+  }
+
+  // 3. 从 URL query 中解析 pdduid/pdd_user_id
   const uidInUrl = url.match(/[?&]pdduid=(\d+)/) || url.match(/[?&]pdd_user_id=(\d+)/);
-  const tubeInCookie = cookieHeader ? cookieHeader.match(/tubetoken=([^;]+)/) : null;
+  if (uidInUrl) {
+    if (!cookieMap["pdd_user_id"]) cookieMap["pdd_user_id"] = uidInUrl[1];
+    if (!cookieMap["pdd_user_uin"]) cookieMap["pdd_user_uin"] = uidInUrl[1];
+  }
 
-  const pdduid = uidInCookie ? uidInCookie[1] : (uidInUrl ? uidInUrl[1] : null);
-  const tubetoken = tubeInCookie ? tubeInCookie[1] : "";
+  const pdduid = cookieMap["pdd_user_id"] || (uidInUrl ? uidInUrl[1] : null);
+  const token = cookieMap["PDDAccessToken"];
+  const tubetoken = cookieMap["tubetoken"];
 
-  if (pdduid || cookieHeader) {
-    // 组装并拼接完整 Cookie
-    let fullCookie = cookieHeader || "";
-    if (pdduid && fullCookie.indexOf("pdd_user_id=") === -1) {
-      fullCookie = fullCookie ? `${fullCookie}; pdd_user_id=${pdduid}` : `pdd_user_id=${pdduid}`;
-    }
+  const fullCookieStr = stringifyCookieMap(cookieMap);
 
-    const savedUid = storage.get("pdd_orchard_uid");
-    const savedCookie = storage.get("pdd_orchard_cookie");
+  // 4. 保存合并后的完整凭据
+  storage.set(fullCookieStr, "pdd_orchard_cookie");
+  if (pdduid) storage.set(pdduid, "pdd_orchard_uid");
+  if (tubetoken) storage.set(tubetoken, "pdd_orchard_tubetoken");
 
-    // 保存凭据
-    storage.set(fullCookie, "pdd_orchard_cookie");
-    if (pdduid) {
-      storage.set(pdduid, "pdd_orchard_uid");
-    }
-    if (tubetoken) {
-      storage.set(tubetoken, "pdd_orchard_tubetoken");
-    }
+  log(`[凭据累积状态]\nUID: ${pdduid || "未获取"}\nPDDAccessToken: ${token ? token.slice(0, 10) + '...' : '❌ 尚未拦截到'}\n完整合并 Cookie: ${fullCookieStr}`);
 
-    log(`[成功] 已提取拼多多凭据！\nUID: ${pdduid || "未获取"}\n完整 Cookie: ${fullCookie}`);
-
-    // 只在首次或 UID/Cookie 变化时提醒
-    if (savedUid !== pdduid || !savedCookie) {
+  // 5. 校验关键要素：必须同时具备 UID 与 PDDAccessToken 才判定为完整成功
+  if (pdduid && token) {
+    const lastNotifiedCookie = storage.get("pdd_orchard_notified");
+    if (lastNotifiedCookie !== fullCookieStr) {
+      storage.set(fullCookieStr, "pdd_orchard_notified");
       $notify(
         `拼多多果园 ${VERSION} 🎉`,
-        "Cookie & UID 提取成功！",
-        `用户ID: ${pdduid || "已记录"}\n已自动匹配并保存凭据，可运行自动化任务！`
+        "完整 Cookie 抓取成功！",
+        `用户ID: ${pdduid}\n包含 AccessToken 的全套凭据已成功累积就绪，可正常运行任务！`
       );
     }
+  } else if (pdduid && !token) {
+    log(`[提示] 已获取 UID: ${pdduid}，但尚缺少授权凭证 PDDAccessToken！请在微信/拼多多中点进果园首页或刷新页面...`);
   }
 
   $done({});
@@ -136,6 +159,9 @@ function httpRequest(options) {
     };
 
     log(`[HTTP Request] ${reqOpts.method} -> ${reqOpts.url}`);
+    if (reqOpts.headers && reqOpts.headers["Cookie"]) {
+      log(`[HTTP Request Cookie]`, reqOpts.headers["Cookie"]);
+    }
 
     $task.fetch(reqOpts).then(
       response => {
@@ -206,7 +232,8 @@ async function getHomePage(pdduid, cookieStr, tubetoken) {
     log("首页接口返回:", res);
 
     if (res && res.error_code === 40001) {
-      log("[错误] 首页接口返回 40001，Cookie 可能已过期，需要重新进入果园抓取！");
+      log("[错误] 首页接口返回 40001 (Http Status 424)。通常因为 Cookie 中缺少有效的 PDDAccessToken！");
+      log("请在微信或拼多多 App 中重新点进多多果园首页，抓取包含 PDDAccessToken 的数据包！");
       return { newToken: null, water: 0 };
     }
 
@@ -529,7 +556,7 @@ async function main() {
   let tubetoken = storage.get("pdd_orchard_tubetoken") || "";
 
   if (!cookieStr) {
-    log("[错误] 未检测到存储的 Cookie！请先开启 QuanX 重写并在微信中打开拼多多果园页面！");
+    log("[错误] 未检测到存储的 Cookie！请先开启 QuanX 重写并在微信/拼多多中打开果园页面！");
     $notify(`拼多多果园 ${VERSION} ❌`, "未配置或获取到 Cookie", "请打开重写并进入拼多多果园小程序页面自动抓取");
     $done();
     return;
@@ -548,11 +575,17 @@ async function main() {
   }
 
   log(`[初始化成功] 当前账号 UID: ${pdduid}`);
+  log(`[校验凭据] 当前全套 Cookie: ${cookieStr}`);
+
+  if (cookieStr.indexOf("PDDAccessToken") === -1) {
+    log("[警告] ⚠️ 当前已保存的 Cookie 中尚未包含授权凭证 PDDAccessToken！");
+    log("提示：请在手机微信/拼多多中重新点进【多多果园首页】，促使拼多多发出包含 PDDAccessToken 的主请求！");
+  }
 
   // 1. 刷新首页并刷新 tubetoken
   const { newToken, water: startWater } = await getHomePage(pdduid, cookieStr, tubetoken);
   if (newToken === null) {
-    $notify(`拼多多果园 ${VERSION} ❌`, "Cookie 已失效", "请重新在手机上打开拼多多果园抓取最新 Cookie");
+    $notify(`拼多多果园 ${VERSION} ❌`, "Cookie 已失效或缺少 AccessToken", "请在微信或拼多多中重新点进多多果园首页抓取最新凭据");
     $done();
     return;
   }
