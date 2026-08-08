@@ -1,16 +1,14 @@
 /**
  * 拼多多果园 - Quantumult X 自动浇水领水滴脚本
  * 
- * 官方调试与配置文档见 README.md
- * 
  * [rewrite_local]
- * ^https:\/\/mobile\.yangkeduo\.com\/(garden_index_lz_0\.html|proxy\/api\/api\/manor) url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
+ * ^https?:\/\/mobile\.yangkeduo\.com\/(garden_index_lz_0\.html|proxy\/api\/api\/manor) url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
  * 
  * [task_local]
  * 0 8,12,18 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js, tag=拼多多果园, enabled=true
  * 
  * [mitm]
- * hostname = mobile.yangkeduo.com
+ * hostname = mobile.yangkeduo.com, *.yangkeduo.com, api.pinduoduo.com
  */
 
 const LOG_PREFIX = "[拼多多果园]";
@@ -35,39 +33,50 @@ function log(msg, detail = null) {
 // ===== 1. Cookie 抓取（Rewrite 模式） =====
 function getCookie() {
   log(">>> 开始执行重写抓取 Cookie 流程 <<<");
-  const headers = $request.headers;
-  log("拦截到的请求 URL:", $request.url);
+  const headers = $request ? $request.headers : {};
+  log("拦截到的请求 URL:", $request ? $request.url : "无URL");
 
-  // 找寻 Cookie (区分大小写)
-  let cookieHeader = headers["Cookie"] || headers["cookie"] || headers["COOKIE"];
+  // 找寻 Cookie (兼容大小写及 QuanX 请求头格式)
+  let cookieHeader = "";
+  if (headers) {
+    for (let key in headers) {
+      if (key.toLowerCase() === "cookie") {
+        cookieHeader = headers[key];
+        break;
+      }
+    }
+  }
 
   if (!cookieHeader) {
-    log("[警告] 请求头中未找到 Cookie 字段！");
+    log("[警告] 拦截到了请求，但请求头中未找到 Cookie 字段！Headers Keys:", Object.keys(headers));
     $done({});
     return;
   }
 
   log("获取到的原生 Header Cookie:", cookieHeader);
 
-  // 校验是否包含拼多多核心用户标识 pdd_user_id
+  // 匹配 pdd_user_id 或 PDDAccessToken
   const uidMatch = cookieHeader.match(/pdd_user_id=(\d+)/);
+  const tokenMatch = cookieHeader.match(/PDDAccessToken=([^;]+)/);
   const tubeMatch = cookieHeader.match(/tubetoken=([^;]+)/);
 
-  if (uidMatch) {
-    const pdduid = uidMatch[1];
+  if (uidMatch || tokenMatch) {
+    const pdduid = uidMatch ? uidMatch[1] : "已提取Token";
     const tubetoken = tubeMatch ? tubeMatch[1] : "";
 
     $prefs.setValueForKey(cookieHeader, "pdd_orchard_cookie");
-    $prefs.setValueForKey(pdduid, "pdd_orchard_uid");
+    if (uidMatch) {
+      $prefs.setValueForKey(pdduid, "pdd_orchard_uid");
+    }
     if (tubetoken) {
       $prefs.setValueForKey(tubetoken, "pdd_orchard_tubetoken");
     }
 
     log(`[成功] 已成功提取并保存 Cookie！\nUID: ${pdduid}\nTubeToken: ${tubetoken ? tubetoken.slice(0, 10) + '...' : '未匹配'}`);
 
-    $notify("拼多多果园", "Cookie 抓取成功 🎉", `用户ID: ${pdduid}\nCookie 与凭借已保存至持久化存储`);
+    $notify("拼多多果园", "Cookie 抓取成功 🎉", `用户ID: ${pdduid}\nCookie凭据已保存至持久化存储`);
   } else {
-    log("[提示] 拦截到拼多多域名请求，但 Cookie 中无 pdd_user_id，忽略该请求。");
+    log("[提示] 拦截到拼多多请求，但 Cookie 中尚未包含 pdd_user_id 或 AccessToken。");
   }
 
   $done({});
@@ -160,13 +169,13 @@ async function getHomePage(pdduid, cookieStr, tubetoken) {
     });
     log("首页接口返回:", res);
 
-    if (res.error_code === 40001) {
+    if (res && res.error_code === 40001) {
       log("[错误] 首页接口返回 40001，Cookie 可能已过期，需要重新进入果园抓取！");
       return { newToken: null, water: 0 };
     }
 
-    const newToken = res.tubetoken || tubetoken;
-    const water = res.water_amount || 0;
+    const newToken = res ? (res.tubetoken || tubetoken) : tubetoken;
+    const water = res ? (res.water_amount || 0) : 0;
     log(`[首页成功] 当前水滴数: ${water}, 最新 TubeToken: ${newToken ? newToken.slice(0, 10) + '...' : '无'}`);
     return { newToken, water };
   } catch (e) {
@@ -304,7 +313,7 @@ async function handleMissions(pdduid, cookieStr, tubetoken) {
       body
     });
 
-    const activityMap = res.activity_vo_map || {};
+    const activityMap = (res && res.activity_vo_map) ? res.activity_vo_map : {};
     const tasks = [];
 
     Object.keys(activityMap).forEach(actIdStr => {
@@ -399,7 +408,7 @@ async function stealFromFriends(pdduid, cookieStr, tubetoken) {
       body: { "page_num": 1, "tubetoken": tubetoken, "fun_pl": 2 }
     });
 
-    const friendList = listRes.friend_list || [];
+    const friendList = (listRes && listRes.friend_list) ? listRes.friend_list : [];
     const canStealFriends = friendList
       .filter(f => f.steal_water_status && f.steal_water_status.status === 2)
       .map(f => ({ uid: f.uid, nickname: f.nickname || "未知好友", amount: f.amount || 0 }));
@@ -412,7 +421,7 @@ async function stealFromFriends(pdduid, cookieStr, tubetoken) {
       body: { "tubetoken": tubetoken, "fun_pl": 2 }
     });
 
-    const stealInfo = (chanceRes.activity_vo_map || {})["201423"] || {};
+    const stealInfo = (chanceRes && chanceRes.activity_vo_map) ? (chanceRes.activity_vo_map["201423"] || {}) : {};
     const restChance = stealInfo.rest_chance || 0;
     const robots = stealInfo.robots || [];
     const robotTargets = robots.map(r => ({ uid: r.uid, nickname: r.nickname || "机器人", amount: r.water || 0 }));
