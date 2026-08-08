@@ -2,22 +2,21 @@
  * 拼多多果园 - Quantumult X 自动浇水领水滴脚本
  * 
  * [rewrite_local]
- * ^https?:\/\/mobile\.yangkeduo\.com\/(garden_index_lz_0\.html|proxy\/api\/api\/manor) url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
+ * ^https?:\/\/(mobile|api)\.(yangkeduo|pinduoduo)\.com\/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
  * 
  * [task_local]
  * 0 8,12,18 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js, tag=拼多多果园, enabled=true
  * 
  * [mitm]
- * hostname = mobile.yangkeduo.com, *.yangkeduo.com, api.pinduoduo.com
+ * hostname = mobile.yangkeduo.com, *.yangkeduo.com, api.pinduoduo.com, *.pinduoduo.com
  */
 
 const LOG_PREFIX = "[拼多多果园]";
-const DEBUG = true; // 调试模式控制台输出控制
+const DEBUG = true;
 
 const MANOR_BASE = "https://mobile.yangkeduo.com/proxy/api/api";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13) UnifiedPCWindowsWechat(0xf254193e) XWEB/19841";
 
-// 全局环境判断与适配
 const isRequest = typeof $request !== "undefined";
 
 function log(msg, detail = null) {
@@ -32,51 +31,53 @@ function log(msg, detail = null) {
 
 // ===== 1. Cookie 抓取（Rewrite 模式） =====
 function getCookie() {
-  log(">>> 开始执行重写抓取 Cookie 流程 <<<");
-  const headers = $request ? $request.headers : {};
-  log("拦截到的请求 URL:", $request ? $request.url : "无URL");
-
-  // 找寻 Cookie (兼容大小写及 QuanX 请求头格式)
-  let cookieHeader = "";
-  if (headers) {
-    for (let key in headers) {
-      if (key.toLowerCase() === "cookie") {
-        cookieHeader = headers[key];
-        break;
-      }
-    }
-  }
-
-  if (!cookieHeader) {
-    log("[警告] 拦截到了请求，但请求头中未找到 Cookie 字段！Headers Keys:", Object.keys(headers));
+  log(">>> 拦截到拼多多相关请求 <<<");
+  if (!$request || !$request.headers) {
     $done({});
     return;
   }
 
-  log("获取到的原生 Header Cookie:", cookieHeader);
+  const url = $request.url || "";
+  const headers = $request.headers;
+  log("请求 URL:", url);
 
-  // 匹配 pdd_user_id 或 PDDAccessToken
-  const uidMatch = cookieHeader.match(/pdd_user_id=(\d+)/);
-  const tokenMatch = cookieHeader.match(/PDDAccessToken=([^;]+)/);
-  const tubeMatch = cookieHeader.match(/tubetoken=([^;]+)/);
+  // 匹配 Cookie 字段
+  let cookieHeader = "";
+  for (let key in headers) {
+    if (key.toLowerCase() === "cookie") {
+      cookieHeader = headers[key];
+      break;
+    }
+  }
 
-  if (uidMatch || tokenMatch) {
-    const pdduid = uidMatch ? uidMatch[1] : "已提取Token";
-    const tubetoken = tubeMatch ? tubeMatch[1] : "";
+  // 尝试从 Cookie 或 URL Query 中解析 uid 与 tubetoken
+  const uidInCookie = cookieHeader ? cookieHeader.match(/pdd_user_id=(\d+)/) : null;
+  const uidInUrl = url.match(/pdduid=(\d+)/);
+  const tubeInCookie = cookieHeader ? cookieHeader.match(/tubetoken=([^;]+)/) : null;
 
+  const pdduid = uidInCookie ? uidInCookie[1] : (uidInUrl ? uidInUrl[1] : null);
+  const tubetoken = tubeInCookie ? tubeInCookie[1] : "";
+
+  if (cookieHeader && (pdduid || cookieHeader.indexOf("PDDAccessToken") !== -1 || cookieHeader.indexOf("api_uid") !== -1)) {
+    // 成功捕获有效 Cookie
+    const oldCookie = $prefs.getValueForKey("pdd_orchard_cookie");
+    
     $prefs.setValueForKey(cookieHeader, "pdd_orchard_cookie");
-    if (uidMatch) {
+    if (pdduid) {
       $prefs.setValueForKey(pdduid, "pdd_orchard_uid");
     }
     if (tubetoken) {
       $prefs.setValueForKey(tubetoken, "pdd_orchard_tubetoken");
     }
 
-    log(`[成功] 已成功提取并保存 Cookie！\nUID: ${pdduid}\nTubeToken: ${tubetoken ? tubetoken.slice(0, 10) + '...' : '未匹配'}`);
+    log(`[成功] Cookie 匹配并成功保存！UID: ${pdduid || "已记录"}`);
 
-    $notify("拼多多果园", "Cookie 抓取成功 🎉", `用户ID: ${pdduid}\nCookie凭据已保存至持久化存储`);
+    // 防止频繁弹窗，只在 Cookie 变化或首次抓取时弹窗通知
+    if (oldCookie !== cookieHeader) {
+      $notify("拼多多果园 🎉", "Cookie 抓取成功！", `用户ID: ${pdduid || "已获取"}\n凭据已自动保存，可运行自动化任务。`);
+    }
   } else {
-    log("[提示] 拦截到拼多多请求，但 Cookie 中尚未包含 pdd_user_id 或 AccessToken。");
+    log("[提示] 请求缺少核心 Cookie 凭据，等待后续数据包...");
   }
 
   $done({});
@@ -99,7 +100,6 @@ function httpRequest(options) {
     };
 
     log(`[HTTP Request] ${reqOpts.method} -> ${reqOpts.url}`);
-    if (reqOpts.body) log(`[HTTP Body]`, reqOpts.body);
 
     $task.fetch(reqOpts).then(
       response => {
@@ -108,7 +108,7 @@ function httpRequest(options) {
         try {
           resData = JSON.parse(response.body);
         } catch (e) {
-          log(`[HTTP Response Warning] 响应体非标准 JSON: ${response.body.slice(0, 100)}`);
+          log(`[HTTP Response Warning] 响应体非标准 JSON: ${response.body ? response.body.slice(0, 100) : ''}`);
         }
         resolve(resData);
       },
