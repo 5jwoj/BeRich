@@ -1,85 +1,81 @@
-# BeRich 🚀
+# 拼多多果园 Quantumult X (QuanX) 自动化脚本
 
-![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=5jwoj.BeRich)
+本脚本专为 **Quantumult X** 设计，支持访问拼多多果园自动提取 Cookie 凭据，并配置 Cron 定时自动完成签到、浇水领水滴、做任务和偷好友水滴。
 
-个人自动化脚本合集，旨在让生活更智能、更高效。包含针对 Surge 和 Loon 的多项优质脚本。
+包含全流程控制台详细日志输出，方便在 App 查看调试与排错。
 
----
-
-## 📂 项目列表
-
-| 项目 | 描述 | 支持平台 |
-| :--- | :--- | :--- |
-| [**weibo (微博)**](./weibo) | 微博每日自动签到，支持多账号。 | Surge, Loon |
-| [**JDCK (京东)**](./JDCK) | 自动化。自动捕获京东 Cookie 并同步至青龙面板。 | Surge, Loon |
-| [**NFSQ (农夫山泉)**](./NFSQ) | 农夫山泉小程序自动任务与抽奏。 | Surge, Loon |
-| [**V2EX**](./V2EX) | V2EX 每日签到，自动领取登录奖励。 | 青龙面板 |
-| [**Ninebot (九号出行)**](./Ninebot) | 九号出行自动签到，支持自动领取任务奖励。 | 青龙面板 |
-| [**xyy (小阅阅)**](./xyy) | 微信小阅阅全自动阅读与金币结算。 | Quantumult X |
-| [**tyqh (统一茄皇)**](./tyqh) | 统一茄皇的家五期，自动做任务、浇水与偷能量。 | Quantumult X |
-| [**kuaishou (快手看广告)**](./kuaishou) | 快手/快手极速版看广告宝箱刷金币。 | Quantumult X |
+GitHub 仓库地址：[https://github.com/5jwoj/BeRich](https://github.com/5jwoj/BeRich)
 
 ---
 
-## 📦 安装方式
+## 🚀 配置说明
 
-### Quantumult X 用户 - BoxJS 订阅
+在 Quantumult X 配置文件中，按以下步骤添加规则：
 
-> [!IMPORTANT]
-> BoxJS 仅适用于 **Quantumult X** 用户。Surge 和 Loon 用户请查看各项目目录下的对应 README 文件。
+### 1. 配置 MITM 域名解析
 
-#### 一键订阅（推荐）
+在 `[mitm]` 模块下添加拼多多域名（如已有 `hostname` 字段，则追加用逗号分隔）：
 
-在 BoxJS 中添加以下订阅链接，即可一次性订阅所有脚本：
-
-```
-https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
+```ini
+[mitm]
+hostname = mobile.yangkeduo.com
 ```
 
-#### 分别订阅
+### 2. 配置 Rewrite 重写规则（自动提取 Cookie）
 
-如果只需要某个功能，可以使用以下单独订阅：
+在 `[rewrite_local]` 模块下添加以下重写规则：
 
-- **京东Cookie同步**: `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs.json`
-- **微博每日签到**: `https://raw.githubusercontent.com/5jwoj/BeRich/main/weibo/weibo.boxjs.json`
+```ini
+[rewrite_local]
+^https:\/\/mobile\.yangkeduo\.com\/(garden_index_lz_0\.html|proxy\/api\/api\/manor) url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
+```
 
-详细说明请查看：[boxjs/README.md](./boxjs/README.md)
+### 3. 配置 Task 定时任务规则
 
-### Surge 用户
+在 `[task_local]` 模块下添加定时任务规则（示例：每天 8 点、12 点、18 点自动执行）：
 
-请使用模块（`.sgmodule`）方式安装，详见各项目目录下的 `README.md` 或 `README_Surge.md` 文件。
-
-### Loon 用户
-
-请使用插件（`.plugin`）方式安装，详见各项目目录下的 `README_Loon.md` 文件。
-
----
-
-## 🛠️ 通用使用指南
-
-### 环境准备
-
-- **Surge**: 安装并激活 Surge，使用模块（`.sgmodule`）方式安装脚本
-- **Loon**: 安装并激活 Loon，插件文件（`.plugin`）放在 `Plugins` 目录，脚本文件（`.js`）放在 `scripts` 目录
-- **Quantumult X**: 安装并激活 Quantumult X，可使用 BoxJS 订阅或手动配置
-
-### 证书配置
-
-所有平台都必须开启 **MITM** 功能并正确安装/信任证书，否则无法捕获 Cookie 或 Token。
-
-### 安装方式
-
-- **Surge**: 优先使用模块（`.sgmodule`）进行一键安装
-- **Loon**: 使用插件（`.plugin`）进行安装，注意插件和脚本不需要放在同一文件夹
-- **Quantumult X**: 使用 BoxJS 订阅或手动添加重写规则和定时任务
-
-## 📄 免责声明
-
-1.  本仓库提供的所有脚本仅供学习与编程研究，严禁用于任何商业用途。
-2.  用户在下载、使用该脚本时需自行承担风险，作者不保证脚本的持久性与准确性。
-3.  如有侵权，请联系作者进行删除。
+```ini
+[task_local]
+0 8,12,18 * * * https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js, tag=拼多多果园, enabled=true
+```
 
 ---
 
-> [!NOTE]
-> 如果觉得好用，欢迎点个 **Star** ⭐ 支持一下！
+## 📱 使用步骤
+
+1. **证书与 MITM**：确保 Quantumult X 已安装并信任证书，且已开启 `MITM`。
+2. **首次提取 Cookie**：
+   - 打开微信或拼多多 App，进入 **多多果园** 页面。
+   - Quantumult X 将自动拦截请求并弹出系统通知：`拼多多果园 - Cookie 抓取成功 🎉`。
+3. **查看调试日志**：
+   - 打开 Quantumult X -> 底部控制台 (Console) / 日志 (Logs)。
+   - 过滤日志关键词 `[拼多多果园]`，可以看到包含 HTTP 请求、响应状态码、当前水滴数、偷水详情等调试输出。
+4. **定时运行**：
+   - 抓取成功后即可关闭重写规则（或保留），Cron 定时任务将按设定的时间自动运行并通知结果。
+
+---
+
+## 🛠️ 功能列表
+
+- [x] **重写自动抓取 Cookie**：提取 `pdd_user_id`、`tubetoken` 并持久化存储
+- [x] **首页刷新**：自动获取最新水滴余额与 `tubetoken`
+- [x] **每日签到**：自动触发果园每日签到活动
+- [x] **自动浇水**：按 10 水滴/次扣减，自动循环浇水至不足 10 水滴
+- [x] **做任务领水滴**：自动扫描任务列表，自动接受未开启任务并自动领取已完成水滴
+- [x] **好友&机器人偷水**：自动扫描好友与机器人水滴，随机狗位选择与防狗咬重试
+- [x] **详细日志**：开启 `DEBUG = true` 全流程日志，排错一目了然
+
+---
+
+## 💡 推送到 GitHub 仓库快捷命令
+
+```bash
+cd C:\Users\zW\.gemini\antigravity-ide\scratch\pdd-orchard
+
+git init
+git add .
+git commit -m "feat: add pdd orchard QuanX script for 5jwoj/BeRich"
+git branch -M main
+git remote add origin https://github.com/5jwoj/BeRich.git
+git push -u origin main
+```
