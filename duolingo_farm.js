@@ -1,10 +1,10 @@
 /**
  * Duolingo Lazy - QX 自动刷课脚本
- * 版本: v1.1.0 (详细日志增强版)
+ * 版本: v1.2.0 (详细日志 & 异常兼容增强版)
  * 类型: task (cron 定时任务)
  * 默认时间: 每天 08:00 自动执行
  *
- * 依赖: 需要先运行 duolingo_capture.js 捕获 JWT Token
+ * 依赖: 需要先运行 duolingo_capture.js 捕获 JWT Token / Cookie
  */
 
 // ═══════════════════════════════════════════
@@ -16,7 +16,7 @@ const DELAY_MS = 1500;       // 课与课之间的间隔延迟（毫秒）
 // ═══════════════════════════════════════════
 
 (async () => {
-  const VERSION = "v1.1.0";
+  const VERSION = "v1.2.0";
   console.log(`[Duolingo Farm ${VERSION}] 🚀 启动定时刷课任务...`);
 
   // ── 读取持久化存储 ────────────────────────────────────────────────
@@ -31,7 +31,7 @@ const DELAY_MS = 1500;       // 课与课之间的间隔延迟（毫秒）
     $notify(
       `🦜 Duolingo Lazy ${VERSION}`,
       "❌ 未找到登录凭据",
-      "请在手机上打开 Duolingo App，等待 Token 自动捕获成功后再试！"
+      "请在浏览器打开网页版或手机 App 登录 Duolingo，等待 Cookie/Token 自动捕获成功后再试！"
     );
     $done();
     return;
@@ -39,19 +39,25 @@ const DELAY_MS = 1500;       // 课与课之间的间隔延迟（毫秒）
 
   // 验证 JWT 是否过期
   try {
-    const base64 = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(atob(base64));
-    const nowTs = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < nowTs + 300) {
-      console.log(`[Duolingo Farm ${VERSION}] ⚠️ JWT 已过期或即将过期!`);
-      $notify(
-        `🦜 Duolingo Lazy ${VERSION}`,
-        "⚠️ Token 已过期",
-        "请重新打开 Duolingo App 自动更新 Token"
-      );
-      $persistentStore.write("", "duolingo_jwt");
-      $done();
-      return;
+    const parts = jwt.split(".");
+    if (parts.length === 3) {
+      let base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (base64.length % 4 !== 0) {
+        base64 += "=";
+      }
+      const payload = JSON.parse(atob(base64));
+      const nowTs = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < nowTs + 300) {
+        console.log(`[Duolingo Farm ${VERSION}] ⚠️ JWT 已过期或即将过期!`);
+        $notify(
+          `🦜 Duolingo Lazy ${VERSION}`,
+          "⚠️ 登录凭据已过期",
+          "请重新登录 Duolingo 网页或 App 自动更新 Token"
+        );
+        $persistentStore.write("", "duolingo_jwt");
+        $done();
+        return;
+      }
     }
   } catch (e) {
     console.log(`[Duolingo Farm ${VERSION}] ⚠️ JWT 检查提示:`, e);
@@ -78,8 +84,9 @@ const DELAY_MS = 1500;       // 课与课之间的间隔延迟（毫秒）
         method,
         headers: {
           Authorization: `Bearer ${jwt}`,
+          Cookie: `jwt_token=${jwt}`,
           "Content-Type": "application/json",
-          "User-Agent": "Duolingo/5.2.35 iPhone/18.1",
+          "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
           "Accept": "application/json",
         },
       };
@@ -131,8 +138,10 @@ const DELAY_MS = 1500;       // 课与课之间的间隔延迟（毫秒）
       sessionBody
     );
 
-    if (createResp.statusCode !== 200 && createResp.statusCode !== 201) {
-      throw new Error(`创建会话失败 HTTP ${createResp.statusCode}: ${createResp.body}`);
+    if (!createResp || (createResp.statusCode !== 200 && createResp.statusCode !== 201)) {
+      const code = createResp ? createResp.statusCode : "Network Error";
+      const body = createResp ? createResp.body : "";
+      throw new Error(`创建会话失败 HTTP ${code}: ${body}`);
     }
 
     const session = JSON.parse(createResp.body);
@@ -164,8 +173,10 @@ const DELAY_MS = 1500;       // 课与课之间的间隔延迟（毫秒）
       completeBody
     );
 
-    if (completeResp.statusCode !== 200 && completeResp.statusCode !== 201) {
-      throw new Error(`提交完成失败 HTTP ${completeResp.statusCode}: ${completeResp.body}`);
+    if (!completeResp || (completeResp.statusCode !== 200 && completeResp.statusCode !== 201)) {
+      const code = completeResp ? completeResp.statusCode : "Network Error";
+      const body = completeResp ? completeResp.body : "";
+      throw new Error(`提交完成失败 HTTP ${code}: ${body}`);
     }
 
     const result = JSON.parse(completeResp.body);
@@ -195,7 +206,7 @@ const DELAY_MS = 1500;       // 课与课之间的间隔延迟（毫秒）
         $notify(
           `🦜 Duolingo Lazy ${VERSION}`,
           "❌ 认证失效",
-          "登录状态已失效，请重新打开 Duolingo App 更新 Token"
+          "登录状态已失效，请重新登录 Duolingo 网页或 App 更新 Cookie/Token"
         );
         $persistentStore.write("", "duolingo_jwt");
         $done();
