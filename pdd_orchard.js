@@ -1,8 +1,11 @@
 /**
  * 拼多多果园 - Quantumult X 自动浇水领水滴脚本
- * 版本: v1.0.5
- * 改进: 收窄重写规则至 mobile.yangkeduo.com；仅微信小程序版果园有 PDDAccessToken
- * 注意: 需在「微信」中打开拼多多小程序进入果园，而非原生拼多多 App！
+ * 版本: v1.1.0 (根据 2026 最新 Python 修复版适配)
+ * 改进: 
+ *   1. 适配最新偷水/抢水逻辑：包含防空值判断、机器人防狗咬机制与 3 次同一狗位重试。
+ *   2. 增强任务列表解析：支持多种奖励类型提取、先自动接受未开启任务再批量领取水滴。
+ *   3. 优化首页与水滴查询：更完善的错误码捕捉 (40001 Cookie 过期提示) 与 tubetoken 自动续期。
+ *   4. Cookie 智能增量拼接：收窄重写规则至 mobile.yangkeduo.com，安全保存 PDDAccessToken 及全套凭据。
  * 
  * [rewrite_local]
  * ^https?:\/\/mobile\.yangkeduo\.com\/ url script-request-header https://raw.githubusercontent.com/5jwoj/BeRich/main/pdd_orchard.js
@@ -14,7 +17,7 @@
  * hostname = mobile.yangkeduo.com, *.yangkeduo.com
  */
 
-const VERSION = "v1.0.5";
+const VERSION = "v1.1.0";
 const LOG_PREFIX = `[拼多多果园 ${VERSION}]`;
 const DEBUG = true;
 
@@ -23,7 +26,7 @@ const UA = "Mozilla/5.0 (Linux; Android 10; Pixel 3 Build/QQ2A.200305.002; wv) A
 
 const isRequest = typeof $request !== "undefined";
 
-// 跨平台存储安全适配器
+// 跨平台存储适配器 (QuanX $prefs / Surge & Loon $persistentStore)
 const storage = {
   get: (key) => {
     if (typeof $prefs !== "undefined") {
@@ -55,7 +58,7 @@ function log(msg, detail = null) {
   }
 }
 
-// Cookie 工具辅助函数
+// Cookie 工具函数
 function parseCookieStr(str) {
   const map = {};
   if (!str) return map;
@@ -186,7 +189,7 @@ async function getWater(pdduid, cookieStr) {
   const url = `${MANOR_BASE}/manor-gateway/manor/query/user/water?pdduid=${pdduid}&is_back=1`;
   try {
     const res = await httpRequest({ url, headers: { "Cookie": cookieStr }, body: {} });
-    return (res && res.water_amount) ? res.water_amount : 0;
+    return (res && typeof res.water_amount === "number") ? res.water_amount : 0;
   } catch (e) { return 0; }
 }
 
@@ -257,17 +260,18 @@ async function waterTree(pdduid, cookieStr, tubetoken, maxTimes = 50) {
           "is_small_screen": true, "tubetoken": tubetoken, "fun_pl": 2
         }
       });
-      const left = res ? res.now_water_amount : null;
+      const left = (res && typeof res.now_water_amount === "number") ? res.now_water_amount : null;
       if (left !== null && left < water) {
         water = left; watered++;
         log(`[浇水] 第 ${watered}/${count} 次，剩余: ${left}`);
         if (left < 10) break;
         await sleep(300);
-      } else { log("[浇水] 停止:", res); break; }
+      } else { log("[浇水] 扣水失败或停止:", res); break; }
     } catch (e) { log("[浇水异常]", e); break; }
   }
 
-  log(`[浇水完成] 共 ${watered} 次，最终水滴: ${await getWater(pdduid, cookieStr)}`);
+  const finalWater = await getWater(pdduid, cookieStr);
+  log(`[浇水完成] 共 ${watered} 次，最终水滴: ${finalWater}`);
   return watered;
 }
 
@@ -295,10 +299,30 @@ async function handleMissions(pdduid, cookieStr, tubetoken) {
       Object.keys(mlist).forEach(mid => {
         const m = mlist[mid];
         let rwd = 0, rtype = "";
-        for (const ri of (m.reward_info || [])) {
-          if (ri.reward_type === 1) { rwd = ri.min_reward_amount || 0; rtype = "水滴"; break; }
+        const rewardInfo = m.reward_info || [];
+        for (const ri of rewardInfo) {
+          if (ri.reward_type === 1) {
+            rwd = ri.min_reward_amount || 0;
+            rtype = "水滴";
+            break;
+          }
         }
-        tasks.push({ activity_id: parseInt(aid), mission_id: parseInt(mid), is_draw: m.is_draw||false, is_open: m.is_open||false, finished_count: m.finished_count||0, reward_amount: rwd, reward_type: rtype });
+        if (!rwd && rewardInfo.length > 0) {
+          for (const ri of rewardInfo) {
+            rwd = ri.min_reward_amount || 0;
+            rtype = `T${ri.reward_type || '?'}`;
+            break;
+          }
+        }
+        tasks.push({
+          activity_id: parseInt(aid),
+          mission_id: parseInt(mid),
+          is_draw: m.is_draw || false,
+          is_open: m.is_open || false,
+          finished_count: m.finished_count || 0,
+          reward_amount: rwd,
+          reward_type: rtype
+        });
       });
     });
 
@@ -307,15 +331,30 @@ async function handleMissions(pdduid, cookieStr, tubetoken) {
     log(`[任务] 共${tasks.length}个，可领取${canClaim.length}，待接受${needAccept.length}`);
 
     for (const t of needAccept) {
-      await httpRequest({ url: `${MANOR_BASE}/manor/mission/accept?pdduid=${pdduid}`, headers: { "Cookie": cookieStr }, body: { "mission_id": t.mission_id, "activity_id": t.activity_id, "tubetoken": tubetoken, "fun_pl": 2 } });
-      await sleep(400);
+      log(`[接受任务] act=${t.activity_id} id=${t.mission_id}`);
+      await httpRequest({
+        url: `${MANOR_BASE}/manor/mission/accept?pdduid=${pdduid}`,
+        headers: { "Cookie": cookieStr },
+        body: { "mission_id": t.mission_id, "activity_id": t.activity_id, "tubetoken": tubetoken, "fun_pl": 2 }
+      });
+      await sleep(500);
     }
 
     let total = 0;
     for (const t of canClaim) {
-      const dr = await httpRequest({ url: `${MANOR_BASE}/manor/mission/draw?pdduid=${pdduid}`, headers: { "Cookie": cookieStr }, body: { "mission_id": t.mission_id, "activity_id": t.activity_id, "tubetoken": tubetoken, "fun_pl": 2 } });
-      if (dr && dr.success) { total += dr.water || dr.reward_amount || t.reward_amount; log(`[领取] +${dr.water || t.reward_amount} ${t.reward_type}`); }
-      await sleep(400);
+      const dr = await httpRequest({
+        url: `${MANOR_BASE}/manor/mission/draw?pdduid=${pdduid}`,
+        headers: { "Cookie": cookieStr },
+        body: { "mission_id": t.mission_id, "activity_id": t.activity_id, "tubetoken": tubetoken, "fun_pl": 2 }
+      });
+      if (dr && dr.success) {
+        const amt = dr.water || dr.reward_amount || t.reward_amount;
+        total += amt;
+        log(`[领取成功] act=${t.activity_id} id=${t.mission_id}: +${amt} ${t.reward_type}`);
+      } else {
+        log(`[领取失败] act=${t.activity_id} id=${t.mission_id}: ${dr ? dr.error_msg : ''}`);
+      }
+      await sleep(500);
     }
     return total;
   } catch (e) { log("[任务异常]", e); return 0; }
@@ -324,35 +363,94 @@ async function handleMissions(pdduid, cookieStr, tubetoken) {
 async function stealFromFriends(pdduid, cookieStr, tubetoken) {
   log("--- [5/6] 偷水滴 ---");
   try {
-    const listRes = await httpRequest({ url: `${MANOR_BASE}/manor-query/friend/list/page?pdduid=${pdduid}`, headers: { "Cookie": cookieStr }, body: { "page_num": 1, "tubetoken": tubetoken, "fun_pl": 2 } });
-    const friends = ((listRes && listRes.friend_list) ? listRes.friend_list : []).filter(f => f.steal_water_status && f.steal_water_status.status === 2).map(f => ({ uid: f.uid, nickname: f.nickname || "好友", amount: f.amount || 0 }));
+    const listRes = await httpRequest({
+      url: `${MANOR_BASE}/manor-query/friend/list/page?pdduid=${pdduid}`,
+      headers: { "Cookie": cookieStr },
+      body: { "page_num": 1, "tubetoken": tubetoken, "fun_pl": 2 }
+    });
 
-    const chanceRes = await httpRequest({ url: `${MANOR_BASE}/manor/steal/chance/lack?pdduid=${pdduid}`, headers: { "Cookie": cookieStr }, body: { "tubetoken": tubetoken, "fun_pl": 2 } });
+    const friendListRaw = (listRes && Array.isArray(listRes.friend_list)) ? listRes.friend_list : [];
+    const friends = [];
+    for (const f of friendListRaw) {
+      if (!f || typeof f !== 'object') continue;
+      const stealStatus = f.steal_water_status || {};
+      if (stealStatus.status === 2) {
+        friends.push({
+          uid: f.uid,
+          nickname: f.nickname || "未知好友",
+          amount: f.amount || 0
+        });
+      }
+    }
+
+    const chanceRes = await httpRequest({
+      url: `${MANOR_BASE}/manor/steal/chance/lack?pdduid=${pdduid}`,
+      headers: { "Cookie": cookieStr },
+      body: { "tubetoken": tubetoken, "fun_pl": 2 }
+    });
     const stealInfo = (chanceRes && chanceRes.activity_vo_map) ? (chanceRes.activity_vo_map["201423"] || {}) : {};
-    const restChance = stealInfo.rest_chance || 0;
-    const robots = (stealInfo.robots || []).map(r => ({ uid: r.uid, nickname: r.nickname || "机器人", amount: r.water || 0 }));
+    const restChance = typeof stealInfo.rest_chance === 'number' ? stealInfo.rest_chance : 0;
+    const robotsRaw = Array.isArray(stealInfo.robots) ? stealInfo.robots : [];
+    const robots = [];
+    for (const r of robotsRaw) {
+      if (!r || typeof r !== 'object') continue;
+      robots.push({
+        uid: r.uid,
+        nickname: r.nickname || "机器人",
+        amount: r.water || 0
+      });
+    }
 
     const allTargets = [...friends, ...robots];
     log(`[偷水] 剩余次数:${restChance}, 可偷好友:${friends.length}, 机器人:${robots.length}`);
-    if (!allTargets.length || restChance <= 0) { log("[偷水] 无目标或次数耗尽"); return 0; }
+    if (!allTargets.length) { log("[偷水] 没有可偷的目标"); return 0; }
+
+    const maxSteals = restChance > 0 ? Math.min(restChance, allTargets.length) : allTargets.length;
+    log(`[偷水] 开始偷水，最多 ${maxSteals} 次...`);
 
     let totalStolen = 0;
-    for (let i = 0; i < Math.min(restChance, allTargets.length); i++) {
+    let stealCount = 0;
+
+    for (let i = 0; i < maxSteals; i++) {
       const t = allTargets[i];
       if (t.amount <= 0) continue;
+
       const dog = Math.floor(Math.random() * 3) + 1;
       let stolen = 0;
+
       for (let retry = 0; retry < 3; retry++) {
-        const sr = await httpRequest({ url: `${MANOR_BASE}/manor/steal/water?pdduid=${pdduid}`, headers: { "Cookie": cookieStr }, body: { "friend_uid": t.uid, "steal_type": 10, "dog_status": dog, "tubetoken": tubetoken, "fun_pl": 2 } });
-        const amt = sr ? (sr.steal_amount || 0) : 0;
-        if (amt > 0) { stolen = amt; break; }
+        const sr = await httpRequest({
+          url: `${MANOR_BASE}/manor/steal/water?pdduid=${pdduid}`,
+          headers: { "Cookie": cookieStr },
+          body: { "friend_uid": t.uid, "steal_type": 10, "dog_status": dog, "tubetoken": tubetoken, "fun_pl": 2 }
+        });
+        const resObj = (sr && typeof sr === 'object') ? sr : {};
+        const amt = resObj.steal_amount || 0;
+        const bitten = resObj.bitten_water || 0;
+
+        if (amt > 0) {
+          stolen = amt;
+          break;
+        }
+        if (bitten > 0) {
+          log(`  [被狗咬] ${t.nickname} 同狗位(${dog})重试 #${retry + 1}...`);
+          await sleep(150);
+          continue;
+        }
         await sleep(150);
       }
-      if (stolen > 0) { totalStolen += stolen; log(`[偷水成功] ${t.nickname} +${stolen}`); }
-      else { log(`[偷水未成] ${t.nickname}`); }
+
+      if (stolen > 0) {
+        totalStolen += stolen;
+        stealCount++;
+        log(`[偷水成功] uid=${t.uid} ${t.nickname} (狗位 ${dog}): +${stolen} 滴`);
+      } else {
+        log(`[偷水未成] uid=${t.uid} ${t.nickname} (狗位 ${dog})`);
+      }
       await sleep(300);
     }
-    log(`[偷水完成] 共得 ${totalStolen} 水滴`);
+
+    log(`[偷水完成] 共偷 ${stealCount} 次，获得 ${totalStolen} 水滴`);
     return totalStolen;
   } catch (e) { log("[偷水异常]", e); return 0; }
 }
