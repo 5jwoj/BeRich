@@ -233,6 +233,55 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js"
+        },
+        {
+            "id": "baidunetdisk.surge",
+            "name": "百度网盘成长值签到 (Surge)",
+            "keys": [
+                "baidunetdisk_data",
+                "baidunetdisk_debug",
+                "baidunetdisk_clear"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/baidunetdisk",
+            "icons": [
+                "https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/baidunetdisk.png",
+                "https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/baidunetdisk.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">Surge 版 · 百度网盘会员成长值每日签到 + 每日答题</h4>",
+                "<p>自动抓取百度网盘 Cookie，每天 08:15 自动完成成长值签到与每日答题，并查询当前 SVIP 等级与升级所需天数。</p>",
+                "<hr>",
+                "<p><b>使用步骤：</b></p>",
+                "<ol><li>在 Surge 中安装模块：<a href=\"https://raw.githubusercontent.com/5jwoj/BeRich/main/baidunetdisk/baidunetdisk_surge.sgmodule\">baidunetdisk_surge.sgmodule</a></li><li>确保 Surge 已开启 MITM 并信任证书</li><li>打开百度网盘 APP →「我的」→「签到 / 会员」页面停留 1 秒，Cookie 自动保存</li><li>每天 08:15 自动签到并推送通知，也可在 Surge 脚本列表中手动触发</li></ol>"
+            ],
+            "settings": [
+                {
+                    "id": "baidunetdisk_data",
+                    "name": "百度网盘 Cookie",
+                    "val": "",
+                    "type": "textarea",
+                    "rows": 3,
+                    "desc": "百度网盘登录 Cookie。打开 APP 会员页面后会自动填入，也可手动粘贴（需包含 BDUSS/STOKEN）。"
+                },
+                {
+                    "id": "baidunetdisk_debug",
+                    "name": "调试日志",
+                    "val": "false",
+                    "type": "text",
+                    "placeholder": "false",
+                    "desc": "填 true 开启详细日志打印接口原始响应，默认 false"
+                },
+                {
+                    "id": "baidunetdisk_clear",
+                    "name": "清除 Cookie 缓存",
+                    "val": "false",
+                    "type": "text",
+                    "placeholder": "false",
+                    "desc": "填 true 并在下次运行时清除已保存的 Cookie 缓存，清除后会自动重置为 false"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/baidunetdisk/baidunetdisk_surge.js"
         }
     ]
 }
