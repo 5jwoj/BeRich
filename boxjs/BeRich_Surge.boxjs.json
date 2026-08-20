@@ -192,6 +192,47 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_Surge.js"
+        },
+        {
+            "id": "v2ex.daily.surge",
+            "name": "V2EX 每日签到 (Surge)",
+            "keys": [
+                "v2ex_daily.cookie",
+                "v2ex_daily.ua"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/V2EX",
+            "icons": [
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/v2ex.png",
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/v2ex.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">Surge 版 · 自动签到 V2EX 领取每日登录奖励</h4>",
+                "<p>安装模块后，用浏览器/Safari 打开 <a href=\"https://www.v2ex.com\">www.v2ex.com</a> 并登录，Cookie 将自动捕获保存；之后每天 08:00 自动签到并推送余额通知。</p>",
+                "<hr>",
+                "<p><b>使用步骤：</b></p>",
+                "<ol><li>在 Surge 中安装模块：<a href=\"https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.sgmodule\">v2ex_daily_surge.sgmodule</a></li><li>确保 Surge 已开启 MITM 并信任证书</li><li>用 Safari 打开 v2ex.com 并登录，Cookie 自动保存</li><li>等待每天 08:00 自动签到，或在 Surge 脚本列表中手动触发</li></ol>",
+                "<p><b>多账号：</b>在下方 Cookie 框中每行填一个 Cookie 即可。</p>"
+            ],
+            "settings": [
+                {
+                    "id": "v2ex_daily.cookie",
+                    "name": "V2EX Cookie",
+                    "val": "",
+                    "type": "textarea",
+                    "rows": 3,
+                    "desc": "V2EX 登录 Cookie。访问 www.v2ex.com 后会自动填入，也可从浏览器 F12 → Application → Cookies 手动复制。多账号每行填一个。"
+                },
+                {
+                    "id": "v2ex_daily.ua",
+                    "name": "User-Agent（可选）",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "留空使用默认 Chrome UA",
+                    "desc": "自定义请求 UA，留空则使用默认 Chrome UA"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js"
         }
     ]
 }

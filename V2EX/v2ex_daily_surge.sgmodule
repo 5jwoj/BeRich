@@ -1,0 +1,15 @@
+#!name=V2EX 每日签到 (v1.0.0 BoxJS配置)
+#!desc=自动捕获 V2EX Cookie 并每日签到领取奖励，参数通过 BoxJS 订阅「BeRich Surge 合集」配置。
+#!author=z.W.
+#!icon=https://www.v2ex.com/favicon.ico
+
+[Script]
+# ① 访问 V2EX 时自动捕获 Cookie 并保存到 BoxJS
+V2EX Cookie捕获 = type=http-request,pattern=^https?://www\.v2ex\.com,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js,script-update-interval=86400,timeout=10
+
+# ② 每天 08:00 自动执行签到并推送余额通知
+V2EX 每日签到 = type=cron,cronexp=0 8 * * *,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js,script-update-interval=86400,timeout=30
+
+[MITM]
+# 需要 MITM 才能读取请求头中的 Cookie
+hostname = %APPEND% www.v2ex.com
