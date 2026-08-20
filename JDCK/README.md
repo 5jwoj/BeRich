@@ -15,32 +15,16 @@
 
 ## 📦 安装说明
 
-### Loon (本地版)
+### Loon
 
-**推荐使用本地版本，配置更简单，运行更稳定**
+在 Loon 的「插件」中添加：
 
-1. 下载以下两个文件到本地：
-   - `JD_Cookie_Sync_Loon.js`
-   - `JD_Cookie_Sync_Loon_Local.plugin`
+| 类型 | 链接 |
+| :--- | :--- |
+| **插件地址** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Loon.plugin` |
+| **BoxJS订阅** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json` |
 
-2. 编辑 `JD_Cookie_Sync_Loon.js` 文件，找到 `MANUAL_CONFIG` 部分：
-   ```javascript
-   const MANUAL_CONFIG = {
-       url: "http://192.168.1.1:5700",  // 改成您的青龙地址
-       id: "your_client_id",             // 改成您的 Client ID
-       secret: "your_client_secret",     // 改成您的 Client Secret
-       debug: false                      // 调试模式，遇到问题可设为 true
-   };
-   ```
-
-3. 将两个文件放到 Loon 的插件目录（通常是 iCloud Drive/Loon/Plugin/）
-
-4. 在 Loon 中安装插件：
-   - 打开 Loon App
-   - 进入「配置」→「插件」
-   - 点击右上角「+」
-   - 选择「从本地安装」
-   - 找到并选择 `JD_Cookie_Sync_Loon_Local.plugin`
+详细安装与配置指南请查看：[README_Loon.md](README_Loon.md)
 
 ### Surge
 
@@ -95,14 +79,13 @@ hostname = api.m.jd.com
 
 ### Loon 配置方法
 
-编辑 `JD_Cookie_Sync_Loon.js` 文件中的 `MANUAL_CONFIG`：
+**推荐使用 BoxJS**，订阅 `https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json`，在「京东Cookie同步 (Loon)」中填写青龙参数；亦可编辑 `JD_Cookie_Sync_Loon.js` 中的 `MANUAL_CONFIG`：
 
 | 参数 | 说明 | 示例 |
 | :--- | :--- | :--- |
 | **url** | 青龙面板地址 (带端口) | `http://192.168.1.1:5700` |
 | **id** | 青龙面板 API Client ID | `xYzAbCdE...` |
 | **secret** | 青龙面板 API Client Secret | `123456...` |
-| **debug** | 调试模式（可选） | `false` 或 `true` |
 
 ## 📖 使用指南
 

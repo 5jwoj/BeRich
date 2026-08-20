@@ -1,53 +1,40 @@
 # BeRich BoxJS 订阅合集
 
-> [!IMPORTANT]
-> BoxJS 仅适用于 **Quantumult X** 用户。
-> 
-> - **Surge 用户**请查看各项目目录下的 `README_Surge.md` 文件
-> - **Loon 用户**请查看各项目目录下的 `README_Loon.md` 文件
+> [!NOTE]
+> 为避免不同客户端脚本配置冲突，BeRich 为 **Quantumult X**、**Surge** 和 **Loon** 分别提供了专用的 BoxJS 订阅链接，请根据您使用的代理工具选择对应链接进行订阅。
 
-这是一个合并了所有 BeRich 项目脚本的 BoxJS 订阅文件，方便 Quantumult X 用户一次性订阅所有功能。
+---
 
-## 📦 包含的应用
+## 🚀 订阅链接
 
-1. **京东Cookie同步** - 自动捕获京东Cookie并同步到青龙面板
-2. **京豆资产查询** - 基于青龙面板日志查询指定账号的京豆详情
-3. **京东账号过期检测** - 青龙京东账号 Cookie 过期自动检测通知
-4. **阿里云Cookie同步** - 自动捕获阿里云社区Cookie并同步到青龙面板
-5. **V2EX 每日签到** - 自动领取 V2EX 每日登录奖励
-
-## 🚀 使用方法
-
-### 方法：直接订阅（推荐）
-
-在 BoxJS 中添加以下订阅链接：
-
+### 1. Quantumult X 专用订阅
 ```
 https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
 ```
+包含：京东Cookie同步、京豆资产查询、京东账号过期检测、阿里云Cookie同步、V2EX 每日签到、日志检测与PIN通知。
 
-## 📝 配置说明
+### 2. Loon 专用订阅
+```
+https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json
+```
+包含：京东Cookie同步 (Loon) 等插件的配置管理。
 
-### 京东Cookie同步
+### 3. Surge 专用订阅
+```
+https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Surge.boxjs.json
+```
+包含：京东Cookie同步 (Surge)、京豆资产查询 (Surge)、JD账号过期检测 (Surge)、V2EX 每日签到 (Surge)、百度网盘成长值签到 (Surge)。
 
-需要配置以下参数：
-- **青龙面板地址**：青龙面板的完整地址（包括端口号）
-- **Client ID**：在青龙面板创建的应用 ID
-- **Client Secret**：在青龙面板创建的应用密钥
+---
 
-详细使用说明请查看：[JDCK/README_QX.md](../JDCK/README_QX.md)
+## 📝 京东 Cookie 同步配置说明
 
-## ⚙️ Quantumult X 配置
+无论使用哪个平台的订阅，同步至青龙面板均需要填写以下核心参数：
+- **青龙面板地址**：青龙面板的完整地址（例如 `http://192.168.1.1:5700`）
+- **Client ID**：在青龙面板「系统设置 → 应用设置」创建的应用 ID
+- **Client Secret**：在青龙面板创建的应用密钥（权限需勾选环境变量）
 
-请确保在 Quantumult X 配置文件中添加相应的重写规则和定时任务。
-
-具体配置方法请参考各个脚本目录下的 README 文件。
-
-## 📄 更新日志
-
-### v1.0.0 (2026-01-16)
-- 初始版本
-- 合并京东Cookie同步和微博签到两个 BoxJS 订阅
+---
 
 ## 🔗 相关链接
 

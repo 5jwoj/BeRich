@@ -1,72 +1,64 @@
 /*
- * JD Cookie Sync to Qinglong - Loon Version (BoxJS Support)
+ * JD Cookie Sync to Qinglong - Loon Version
  * 
- * 行为：
- * 1) 抓到 pt_key + pt_pin 后检查是否需要同步（冷却时间机制）
- * 2) Cookie 有效且未变化且在冷却期内则静默跳过
- * 3) Cookie 失效或变化或超过冷却时间时才同步青龙
- * Version: v2.3.0
+ * 行为（完全对齐 Quantumult X 规则）：
+ * 1) 抓到 pt_key + pt_pin 后直接同步至青龙面板（不进行多余的有效性校验）
+ * 2) 青龙端 Cookie 已存在且一致则静默同步（不发弹窗通知），不同或被禁用时自动更新/启用并提示
+ * 3) 支持 BoxJS 配置参数，亦支持脚本内 MANUAL_CONFIG 本地配置
+ * 
+ * Version: v1.0.0
  * Author: z.W.
  * 
- * 支持三种配置方式（优先级递减）：
- * 1. 脚本内置 MANUAL_CONFIG
- * 2. 插件 Argument 参数配置
- * 3. BoxJS 面板配置 (需订阅 BeRich.boxjs.json)
- *
  * @script
- * api.m.jd.com, me-api.jd.com, plogin.m.jd.com, wq.jd.com
+ * api.m.jd.com
  * 
- * @args
- * ql_url: Qinglong Panel URL (e.g., http://192.168.1.1:5700)
- * ql_client_id: Qinglong Client ID
- * ql_client_secret: Qinglong Client Secret
+ * @config
+ * BoxJS 配置项（订阅 BeRich_Loon.boxjs.json）：
+ * - jd_ql_url: 青龙面板地址 (例如: http://192.168.1.1:5700)
+ * - jd_ql_client_id: 青龙面板 API Client ID
+ * - jd_ql_client_secret: 青龙面板 API Client Secret
  */
 
-const $ = new API("jd_cookie_sync");
-
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-// 本地配置区域 - 如果不使用 BoxJS 或 插件参数，请在这里填写青龙面板信息
+// 如果不使用 BoxJS，请直接修改下面的引号内容
 const MANUAL_CONFIG = {
     url: "",        // 必填，例如 "http://192.168.1.1:5700"
     id: "",         // 必填，Client ID
-    secret: "",     // 必填，Client Secret
-    cooldown: 5,    // 可选，冷却时间（分钟），默认5分钟
-    debug: false    // 调试模式，设置为 true 可以看到更多日志
+    secret: ""      // 必填，Client Secret
 };
 // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 (async () => {
     try {
-        const requestUrl = $request.url || "Unknown URL";
-        if (MANUAL_CONFIG.debug) {
-            $.log(`[DEBUG] Request URL: ${requestUrl}`);
-        }
+        // 读取配置（优先使用 MANUAL_CONFIG，其次使用 BoxJS 配置）
+        let ql_url = MANUAL_CONFIG.url || getBoxJSSetting("jd_ql_url");
+        const ql_client_id = MANUAL_CONFIG.id || getBoxJSSetting("jd_ql_client_id");
+        const ql_client_secret = MANUAL_CONFIG.secret || getBoxJSSetting("jd_ql_client_secret");
 
-        let ql_url = MANUAL_CONFIG.url || $.read("ql_url") || $.getData("jd_ql_url");
-        const ql_client_id = MANUAL_CONFIG.id || $.read("ql_client_id") || $.getData("jd_ql_client_id");
-        const ql_client_secret = MANUAL_CONFIG.secret || $.read("ql_client_secret") || $.getData("jd_ql_client_secret");
-        const cooldown_minutes = MANUAL_CONFIG.cooldown || parseInt($.getData("jd_cooldown_minutes")) || 5;
+        console.log(`[JD Cookie Sync] Config: URL=${ql_url || 'Missing'}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
 
-        $.log(`Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}, Cooldown=${cooldown_minutes}min`);
-
+        // 检查配置是否完整
         if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
-            $.notify("配置未生效", "参数未正确填写", "请在 BoxJS / 插件参数 / MANUAL_CONFIG 中填写青龙信息");
-            $.done();
+            $notification.post("⚠️ 配置未生效", "参数未正确设置", "请在 BoxJS 订阅「BeRich Loon 合集」或脚本 MANUAL_CONFIG 中配置青龙信息");
+            $done({});
             return;
         }
 
+        // 自动修正URL格式
         if (!ql_url.startsWith("http://") && !ql_url.startsWith("https://")) {
             ql_url = "http://" + ql_url;
-            $.log(`Added http prefix to URL: ${ql_url}`);
+            console.log(`[JD Cookie Sync] Added http prefix to URL: ${ql_url}`);
         }
 
+        // 移除末尾斜杠
         if (ql_url.endsWith("/")) {
             ql_url = ql_url.slice(0, -1);
         }
 
+        // 1. 捕获Cookie
         const cookie = $request.headers["Cookie"] || $request.headers["cookie"];
         if (!cookie) {
-            $.done();
+            $done({});
             return;
         }
 
@@ -74,86 +66,87 @@ const MANUAL_CONFIG = {
         const pt_pin_raw = getCookieValue(cookie, "pt_pin");
 
         if (!pt_key || !pt_pin_raw) {
-            $.done();
+            $done({});
             return;
         }
 
+        // 兼容URL编码的pt_pin
         const pt_pin = safeDecodeURIComponent(pt_pin_raw);
         const jd_cookie = `pt_key=${pt_key};pt_pin=${pt_pin};`;
 
-        $.log(`Captured Cookie for pt_pin=${pt_pin}`);
+        console.log(`[JD Cookie Sync] Captured Cookie for pt_pin=${pt_pin}`);
 
-        const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
-        const timestampKey = `JD_COOKIE_TIMESTAMP_${pt_pin}`;
-        const cachedCookie = $.getData(cacheKey);
-        const lastSyncTime = parseInt($.getData(timestampKey)) || 0;
-        const currentTime = Date.now();
-        const cooldownMs = cooldown_minutes * 60 * 1000;
-        const timeSinceLastSync = currentTime - lastSyncTime;
+        // 保存当前抓到的 Pin 及更新本地设备 Pin 列表
+        $persistentStore.write(pt_pin, "JD_CURRENT_PIN");
+        $persistentStore.write(jd_cookie, `JD_COOKIE_CACHE_${pt_pin}`);
+        try {
+            let pinsArr = JSON.parse($persistentStore.read("LOON_LOCAL_JD_PINS") || "[]");
+            if (!pinsArr.includes(pt_pin)) {
+                pinsArr.push(pt_pin);
+                $persistentStore.write(JSON.stringify(pinsArr), "LOON_LOCAL_JD_PINS");
+            }
+        } catch (_) { }
 
-        if (cachedCookie === jd_cookie && timeSinceLastSync < cooldownMs) {
-            const remainingMinutes = Math.ceil((cooldownMs - timeSinceLastSync) / 60000);
-            $.log(`Cookie unchanged for ${pt_pin}, within cooldown period (${remainingMinutes}min remaining). Skip all checks.`);
-            $.done();
-            return;
-        }
-
-        if (cachedCookie === jd_cookie) {
-            $.log(`Cookie unchanged for ${pt_pin}, but cooldown expired. Validating...`);
-        } else {
-            $.log(`Cookie changed for ${pt_pin}. Need to validate and sync.`);
-        }
-
-        const validation = await validateJDCookie(jd_cookie);
-
-        if (!validation.valid) {
-            $.log(`Cookie invalid for ${pt_pin}. Need to re-sync.`);
-        } else if (cachedCookie === jd_cookie) {
-            $.log(`Cookie valid for ${pt_pin} (${validation.nickname || 'unknown'}). Update timestamp and skip sync.`);
-            $.setData(timestampKey, String(currentTime));
-            $.done();
-            return;
-        } else {
-            $.log(`Cookie valid and changed for ${pt_pin} (${validation.nickname || 'unknown'}). Need to sync.`);
-        }
-
+        // 2. 获取青龙Token
         const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
         if (!token) {
-            $.notify("同步失败", "获取青龙Token失败", "请检查配置信息是否正确");
-            $.done();
+            $notification.post("同步失败", "获取青龙Token失败", "请检查青龙地址与应用密钥配置是否正确");
+            $done({});
             return;
         }
 
+        // 3. 每次打开京东均同步Cookie到青龙
         const result = await syncCookieToQL(ql_url, token, pt_pin, jd_cookie);
 
         if (!result.ok) {
-            $.notify("同步失败", "青龙接口返回异常", result.message || "Unknown error");
-            $.done();
+            $notification.post("同步失败", "青龙接口返回异常", result.message || "Unknown error");
+            $done({});
             return;
         }
 
+        // 4. 青龙端数据变动或重新启用时通知
         if (result.changed) {
-            $.setData(cacheKey, jd_cookie);
-            $.setData(timestampKey, String(currentTime));
-            $.notify(result.title, result.subtitle, result.body);
+            $persistentStore.write(jd_cookie, `JD_COOKIE_CACHE_${pt_pin}`);
+            $notification.post(result.title, result.subtitle, result.body);
+            console.log(`[JD Cookie Sync] ${result.title}: ${result.subtitle}`);
         } else {
-            $.setData(timestampKey, String(currentTime));
-            $.log(`No change for ${pt_pin}. No notification.`);
+            console.log(`[JD Cookie Sync] Cookie synced for ${pt_pin} (no status/value change in QL). Skipping notification.`);
         }
 
     } catch (e) {
-        $.log(`Error: ${e && e.message ? e.message : e}`);
-        $.notify("同步错误", "发生未预期的错误", String(e && e.message ? e.message : e));
+        console.log(`[JD Cookie Sync] Error: ${e && e.message ? e.message : e}`);
+        $notification.post("同步错误", "发生未预期的错误", String(e && e.message ? e.message : e));
     } finally {
-        $.done();
+        $done({});
     }
 })();
 
+
+// ========== 工具函数 ==========
+
+/**
+ * 从 BoxJS 持久化存储中读取指定 key 的值
+ */
+function getBoxJSSetting(key) {
+    try {
+        const val = $persistentStore.read(key);
+        return val && val.trim() !== "" ? val.trim() : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+/**
+ * 从Cookie字符串中提取指定键的值
+ */
 function getCookieValue(cookieStr, key) {
     const match = cookieStr.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));
     return match ? match[1] : null;
 }
 
+/**
+ * 安全的URL解码
+ */
 function safeDecodeURIComponent(s) {
     try {
         return decodeURIComponent(s);
@@ -162,67 +155,48 @@ function safeDecodeURIComponent(s) {
     }
 }
 
-async function validateJDCookie(jd_cookie) {
+/**
+ * 获取青龙面板Token
+ */
+async function getQLToken(url, clientId, clientSecret) {
     const options = {
-        url: "https://me-api.jd.com/user_new/info/GetJDUserInfoUnion",
-        method: "GET",
+        url: `${url}/open/auth/token?client_id=${clientId}&client_secret=${clientSecret}`,
         headers: {
-            "Cookie": jd_cookie,
-            "User-Agent": "jdapp;iPhone;10.0.0;14.0;network/wifi;Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
-            "Referer": "https://home.m.jd.com/"
+            "Content-Type": "application/json"
         }
     };
 
     return new Promise((resolve) => {
-        $.http.get(options).then(response => {
-            try {
-                const body = JSON.parse(response.body);
-                if (body && body.retcode === "0" && body.data && body.data.userInfo) {
-                    const nickname = body.data.userInfo.baseInfo?.nickname || "";
-                    $.log(`Cookie validation success: ${nickname}`);
-                    resolve({ valid: true, nickname });
-                } else {
-                    $.log(`Cookie validation failed: ${JSON.stringify(body).substring(0, 100)}`);
-                    resolve({ valid: false });
-                }
-            } catch (e) {
-                $.log(`Cookie validation parse error: ${e.message}`);
-                resolve({ valid: false });
+        $httpClient.get(options, (error, response, data) => {
+            if (error) {
+                console.log(`[JD Cookie Sync] Auth Network Error: ${error}`);
+                resolve(null);
+                return;
             }
-        }).catch(e => {
-            $.log(`Cookie validation network error: ${e.error}`);
-            resolve({ valid: false });
-        });
-    });
-}
-
-async function getQLToken(url, clientId, clientSecret) {
-    const options = {
-        url: `${url}/open/auth/token?client_id=${clientId}&client_secret=${clientSecret}`,
-        method: "GET"
-    };
-
-    return new Promise((resolve) => {
-        $.http.get(options).then(response => {
             try {
-                const body = JSON.parse(response.body);
+                const body = JSON.parse(data);
                 if (body.code === 200 && body.data && body.data.token) {
                     resolve(body.data.token);
                 } else {
-                    $.log(`Auth Failed: ${JSON.stringify(body)}`);
+                    console.log(`[JD Cookie Sync] Auth Failed: ${JSON.stringify(body)}`);
                     resolve(null);
                 }
             } catch (e) {
-                $.log(`Auth Parse Error: ${e.message}`);
+                console.log(`[JD Cookie Sync] Auth Parse Error: ${e.message || e}`);
                 resolve(null);
             }
-        }).catch(e => {
-            $.log(`Auth Network Error: ${e.error}`);
-            resolve(null);
         });
     });
 }
 
+/**
+ * 同步Cookie到青龙面板
+ * 仅当"青龙端状态发生变化"才标记 changed=true：
+ * - 未找到则创建
+ * - 找到但 value 不同则更新
+ * - 找到但被禁用则启用
+ * 若 value 相同且已启用，则 changed=false（静默同步，不打扰用户）
+ */
 async function syncCookieToQL(url, token, pt_pin, newValue) {
     const headers = {
         "Authorization": `Bearer ${token}`,
@@ -231,16 +205,21 @@ async function syncCookieToQL(url, token, pt_pin, newValue) {
 
     const getOptions = {
         url: `${url}/open/envs?searchValue=${encodeURIComponent(pt_pin)}`,
-        method: "GET",
         headers
     };
 
     return new Promise((resolve) => {
-        $.http.get(getOptions).then(async response => {
+        $httpClient.get(getOptions, async (error, response, data) => {
+            if (error) {
+                console.log(`[JD Cookie Sync] Sync Query Error: ${error}`);
+                resolve({ ok: false, message: error });
+                return;
+            }
+
             try {
-                const body = JSON.parse(response.body);
+                const body = JSON.parse(data);
                 if (body.code !== 200 || !Array.isArray(body.data)) {
-                    $.log(`Sync Unexpected Response: ${response.body}`);
+                    console.log(`[JD Cookie Sync] Sync Unexpected Response: ${data}`);
                     resolve({ ok: false, message: "Unexpected Qinglong response" });
                     return;
                 }
@@ -252,14 +231,17 @@ async function syncCookieToQL(url, token, pt_pin, newValue) {
                     e.value.includes(`pt_pin=${pt_pin}`)
                 );
 
+                // 变化标记
                 let changed = false;
 
                 if (targetEnv) {
+                    // 如果被禁用，先启用（算变化）
                     if (targetEnv.status !== 0) {
                         await enableEnv(url, token, targetEnv.id);
                         changed = true;
                     }
 
+                    // 如果值不同，更新（算变化）
                     if (targetEnv.value !== newValue) {
                         await updateEnv(url, token, targetEnv.id, "JD_COOKIE", newValue, targetEnv.remarks);
                         changed = true;
@@ -274,6 +256,7 @@ async function syncCookieToQL(url, token, pt_pin, newValue) {
                         return;
                     }
 
+                    // 值相同：如果刚启用过也算变化；否则不算变化
                     if (changed) {
                         resolve({
                             ok: true,
@@ -288,7 +271,8 @@ async function syncCookieToQL(url, token, pt_pin, newValue) {
                     return;
                 }
 
-                await createEnv(url, token, "JD_COOKIE", newValue, `Created by Loon for ${pt_pin}`);
+                // 未找到：创建（算变化）
+                await createEnv(url, token, "JD_COOKIE", newValue, `Created by Loon Script for ${pt_pin}`);
                 resolve({
                     ok: true,
                     changed: true,
@@ -298,156 +282,78 @@ async function syncCookieToQL(url, token, pt_pin, newValue) {
                 });
 
             } catch (e) {
-                $.log(`Sync Parse Error: ${e.message}`);
+                console.log(`[JD Cookie Sync] Sync Error: ${e.message || e}`);
                 resolve({ ok: false, message: e.message || String(e) });
             }
-        }).catch(e => {
-            $.log(`Sync Network Error: ${e.error}`);
-            resolve({ ok: false, message: e.error || String(e) });
         });
     });
 }
 
-async function updateEnv(url, token, id, name, value, remarks) {
+/**
+ * 更新青龙环境变量
+ */
+function updateEnv(url, token, id, name, value, remarks) {
     const options = {
         url: `${url}/open/envs`,
-        method: "PUT",
         headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
         },
         body: JSON.stringify({ id, name, value, remarks })
     };
-    return new Promise(resolve => {
-        $.http.put(options).then(() => resolve()).catch(() => resolve());
+
+    return new Promise((resolve) => {
+        $httpClient.put(options, (error, response, data) => {
+            if (error) {
+                console.log(`[JD Cookie Sync] Update Env Error: ${error}`);
+            }
+            resolve();
+        });
     });
 }
 
-async function createEnv(url, token, name, value, remarks) {
+/**
+ * 创建青龙环境变量
+ */
+function createEnv(url, token, name, value, remarks) {
     const options = {
         url: `${url}/open/envs`,
-        method: "POST",
         headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
         },
         body: JSON.stringify([{ name, value, remarks }])
     };
-    return new Promise(resolve => {
-        $.http.post(options).then(() => resolve()).catch(() => resolve());
+
+    return new Promise((resolve) => {
+        $httpClient.post(options, (error, response, data) => {
+            if (error) {
+                console.log(`[JD Cookie Sync] Create Env Error: ${error}`);
+            }
+            resolve();
+        });
     });
 }
 
-async function enableEnv(url, token, id) {
+/**
+ * 启用青龙环境变量
+ */
+function enableEnv(url, token, id) {
     const options = {
         url: `${url}/open/envs/enable`,
-        method: "PUT",
         headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
         },
         body: JSON.stringify([id])
     };
-    return new Promise(resolve => {
-        $.http.put(options).then(() => resolve()).catch(() => resolve());
+
+    return new Promise((resolve) => {
+        $httpClient.put(options, (error, response, data) => {
+            if (error) {
+                console.log(`[JD Cookie Sync] Enable Env Error: ${error}`);
+            }
+            resolve();
+        });
     });
-}
-
-function API(name) {
-    this.name = name;
-
-    this.read = (key) => {
-        if (typeof $argument !== 'undefined') {
-            const args = {};
-            $argument.split("&").forEach(pair => {
-                const idx = pair.indexOf("=");
-                if (idx > -1) {
-                    const k = pair.substring(0, idx);
-                    const v = pair.substring(idx + 1);
-                    if (k && v) args[k] = decodeURIComponent(v);
-                }
-            });
-            return args[key];
-        }
-        return null;
-    };
-
-    this.getData = (key) => {
-        if (typeof $persistentStore !== 'undefined') {
-            return $persistentStore.read(key);
-        }
-        return null;
-    };
-
-    this.setData = (key, value) => {
-        if (typeof $persistentStore !== 'undefined') {
-            return $persistentStore.write(value, key);
-        }
-    };
-
-    this.notify = (title, subtitle, message) => {
-        if (typeof $notification !== 'undefined') {
-            $notification.post(title, subtitle, message);
-        } else {
-            console.log(`[Notify] ${title} - ${subtitle}: ${message}`);
-        }
-    };
-
-    this.log = (msg) => {
-        console.log(`[${this.name}] ${msg}`);
-    };
-
-    this.done = () => {
-        if (typeof $done !== 'undefined') {
-            $done({});
-        }
-    };
-
-    this.http = {
-        get: (options) => {
-            return new Promise((resolve, reject) => {
-                if (typeof $httpClient !== 'undefined') {
-                    $httpClient.get(options, (error, response, data) => {
-                        if (error) {
-                            reject({ error });
-                        } else {
-                            resolve({ status: response.status, headers: response.headers, body: data });
-                        }
-                    });
-                } else {
-                    reject({ error: "Not in Loon environment" });
-                }
-            });
-        },
-        post: (options) => {
-            return new Promise((resolve, reject) => {
-                if (typeof $httpClient !== 'undefined') {
-                    $httpClient.post(options, (error, response, data) => {
-                        if (error) {
-                            reject({ error });
-                        } else {
-                            resolve({ status: response.status, headers: response.headers, body: data });
-                        }
-                    });
-                } else {
-                    reject({ error: "Not in Loon environment" });
-                }
-            });
-        },
-        put: (options) => {
-            return new Promise((resolve, reject) => {
-                if (typeof $httpClient !== 'undefined') {
-                    $httpClient.put(options, (error, response, data) => {
-                        if (error) {
-                            reject({ error });
-                        } else {
-                            resolve({ status: response.status, headers: response.headers, body: data });
-                        }
-                    });
-                } else {
-                    reject({ error: "Not in Loon environment" });
-                }
-            });
-        }
-    }
 }
