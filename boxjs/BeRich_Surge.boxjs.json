@@ -1,7 +1,7 @@
 {
     "id": "5jwoj.berich.surge",
     "name": "BeRich Surge 合集",
-    "description": "Surge 专用订阅合集，包含京东Cookie同步、京豆资产查询等模块的配置管理",
+    "description": "Surge 专用订阅合集，包含京东Cookie同步、京豆资产查询、账号过期检测等模块的配置管理",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/surge.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -124,6 +124,74 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_Surge.js"
+        },
+        {
+            "id": "jd.cookie.check.surge",
+            "name": "JD账号过期检测 (Surge)",
+            "keys": [
+                "jd_ql_url",
+                "jd_ql_client_id",
+                "jd_ql_client_secret",
+                "jd_cookie_check_script",
+                "jd_check_pin"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">Surge 版 · 定时检测京东账号 Cookie 是否过期并推送预警</h4>",
+                "<p>自动读取青龙面板中指定脚本的最新日志，扫描 <code>Cookie失效</code>、<code>账号过期</code>、<code>未登录</code> 等关键词，第一时间推送通知。</p>",
+                "<hr>",
+                "<p><b>使用步骤：</b></p>",
+                "<ol><li>在 Surge 中安装模块：<a href=\"https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_Surge.sgmodule\">JD_Cookie_Check_Surge.sgmodule</a></li><li>在下方填写配置信息并保存</li><li>模块默认每天 6:35 ~ 23:35 每小时检测一次，可在 Surge 中修改定时</li></ol>",
+                "<p><b>注意：</b>青龙面板配置（地址/Client ID/Secret）与其他模块共享，已填写可跳过。</p>"
+            ],
+            "settings": [
+                {
+                    "id": "jd_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板的完整地址，包括端口号（与其他模块共享，已填写可跳过）"
+                },
+                {
+                    "id": "jd_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "青龙 Open API Client ID（与其他模块共享）"
+                },
+                {
+                    "id": "jd_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "青龙 Open API Client Secret（与其他模块共享）"
+                },
+                {
+                    "id": "jd_cookie_check_script",
+                    "name": "检测目标脚本名称",
+                    "val": "jd_task_assets",
+                    "type": "text",
+                    "placeholder": "jd_task_assets",
+                    "desc": "在青龙日志中检测的目标脚本名，默认 jd_task_assets"
+                },
+                {
+                    "id": "jd_check_pin",
+                    "name": "指定检测的 Pin",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "例如: jd_123456 (多个用逗号分隔)",
+                    "desc": "指定检测的京东账号 Pin，多个用逗号分隔。留空则检测日志内全部账号"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_Surge.js"
         }
     ]
 }
