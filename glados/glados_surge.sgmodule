@@ -1,0 +1,19 @@
+#!name=GLaDOS 自动签到 (Surge)
+#!desc=访问 GLaDOS 各域名 /console/account 自动抓取 Cookie，每天 07:10 自动签到并兑换积分，支持多账号多域名。脚本原作者：Curtinp118，Surge 模块封装：z.W.
+#!author=z.W.
+#!icon=https://glados.network/favicon.ico
+
+[Script]
+# ① 访问各域名 /console/account 时自动捕获 Cookie
+GLaDOS 抓包 glados.network = type=http-request,pattern=^https://glados\.network/console/account$,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js,script-update-interval=86400,timeout=10
+GLaDOS 抓包 railgun.info   = type=http-request,pattern=^https://railgun\.info/console/account$,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js,script-update-interval=86400,timeout=10
+GLaDOS 抓包 glados.vip     = type=http-request,pattern=^https://glados\.vip/console/account$,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js,script-update-interval=86400,timeout=10
+GLaDOS 抓包 glados.one     = type=http-request,pattern=^https://glados\.one/console/account$,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js,script-update-interval=86400,timeout=10
+GLaDOS 抓包 glados.space   = type=http-request,pattern=^https://glados\.space/console/account$,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js,script-update-interval=86400,timeout=10
+
+# ② 每天 07:10 自动签到（随机延迟 0~10s 避免并发）
+GLaDOS 每日签到 = type=cron,cronexp=10 7 * * *,script-path=https://raw.githubusercontent.com/curtinp118/Scripthub/main/scripts/glados/glados.js,script-update-interval=86400,timeout=60
+
+[MITM]
+# 需要 MITM 才能读取请求头 Cookie
+hostname = %APPEND% glados.network, railgun.info, glados.vip, glados.one, glados.space
