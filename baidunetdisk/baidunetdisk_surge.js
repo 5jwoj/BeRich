@@ -2,10 +2,10 @@
  * 百度网盘 · 会员成长值每日签到 + 每日答题 - Surge 专属版
  * 
  * 行为：
- * 1) 抓取：打开百度网盘 APP →「我的」→「签到 / 会员」页面，自动抓取 Cookie 并存入 BoxJS
+ * 1) 抓取：打开百度网盘 APP → 进入「我的」或「签到/会员」等任意页面，自动抓取 Cookie 并存入 BoxJS
  * 2) 签到：cron 定时自动签到 + 每日答题（均增加会员成长值），并查询 SVIP 等级与升级进度推送通知
  * 
- * Version: v1.0.0
+ * Version: v1.1.0
  * Author: @5jwoj (基于 @MaYIHEI 原版重构优化)
  * 
  * BoxJS 订阅地址：
@@ -22,7 +22,7 @@
  */
 
 const SCRIPT_NAME    = "百度网盘";
-const SCRIPT_VERSION = "v1.0.0";
+const SCRIPT_VERSION = "v1.1.0";
 
 const CK_KEY    = "baidunetdisk_data";
 const TRACK_KEY = "baidunetdisk_track";   // 成长值基线 {value, ts}
@@ -60,12 +60,15 @@ if (typeof $request !== "undefined") {
 function captureCookie() {
     try {
         const cookie = normalizeCookie(headerVal("cookie"));
+        // 如果当前请求头不含 BDUSS，静默退出
         if (!cookie || !/BDUSS=/.test(cookie)) {
-            $notification.post(
-                SCRIPT_NAME,
-                "⚠️ 未抓到有效 Cookie",
-                "请确认已开启 MITM 并打开网盘「我的 → 签到 / 会员」页"
-            );
+            $done({});
+            return;
+        }
+
+        const oldCookie = $persistentStore.read(CK_KEY) || "";
+        if (oldCookie.trim() === cookie.trim()) {
+            console.log(`[${SCRIPT_NAME}] 捕获到相同 Cookie，跳过保存与弹窗`);
             $done({});
             return;
         }
@@ -73,7 +76,7 @@ function captureCookie() {
         $persistentStore.write(cookie, CK_KEY);
         const uidMatch = cookie.match(/BDUSS=([^;]{0,8})/);
         const uid = uidMatch ? uidMatch[1] : "";
-        console.log(`[${SCRIPT_NAME}] Cookie 抓取成功，BDUSS: ${uid}…`);
+        console.log(`[${SCRIPT_NAME}] Cookie 抓取/更新成功，BDUSS: ${uid}…`);
         $notification.post(
             SCRIPT_NAME,
             "✅ 百度网盘 Cookie 获取成功",

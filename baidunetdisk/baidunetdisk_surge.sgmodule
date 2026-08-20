@@ -1,15 +1,15 @@
-#!name=百度网盘成长值签到 (v1.0.0 BoxJS配置)
+#!name=百度网盘成长值签到 (v1.1.0 强化抓包)
 #!desc=自动捕获百度网盘 Cookie 并定时执行成长值签到与每日答题，助力 SVIP 升级。参数通过 BoxJS 订阅「BeRich Surge 合集」配置。
 #!author=z.W.
 #!icon=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/baidunetdisk.png
 
 [Script]
-# ① 打开百度网盘 APP「我的」→「签到 / 会员」页面停留 1 秒自动抓取 Cookie
-百度网盘 Cookie捕获 = type=http-request,pattern=^https:\/\/pan\.baidu\.com\/coins\/taskcenter\/signinlist,requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/baidunetdisk/baidunetdisk_surge.js,script-update-interval=86400,timeout=10
+# ① 打开百度网盘 APP（首页 / 我的 / 签到会员页等）自动捕获 Cookie (BDUSS)
+百度网盘 Cookie捕获 = type=http-request,pattern=^https?:\/\/(pan|yun)\.baidu\.com\/(coins\/taskcenter|wap\/svip|rest\/2\.0|act\/v2|api\/user|api\/|disk\/|mbox\/),requires-body=0,max-size=0,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/baidunetdisk/baidunetdisk_surge.js,script-update-interval=86400,timeout=10
 
 # ② 每天 08:15 自动签到 + 每日答题 + 汇总成长值进度
 百度网盘 每日签到 = type=cron,cronexp=15 8 * * *,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/baidunetdisk/baidunetdisk_surge.js,script-update-interval=86400,timeout=60
 
 [MITM]
-# 需要 MITM 才能读取 pan.baidu.com 的 Cookie 请求头
-hostname = %APPEND% pan.baidu.com
+# 需要 MITM 才能读取 pan.baidu.com / yun.baidu.com 的请求头 Cookie
+hostname = %APPEND% pan.baidu.com, yun.baidu.com
