@@ -1,0 +1,70 @@
+{
+    "id": "5jwoj.berich.surge",
+    "name": "BeRich Surge 合集",
+    "description": "Surge 专用订阅合集，包含京东Cookie同步（青龙面板）等模块的配置管理",
+    "author": "@5jwoj",
+    "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/surge.png",
+    "repo": "https://github.com/5jwoj/BeRich",
+    "apps": [
+        {
+            "id": "jd.cookie.sync.surge",
+            "name": "京东Cookie同步 (Surge)",
+            "keys": [
+                "jd_ql_url",
+                "jd_ql_client_id",
+                "jd_ql_client_secret",
+                "jd_prefer_std"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">Surge 版 · 自动捕获京东 Cookie 并同步到青龙面板</h4>",
+                "<p>每次打开京东 APP，Surge 自动拦截请求并提取 <code>pt_key / pt_pin</code>，同步至青龙面板的 <code>JD_COOKIE</code> 环境变量。</p>",
+                "<hr>",
+                "<p><b>使用步骤：</b></p>",
+                "<ol><li>在 Surge 中安装模块：<a href=\"https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.sgmodule\">JD_Cookie_Sync_Surge.sgmodule</a></li><li>在下方填写青龙面板信息并保存</li><li>打开京东 APP 触发一次请求即可自动同步</li></ol>",
+                "<p><b>注意：</b>需要在 Surge 中开启 MITM，并信任证书。</p>",
+                "<p align=\"center\">使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/blob/main/JDCK/README_Surge.md\">README_Surge.md</a></p>"
+            ],
+            "settings": [
+                {
+                    "id": "jd_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板的完整地址，包括端口号（例如 http://192.168.1.1:5700）"
+                },
+                {
+                    "id": "jd_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "在青龙面板 → 系统设置 → 应用设置中创建应用获取"
+                },
+                {
+                    "id": "jd_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "在青龙面板 → 系统设置 → 应用设置中创建应用获取（权限需勾选环境变量）"
+                },
+                {
+                    "id": "jd_prefer_std",
+                    "name": "优先标准 Cookie",
+                    "val": "1",
+                    "type": "text",
+                    "placeholder": "1",
+                    "desc": "1=开启（推荐）· 0=关闭。开启后若检测到 app_open 类型 Cookie 且已有标准备份，则自动跳过，避免覆盖有效 Cookie"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.js"
+        }
+    ]
+}

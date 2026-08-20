@@ -1,7 +1,7 @@
 /*
  * JD Cookie Sync to Qinglong - Surge Version
  *
- * Version: 1.2.0
+ * Version: 1.4.0
  * Author: z.W.
  * 行为：
  * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
@@ -10,35 +10,30 @@
  * 3) 每次实际同步均发送通知并标注 Cookie 类型
  * 4) 同步失败时也发送通知
  *
- * @script
- * api.m.jd.com
+ * @配置方式
+ * 通过 BoxJS 订阅「BeRich 订阅合集」，在「京东Cookie同步」App 中填写：
+ *   - jd_ql_url        青龙面板地址 (例如 http://192.168.1.1:5700)
+ *   - jd_ql_client_id  青龙 Client ID
+ *   - jd_ql_client_secret  青龙 Client Secret
  *
- * @args
- * ql_url: Qinglong Panel URL (e.g., http://192.168.1.1:5700)
- * ql_client_id: Qinglong Client ID
- * ql_client_secret: Qinglong Client Secret
- * prefer_std: 优先标准Cookie开关，1=开启(默认)/0=关闭
+ * BoxJS 订阅地址：https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Surge.boxjs.json
  */
-
-// ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-// 如果模块配置界面无法输入,请直接修改下面的引号内容
-const MANUAL_CONFIG = {
-  url: "",        // 必填,例如 "http://192.168.1.1:5700"
-  id: "",         // 必填,Client ID
-  secret: ""      // 必填,Client Secret
-};
-// ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
 
 (async () => {
   try {
-    let ql_url = MANUAL_CONFIG.url || getArg("ql_url");
-    const ql_client_id = MANUAL_CONFIG.id || getArg("ql_client_id");
-    const ql_client_secret = MANUAL_CONFIG.secret || getArg("ql_client_secret");
+    // 从 BoxJS 读取配置
+    let ql_url = getBoxJSSetting("jd_ql_url");
+    const ql_client_id = getBoxJSSetting("jd_ql_client_id");
+    const ql_client_secret = getBoxJSSetting("jd_ql_client_secret");
 
-    console.log(`Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
+    console.log(`[BoxJS] URL=${ql_url || 'Missing'}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
 
-    if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
-      $notification.post("配置未生效", "参数未正确替换", "请在Surge模块配置页填写青龙信息并保存,不要留空。");
+    if (!ql_url || !ql_client_id || !ql_client_secret) {
+      $notification.post(
+        "⚠️ 配置未生效",
+        "BoxJS 青龙信息未填写",
+        "请在 BoxJS 订阅「BeRich合集」→「京东Cookie同步」中填写青龙面板地址、Client ID 和 Client Secret。"
+      );
       $done({});
       return;
     }
@@ -77,8 +72,9 @@ const MANUAL_CONFIG = {
     const cookieTypeTag = isAppOpen ? "⚠️ app_open" : "✅ 标准";
     console.log(`Captured [${cookieTypeTag}] Cookie for pt_pin=${pt_pin}`);
 
-    // 读取 prefer_std 开关（默认开启）
-    const preferStd = getArg("prefer_std") !== "0";
+    // 读取 prefer_std 开关（从 BoxJS 读取，默认开启）
+    const preferStdVal = getBoxJSSetting("jd_prefer_std");
+    const preferStd = preferStdVal !== "0";
 
     // 标准 Cookie 专用缓存键（仅存非 app_open 的最后一次有效值）
     const stdCacheKey = `JD_STD_COOKIE_${pt_pin}`;
@@ -165,19 +161,19 @@ const MANUAL_CONFIG = {
   }
 })();
 
-function getArg(key) {
-  const args = {};
-  if (typeof $argument !== 'undefined' && $argument) {
-    $argument.split("&").forEach(pair => {
-      const idx = pair.indexOf("=");
-      if (idx > -1) {
-        const k = pair.substring(0, idx);
-        const v = pair.substring(idx + 1);
-        if (k && v) args[k] = decodeURIComponent(v);
-      }
-    });
+/**
+ * 从 BoxJS 持久化存储中读取指定 key 的值
+ * BoxJS 中各 setting 的 id 即为 $persistentStore 的 key
+ * @param {string} key - BoxJS setting id，如 jd_ql_url
+ * @returns {string|null}
+ */
+function getBoxJSSetting(key) {
+  try {
+    const val = $persistentStore.read(key);
+    return val && val.trim() !== '' ? val.trim() : null;
+  } catch (_) {
+    return null;
   }
-  return args[key];
 }
 
 function getCookieValue(cookieStr, key) {
