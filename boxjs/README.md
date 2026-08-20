@@ -17,7 +17,7 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
 ```
 https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json
 ```
-包含：京东Cookie同步 (Loon) 等插件的配置管理。
+包含：京东Cookie同步 (Loon)、京豆资产查询 (Loon)、JD账号过期检测 (Loon) 等插件的配置管理。
 
 ### 3. Surge 专用订阅
 ```

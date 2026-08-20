@@ -1,0 +1,15 @@
+#!name=JD 账号过期检测 (Loon)
+#!desc=定时扫描青龙面板日志，检测京东账号 Cookie 是否过期失效并推送预警通知，参数通过 BoxJS 订阅「BeRich Loon 合集」配置。
+#!openUrl=
+#!author=z.W.
+#!tag=京东, 青龙, 过期检测
+#!system=
+#!system_version=
+#!loon_version=
+#!homepage=https://github.com/5jwoj/BeRich
+#!icon=https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png
+#!date=2026-08-21 00:00:00
+
+[Script]
+# 定时任务：每天 6:35 ~ 23:35 每小时执行一次，检测账号 Cookie 是否过期
+cron "35 6-23 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_Loon.js, timeout=60, tag=JD账号过期检测

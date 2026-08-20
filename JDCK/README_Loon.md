@@ -1,70 +1,40 @@
-# JD Cookie Sync - Loon 使用指南
+# BeRich - Loon 插件使用指南 (JDCK)
 
 > **作者**: z.W.  
 > **版本**: v1.0.0
 
-自动捕获京东 App 中的 Cookie (`pt_key`, `pt_pin`) 并同步到青龙面板环境变量 (`JD_COOKIE`)。  
-本插件遵循 **Quantumult X** 相同的高效规则：**已存在且一致时静默同步，无变动不打扰；状态变更、新建或重新启用时发送通知**。
+包含 **京东 Cookie 自动同步**、**京豆资产查询** 与 **JD 账号过期检测** 的 Loon 专属插件配置说明。
 
 ---
 
-## 🚀 安装步骤
+## 📦 插件列表与安装
 
-### 步骤 1：在 Loon 中添加插件
+在 **Loon App** → **配置** → **插件** 中点击右上角 **➕**，按需添加以下插件链接：
 
-1. 打开 **Loon App**
-2. 进入 **配置** → **插件**
-3. 点击右上角 **➕**
-4. 填入插件链接：
-   ```
-   https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Loon.plugin
-   ```
-5. 点击 **确定** 并保存启用插件
+| 插件名称 | 插件链接 | 类型 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **京东Cookie同步** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Loon.plugin` | 抓包同步 (MitM) | 打开京东 APP 自动抓取并静默同步至青龙 `JD_COOKIE` |
+| **京豆资产查询** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_Loon.plugin` | 定时任务 (`23:35`) | 定时读取青龙资产日志并推送今日收益与余额 |
+| **JD账号过期检测** | `https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_Loon.plugin` | 定时任务 (`6:35-23:35/h`) | 定时检测日志中账号是否失效，并发送预警 |
 
 ---
 
 ## ⚙️ 参数配置（推荐使用 BoxJS）
 
-### 方法一：通过 BoxJS 配置（推荐 ✅）
-
-1. 在 **BoxJS** 中添加 Loon 专用订阅：
-   ```
-   https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json
-   ```
-2. 进入「**BeRich Loon 合集**」→「**京东Cookie同步 (Loon)**」应用
-3. 填写以下青龙面板参数：
-   - **青龙面板地址**：如 `http://192.168.1.1:5700`
-   - **Client ID**：在青龙面板「系统设置 → 应用设置」中创建应用获取
-   - **Client Secret**：在青龙面板「系统设置 → 应用设置」中创建应用获取（权限需勾选环境变量）
-4. 点击保存配置。
-
-### 方法二：脚本内手动配置（MANUAL_CONFIG）
-
-如果未安装 BoxJS，可直接在本地脚本 `JD_Cookie_Sync_Loon.js` 的 `MANUAL_CONFIG` 中填写参数：
-
-```javascript
-const MANUAL_CONFIG = {
-    url: "http://192.168.1.1:5700",  // 青龙面板地址
-    id: "your_client_id",             // Client ID
-    secret: "your_client_secret"      // Client Secret
-};
+### 1. 订阅 Loon 专属 BoxJS 合集
+在 **BoxJS** 中添加以下订阅链接：
+```
+https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json
 ```
 
----
-
-## 📖 使用方法
-
-1. 确保 Loon 处于开启状态，且已开启 **MitM** 并已信任证书。
-2. 打开「京东」App 浏览任意商品或进入个人中心。
-3. 脚本拦截到 Cookie 后将自动同步至青龙：
-   - 若首次添加或 Cookie 发生变化/被启用，Loon 将弹出系统通知提示。
-   - 若 Cookie 未发生变化，则在后台静默同步，不弹出任何打扰通知。
-4. 登录青龙面板，确认环境变量 `JD_COOKIE` 已成功创建或更新。
+### 2. 配置说明
+订阅后进入「**BeRich Loon 合集**」：
+- **青龙面板配置**：填写青龙面板地址（如 `http://192.168.1.1:5700`）、Client ID 与 Client Secret（三款插件共享基础配置，填写一次即可）。
+- **指定 Pin 查询/检测（可选）**：在「京豆资产查询」或「JD账号过期检测」中填写 `jd_local_pin` / `jd_check_pin`（多个逗号分隔），留空则默认处理日志中全部账号。
 
 ---
 
-## ❓ 常见问题排查
+## 📖 使用与注意事项
 
-- **提示“配置未生效”**：请检查 BoxJS 或脚本 MANUAL_CONFIG 中的青龙地址、Client ID 与 Secret 是否填写完整。
-- **提示“获取青龙Token失败”**：请确认青龙面板地址可访问（包含端口），Client ID 与 Secret 匹配且拥有环境变量权限。
-- **无法捕获 Cookie**：请检查 Loon 的 MitM 主机名列表中是否包含 `api.m.jd.com`，并确认证书处于信任状态。
+1. **证书与 MitM**：使用 Cookie 同步功能前，请确保 Loon 已开启 **MitM** 并已信任证书，且主机名包含 `api.m.jd.com`。
+2. **定时任务**：定时任务会自动按 Cron 表达式执行，也可在 Loon 的「脚本」列表中手动点击运行测试。
