@@ -1,0 +1,8 @@
+#!name=JD 京豆资产查询 (v1.0.0 BoxJS配置)
+#!desc=定时查询京东账号在青龙面板资产脚本中的京豆情况，参数通过 BoxJS 订阅「BeRich Surge 合集」配置。
+#!author=z.W.
+#!icon=https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png
+
+[Script]
+# 定时任务：每天 23:15 执行，从青龙面板读取资产日志并推送京豆汇总通知
+京豆资产查询 = type=cron,cronexp=15 23 * * *,script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_Surge.js,script-update-interval=86400,timeout=60

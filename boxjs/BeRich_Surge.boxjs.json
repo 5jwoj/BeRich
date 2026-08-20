@@ -1,7 +1,7 @@
 {
     "id": "5jwoj.berich.surge",
     "name": "BeRich Surge 合集",
-    "description": "Surge 专用订阅合集，包含京东Cookie同步（青龙面板）等模块的配置管理",
+    "description": "Surge 专用订阅合集，包含京东Cookie同步、京豆资产查询等模块的配置管理",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/surge.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -56,6 +56,74 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.js"
+        },
+        {
+            "id": "jd.bean.query.surge",
+            "name": "京豆资产查询 (Surge)",
+            "keys": [
+                "jd_ql_url",
+                "jd_ql_client_id",
+                "jd_ql_client_secret",
+                "jd_asset_script_name",
+                "jd_local_pin"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
+            "icons": [
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png",
+                "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">Surge 版 · 定时读取青龙面板资产日志，推送京豆汇总通知</h4>",
+                "<p>通过青龙面板 Open API 读取资产脚本的最新运行日志，精准过滤指定账号的京豆数据并发送通知。</p>",
+                "<hr>",
+                "<p><b>使用步骤：</b></p>",
+                "<ol><li>在 Surge 中安装模块：<a href=\"https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_Surge.sgmodule\">JD_Bean_Query_Surge.sgmodule</a></li><li>在下方填写配置信息并保存</li><li>模块默认每天 23:15 自动执行，也可在 Surge 脚本列表中手动触发</li></ol>",
+                "<p><b>注意：</b>青龙面板配置（地址/Client ID/Secret）与 Cookie 同步模块共享，已填写可跳过。</p>"
+            ],
+            "settings": [
+                {
+                    "id": "jd_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板的完整地址，包括端口号（与Cookie同步模块共享，已填写可跳过）"
+                },
+                {
+                    "id": "jd_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "青龙 Open API Client ID（与Cookie同步模块共享）"
+                },
+                {
+                    "id": "jd_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "青龙 Open API Client Secret（与Cookie同步模块共享）"
+                },
+                {
+                    "id": "jd_asset_script_name",
+                    "name": "资产脚本名称",
+                    "val": "jd_task_assets",
+                    "type": "text",
+                    "placeholder": "jd_task_assets",
+                    "desc": "青龙中运行资产查询的脚本文件名，默认 jd_task_assets"
+                },
+                {
+                    "id": "jd_local_pin",
+                    "name": "指定京东账号 Pin",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "例如: jd_123456 (多个用逗号分隔)",
+                    "desc": "填写需要查询的京东 Pin（支持多个逗号分隔），留空则推送日志中全部账号"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Bean_Query_Surge.js"
         }
     ]
 }
