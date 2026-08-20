@@ -1,14 +1,12 @@
 /*
  * JD Cookie Sync to Qinglong - Surge Version
  *
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: z.W.
  * 行为：
- * 1) 抓到 pt_key + pt_pin 就尝试同步青龙
- * 2) 优先同步「标准 Cookie」（非 app_open 前缀）；
- *    若仅捕获到 app_open 类型且无标准备份，则回退同步 app_open Cookie
- * 3) 每次实际同步均发送通知并标注 Cookie 类型
- * 4) 同步失败时也发送通知
+ * 1) 捕获到 pt_key + pt_pin 就强制同步至青龙（不区分 Cookie 类型）
+ * 2) Cookie 与缓存相同且有效时静默跳过，避免重复请求
+ * 3) 实际发生变化时发送通知，同步失败时也发送通知
  *
  * @配置方式
  * 通过 BoxJS 订阅「BeRich 订阅合集」，在「京东Cookie同步」App 中填写：
@@ -67,33 +65,7 @@
     const pt_pin = safeDecodeURIComponent(pt_pin_raw);
     const jd_cookie = `pt_key=${pt_key};pt_pin=${pt_pin};`;
 
-    // 判断本次捕获到的 Cookie 类型
-    const isAppOpen = pt_key.startsWith("app_open");
-    const cookieTypeTag = isAppOpen ? "⚠️ app_open" : "✅ 标准";
-    console.log(`Captured [${cookieTypeTag}] Cookie for pt_pin=${pt_pin}`);
-
-    // 读取 prefer_std 开关（从 BoxJS 读取，默认开启）
-    const preferStdVal = getBoxJSSetting("jd_prefer_std");
-    const preferStd = preferStdVal !== "0";
-
-    // 标准 Cookie 专用缓存键（仅存非 app_open 的最后一次有效值）
-    const stdCacheKey = `JD_STD_COOKIE_${pt_pin}`;
-
-    // 2) 若开启了优先标准 Cookie 且本次是 app_open 类型
-    if (preferStd && isAppOpen) {
-      const stdCookie = $persistentStore.read(stdCacheKey);
-      if (stdCookie) {
-        console.log(`[prefer_std] 已有标准 Cookie 缓存，跳过 app_open 类型同步 (${pt_pin})`);
-        $notification.post(
-          "⏭️ Cookie 保护",
-          `跳过 app_open · ${pt_pin}`,
-          "检测到 app_open 类型 Cookie，但已有标准 Cookie 备份，已自动跳过，无需更新。"
-        );
-        $done({});
-        return;
-      }
-      console.log(`[prefer_std] 无标准 Cookie 缓存，将回退同步 app_open 类型 (${pt_pin})`);
-    }
+    console.log(`Captured Cookie for pt_pin=${pt_pin}, pt_key prefix=${pt_key.substring(0, 8)}...`);
 
     // 3) 检查本地缓存，避免重复同步
     const cacheKey = `JD_COOKIE_CACHE_${pt_pin}`;
@@ -135,19 +107,7 @@
     // 6) 同步成功后更新缓存并发送通知
     if (result.changed) {
       $persistentStore.write(jd_cookie, cacheKey);
-      // 若为标准 Cookie，同时更新标准缓存
-      if (!isAppOpen) {
-        $persistentStore.write(jd_cookie, stdCacheKey);
-        console.log(`标准 Cookie 缓存已更新 (${pt_pin})`);
-      }
-      const typeDesc = isAppOpen
-        ? "app_open 类型（暂无标准版本，已回退同步）"
-        : "标准类型（非 app_open）";
-      $notification.post(
-        `${result.title} [${cookieTypeTag}]`,
-        result.subtitle,
-        `Cookie 类型：${typeDesc}`
-      );
+      $notification.post(result.title, result.subtitle, `已同步账号：${pt_pin}`);
       console.log(`${result.title}: ${result.subtitle}`);
     } else {
       console.log(`No change for ${pt_pin}. No notification.`);

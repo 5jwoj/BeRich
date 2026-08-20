@@ -12,8 +12,7 @@
             "keys": [
                 "jd_ql_url",
                 "jd_ql_client_id",
-                "jd_ql_client_secret",
-                "jd_prefer_std"
+                "jd_ql_client_secret"
             ],
             "author": "@5jwoj",
             "repo": "https://github.com/5jwoj/BeRich/tree/main/JDCK",
@@ -54,14 +53,6 @@
                     "type": "text",
                     "placeholder": "请输入青龙面板的 Client Secret",
                     "desc": "在青龙面板 → 系统设置 → 应用设置中创建应用获取（权限需勾选环境变量）"
-                },
-                {
-                    "id": "jd_prefer_std",
-                    "name": "优先标准 Cookie",
-                    "val": "1",
-                    "type": "text",
-                    "placeholder": "1",
-                    "desc": "1=开启（推荐）· 0=关闭。开启后若检测到 app_open 类型 Cookie 且已有标准备份，则自动跳过，避免覆盖有效 Cookie"
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_Surge.js"
