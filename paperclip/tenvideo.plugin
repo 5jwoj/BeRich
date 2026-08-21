@@ -1,0 +1,32 @@
+#!name = 腾讯视频 VIP 签到
+#!desc = 腾讯视频 VIP 每日签到，自动领取 V力值。Cookie 抓取一次后 cron 自动续期并签到，无需每天手动开 App。参数配置完全复用原作者 BoxJS 订阅。
+#!openUrl = http://boxjs.com
+#!author = MaYIHEI[https://github.com/MaYIHEI]
+#!homepage = https://github.com/MaYIHEI/paperclip/tree/main/app/tenvideo
+#!icon = https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/tenvideo.png
+#!tag = 签到, 腾讯视频
+#!version = 1.0.0
+#!date = 2026-08-21
+
+# ==============================================================================
+# 声明与致谢:
+# 本插件底层脚本均来源于原作者 @MaYIHEI (https://github.com/MaYIHEI/paperclip)
+# 初版签到逻辑来自 @WowYiJiu (https://github.com/WowYiJiu)
+# 封装转为 Loon 插件形式仅为方便 Loon 用户一键导入配置与管理使用。
+#
+# 参数说明:
+# 脚本参数与开关完全兼容并复用原作者 BoxJS 订阅中的 [腾讯视频] (App ID: paperclip.tenvideo)
+# 原作者 BoxJS 订阅: https://raw.githubusercontent.com/MaYIHEI/paperclip/main/paperclip.boxjs.json
+#
+# 插件版本: v1.0.0
+# ==============================================================================
+
+[Script]
+# 1. 抓取 Cookie - iOS 微信打开「腾讯视频」小程序随便点几下，或 Safari 登录 v.qq.com 自动触发抓取
+http-request ^https:\/\/pbaccess\.video\.qq\.com\/ tag=腾讯视频 Cookie, script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/tenvideo/tenvideo.js, requires-body=false, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/tenvideo.png
+
+# 2. 每日签到（含自动续期）- 每天 00:10 自动执行
+cron "10 0 * * *" script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/tenvideo/tenvideo.js, tag=腾讯视频签到, timeout=60, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/tenvideo.png, enable=true
+
+[MITM]
+hostname = pbaccess.video.qq.com, vip.video.qq.com

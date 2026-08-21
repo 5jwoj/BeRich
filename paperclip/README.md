@@ -16,6 +16,7 @@
 | **QQ 音乐签到与福利** | 绿钻成长值、金币中心签到、每日任务领奖、定时金币、红包雨 | [`qqmusic.plugin`](./qqmusic.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/qqmusic.plugin` |
 | **小米商城 (米金+抽奖)** | 每日米金签到、连签奖励、「狂欢礼」活动任务与自动抽奖 | [`mishop.plugin`](./mishop.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/mishop.plugin` |
 | **一点万象签到** | 华润万象商场每日签到，自动抓取 Token，支持连签天数与积分查询 | [`newmixc.plugin`](./newmixc.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/newmixc.plugin` |
+| **腾讯视频 VIP 签到** | VIP 每日签到领取 V力值，Cookie 一次抓取后自动续期，无人值守 | [`tenvideo.plugin`](./tenvideo.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/tenvideo.plugin` |
 
 ---
 
@@ -149,10 +150,39 @@
 
 ---
 
+## 5️⃣ 腾讯视频 VIP 签到 (`tenvideo.plugin`)
+
+### 📌 功能特性
+- 📺 **每日签到**：VIP 每日自动签到，领取 V力值
+- 📺 **自动续期**：cron 运行时先自动刷新 Cookie 再签到，真正无人值守
+- 📺 **单脚本架构**：同一脚本兼任 Cookie 抓取（http-request）与签到任务（cron）
+- 📺 **抓取方式**：iOS 微信打开「腾讯视频」小程序点几下即可，无需 App 本体
+
+### 🔧 BoxJS 参数对照（应用 ID：`paperclip.tenvideo`）
+
+| 参数 Key | 名称 | 默认值 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `tenvideo_cookie` | Cookie 数据 | 自动抓取 | 登录凭证，抓取后自动续期 |
+| `tenvideo_clear` | 清除 Cookie | `false` | 设为 `true` 运行一次后清空凭证并自动复位 |
+| `tenvideo_debug` | 调试模式 | `false` | 开启后打印续期、签到接口原始响应等诊断日志 |
+
+### 📖 使用方法
+1. 在 Loon 中添加并启用 `tenvideo.plugin` 插件；
+2. 开启 Loon 的 **MITM** 并确保已信任证书；
+3. **抓取 Cookie（二选一）**：
+   - **推荐**：iOS 微信打开「腾讯视频」小程序随便点几下，收到 `✅ 腾讯视频 Cookie 获取成功` 即可；
+   - 或 Safari 登录 `v.qq.com`（请求桌面网站）切后台再切回触发；
+4. 每天 **00:10** 自动续期并执行签到。
+
+> **注意**：Cookie 会随正常使用滚动，若 cron 报「刷新失败」，iOS 微信重新打开腾讯视频小程序即可重抓。
+
+---
+
 ## 📜 版本记录
 
 | 版本 | 日期 | 说明 |
 | :--- | :--- | :--- |
+| `v1.0.4` | 2026-08-21 | 新增腾讯视频 VIP 签到插件适配 (`tenvideo.plugin`) |
 | `v1.0.3` | 2026-08-21 | 新增华润万象「一点万象」签到插件适配 (`newmixc.plugin`) |
 | `v1.0.2` | 2026-08-21 | 合并适配小米商城全功能插件 (`mishop.plugin`)，集成米金签到与狂欢礼活动抽奖 |
 | `v1.0.1` | 2026-08-21 | 新增 QQ 音乐 Loon 插件适配 (`qqmusic.plugin`)，支持三条独立 cron 任务调度 |
