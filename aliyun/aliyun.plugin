@@ -1,21 +1,17 @@
-#!name = 阿里云社区任务
-#!desc = 阿里云社区自动签到 + 点赞/分享/评论/收藏/场景体验/视频观看等每日任务，自动领取积分。打开阿里云 APP → 首页 → 积分商城触发抓包，Cookie 同步至青龙面板。BoxJS 可配置青龙参数。
+#!name = 阿里云社区 Cookie 同步
+#!desc = 抓取阿里云社区 Cookie 并同步至青龙面板。打开阿里云 APP → 首页 → 积分商城触发抓包，Cookie 自动同步至青龙面板。支持 BoxJS 配置青龙参数。
 #!openUrl = http://boxjs.com
 #!author = 5jwoj[https://github.com/5jwoj]
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/aliyun
 #!icon = https://raw.githubusercontent.com/Orz-3/mini/master/Color/Aliyun.png
-#!tag = 签到, 阿里云
-#!version = 1.0.0
+#!tag = Cookie, 阿里云
+#!version = 1.1.0
 #!date = 2026-08-21
 
 [Script]
-# 1. 抓取 Cookie 并同步至青龙面板
+# 抓取 Cookie 并同步至青龙面板
 # 触发方式：打开阿里云 APP → 首页 → 积分商城，自动命中
 http-response ^https?:\/\/developer\.aliyun\.com\/developer\/api\/my\/user\/getUser script-path=https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_web_cookie.js, requires-body=true, tag=阿里云 Cookie 同步, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/Aliyun.png
-
-# 2. 每日任务（7:00 签到/任务，13:00 领积分/恢复操作）
-cron "0 7 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_web_wrapper.js, tag=阿里云社区早间任务, timeout=120, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/Aliyun.png, enable=true
-cron "0 13 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_web_wrapper.js, tag=阿里云社区下午领积分, timeout=120, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/Aliyun.png, enable=true
 
 [MITM]
 hostname = developer.aliyun.com
