@@ -191,6 +191,66 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Check_Loon.js"
+        },
+        {
+            "id": "aliyun.cookie.sync.loon",
+            "name": "阿里云社区任务 (Loon)",
+            "keys": [
+                "ql_url",
+                "ql_client_id",
+                "ql_client_secret",
+                "ql_data_name"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/aliyun",
+            "icons": [
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/Aliyun.png",
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/Aliyun.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">Loon 版 · 阿里云社区每日任务自动化</h4>",
+                "<p>自动完成阿里云社区签到、点赞、分享、评论、收藏、场景体验、视频观看等每日任务并领取积分。Cookie 同步至青龙面板。</p>",
+                "<hr>",
+                "<p><b>使用步骤：</b></p>",
+                "<ol><li>在 Loon 中安装插件：<a href=\"https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun.plugin\">aliyun.plugin</a></li><li>在下方填写青龙面板信息并保存</li><li>确保 Loon 开启 MitM 并已信任证书</li><li>打开阿里云 APP → 首页 → 积分商城，触发抓包自动获取 Cookie 并同步至青龙</li></ol>",
+                "<p><b>执行时间：</b>每天 07:00 执行签到与任务，13:00 执行积分领取与操作恢复。</p>",
+                "<p align=\"center\">使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/tree/main/aliyun\">aliyun README</a></p>"
+            ],
+            "settings": [
+                {
+                    "id": "ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "http://192.168.1.1:5700",
+                    "desc": "青龙面板的完整地址，包括端口号"
+                },
+                {
+                    "id": "ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "在青龙面板 → 系统设置 → 应用设置中创建应用获取"
+                },
+                {
+                    "id": "ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "在青龙面板 → 系统设置 → 应用设置中创建应用获取（权限需勾选环境变量）"
+                },
+                {
+                    "id": "ql_data_name",
+                    "name": "青龙变量名",
+                    "val": "aliyunWeb_data",
+                    "type": "text",
+                    "placeholder": "aliyunWeb_data",
+                    "desc": "存储到青龙面板的变量名，留空则使用默认值 aliyunWeb_data"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_web_wrapper.js"
         }
     ]
 }
