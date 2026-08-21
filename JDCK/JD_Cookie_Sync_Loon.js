@@ -5,8 +5,9 @@
  * 1) 抓到 pt_key + pt_pin 后直接同步至青龙面板（不进行多余的有效性校验）
  * 2) 青龙端 Cookie 已存在且一致则静默同步（不发弹窗通知），不同或被禁用时自动更新/启用并提示
  * 3) 支持 BoxJS 配置参数，亦支持脚本内 MANUAL_CONFIG 本地配置
+ * 4) 兼容青龙新版 API：data 可为数组（旧版）或 {list, total} 对象（新版 2.17+）
  * 
- * Version: v1.0.0
+ * Version: v1.0.1
  * Author: z.W.
  * 
  * @script
@@ -99,7 +100,8 @@ const MANUAL_CONFIG = {
         const result = await syncCookieToQL(ql_url, token, pt_pin, jd_cookie);
 
         if (!result.ok) {
-            $notification.post("同步失败", "青龙接口返回异常", result.message || "Unknown error");
+            // 静默记录，不弹窗打扰（偶发网络/青龙重启导致的临时异常无需通知）
+            console.log(`[JD Cookie Sync] 同步失败: ${result.message || 'Unknown error'}`);
             $done({});
             return;
         }
@@ -218,13 +220,25 @@ async function syncCookieToQL(url, token, pt_pin, newValue) {
 
             try {
                 const body = JSON.parse(data);
-                if (body.code !== 200 || !Array.isArray(body.data)) {
-                    console.log(`[JD Cookie Sync] Sync Unexpected Response: ${data}`);
-                    resolve({ ok: false, message: "Unexpected Qinglong response" });
+                if (body.code !== 200) {
+                    console.log(`[JD Cookie Sync] Sync Unexpected Response (code=${body.code}): ${data}`);
+                    resolve({ ok: false, message: `Qinglong response code=${body.code}` });
                     return;
                 }
 
-                const envs = body.data;
+                // 兼容青龙新旧两种 API 格式：
+                // 旧版（<2.17）: body.data = []
+                // 新版（>=2.17）: body.data = { list: [], total: N }
+                let envs;
+                if (Array.isArray(body.data)) {
+                    envs = body.data;
+                } else if (body.data && Array.isArray(body.data.list)) {
+                    envs = body.data.list;
+                } else {
+                    console.log(`[JD Cookie Sync] Unknown data structure: ${JSON.stringify(body.data)}`);
+                    resolve({ ok: false, message: "Unknown Qinglong data structure" });
+                    return;
+                }
                 const targetEnv = envs.find(e =>
                     e && e.name === "JD_COOKIE" &&
                     typeof e.value === "string" &&
