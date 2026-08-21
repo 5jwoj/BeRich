@@ -1,0 +1,31 @@
+#!name = WPS 签到与福利
+#!desc = WPS Office 每日签到 + 福利中心多项任务（打卡领会员、天天抽奖、会员试用申请、限量爆款领取、小程序打卡），送 WPS 积分与会员时长。参数配置完全复用原作者 BoxJS 订阅。
+#!openUrl = http://boxjs.com
+#!author = MaYIHEI[https://github.com/MaYIHEI]
+#!homepage = https://github.com/MaYIHEI/paperclip/tree/main/app/wps
+#!icon = https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/wps.png
+#!tag = 签到, WPS
+#!version = 1.0.0
+#!date = 2026-08-21
+
+# ==============================================================================
+# 声明与致谢:
+# 本插件底层脚本均来源于原作者 @MaYIHEI (https://github.com/MaYIHEI/paperclip)
+# 封装转为 Loon 插件形式仅为方便 Loon 用户一键导入配置与管理使用。
+#
+# 参数说明:
+# 脚本参数与开关完全兼容并复用原作者 BoxJS 订阅中的 [WPS] (App ID: paperclip.wps)
+# 原作者 BoxJS 订阅: https://raw.githubusercontent.com/MaYIHEI/paperclip/main/paperclip.boxjs.json
+#
+# 插件版本: v1.0.0
+# ==============================================================================
+
+[Script]
+# 1. 抓取 Cookie (wps_sid) - 打开 WPS APP 进入任务中心/福利中心即可自动捕获
+http-request ^https:\/\/personal-act\.wps\.cn\/activity-rubik\/activity\/page_info tag=WPS Cookie, script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/wps/wps.cookie.js, requires-body=false, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/wps.png
+
+# 2. 定时执行任务（每天 10:00 准时执行，抢限量爆款并顺带完成其他福利任务）
+cron "0 10 * * *" script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/wps/wps.js, tag=WPS签到, timeout=120, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/wps.png, enable=true
+
+[MITM]
+hostname = personal-act.wps.cn
