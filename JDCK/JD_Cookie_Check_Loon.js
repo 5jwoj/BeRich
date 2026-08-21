@@ -167,7 +167,14 @@ function getQlCronLog(qlBase, token, scriptName) {
                 const d = JSON.parse(body);
                 let list = [];
                 if (d && d.data) {
-                    list = Array.isArray(d.data.data) ? d.data.data : (Array.isArray(d.data) ? d.data : []);
+                    // 兼容青龙新旧 API: 旧版 data=[], 新版 data={list:[], total:N} 或嵌套 data.data=[]
+                    if (Array.isArray(d.data)) {
+                        list = d.data;
+                    } else if (Array.isArray(d.data.list)) {
+                        list = d.data.list;
+                    } else if (Array.isArray(d.data.data)) {
+                        list = d.data.data;
+                    }
                 }
 
                 const baseName = scriptName.split('/').pop().replace(/\.js$/i, '').toLowerCase();
@@ -217,8 +224,14 @@ function fetchCronLog(qlBase, token, targetId) {
                         if (err2) { resolve(null); return; }
                         try {
                             const hd = JSON.parse(body2);
-                            if (hd && hd.data && Array.isArray(hd.data) && hd.data.length > 0) {
-                                const lastLog = hd.data[hd.data.length - 1];
+                            // 兼容青龙新旧 API: logs 接口返回的 data 可为数组或含 list 字段的对象
+                            let logList = null;
+                            if (hd && hd.data) {
+                                if (Array.isArray(hd.data)) logList = hd.data;
+                                else if (Array.isArray(hd.data.list)) logList = hd.data.list;
+                            }
+                            if (logList && logList.length > 0) {
+                                const lastLog = logList[logList.length - 1];
                                 content = typeof lastLog === 'string' ? lastLog : (lastLog.content || lastLog.log);
                             }
                         } catch (_) {}
