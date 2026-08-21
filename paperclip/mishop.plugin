@@ -1,0 +1,41 @@
+#!name = 小米商城（米金签到 + 抽奖）
+#!desc = 小米商城 APP 每日米金签到与「狂欢礼」活动任务/自动抽奖合集。参数配置完全复用原作者 BoxJS 订阅。
+#!openUrl = http://boxjs.com
+#!author = MaYIHEI[https://github.com/MaYIHEI]
+#!homepage = https://github.com/MaYIHEI/paperclip
+#!icon = https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/mishop.png
+#!tag = 签到, 小米商城
+#!version = 1.0.0
+#!date = 2026-08-21
+
+# ==============================================================================
+# 声明与致谢:
+# 本插件底层脚本均来源于原作者 @MaYIHEI (https://github.com/MaYIHEI/paperclip)
+# 封装转为 Loon 插件形式仅为方便 Loon 用户一键导入配置与统一管理。
+#
+# 参数说明:
+# 脚本参数与开关完全兼容并复用原作者 BoxJS 订阅中的:
+# 1. [小米商城] (App ID: paperclip.mishop) -> 控制米金签到
+# 2. [小米抽奖] (App ID: paperclip.milottery) -> 控制狂欢礼抽奖与任务
+# 原作者 BoxJS 订阅: https://raw.githubusercontent.com/MaYIHEI/paperclip/main/paperclip.boxjs.json
+#
+# 插件版本: v1.0.0
+# ==============================================================================
+
+[Script]
+# --- 1. 米金签到 ---
+# 抓取 Cookie: 打开小米商城 APP -> 首页「米金商城」-> 手动点一次签到
+http-request ^https:\/\/shop-api\.retail\.mi\.com\/mtop\/mf\/act\/infinite\/(do|done) tag=小米商城 Cookie, script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/mishop/mishop.cookie.js, requires-body=false, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/mishop.png
+
+# 定时签到: 每天 08:15 执行
+cron "15 8 * * *" script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/mishop/mishop.js, tag=小米商城签到, timeout=60, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/mishop.png, enable=true
+
+# --- 2. 狂欢礼活动与抽奖 ---
+# 抓取 Cookie: 打开小米商城 APP ->「狂欢礼」-> 进入抽奖活动页
+http-request ^https:\/\/shop-api\.retail\.mi\.com\/mtop\/navi\/venue\/batch tag=小米抽奖 Cookie, script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/milottery/milottery.js, requires-body=true, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/mishop.png
+
+# 定时抽奖: 每天 08:30 执行
+cron "30 8 * * *" script-path=https://raw.githubusercontent.com/MaYIHEI/paperclip/refs/heads/main/app/milottery/milottery.js, tag=小米抽奖签到, timeout=360, img-url=https://raw.githubusercontent.com/MaYIHEI/pin/refs/heads/main/app/mishop.png, enable=true
+
+[MITM]
+hostname = shop-api.retail.mi.com

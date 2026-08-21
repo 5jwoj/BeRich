@@ -10,10 +10,11 @@
 
 ## 📦 插件清单与一键导入
 
-| 插件名称 | 说明 | 插件文件 | 一键导入链接 |
+| 插件名称 | 核心功能 | 插件文件 | 一键导入链接 |
 | :--- | :--- | :--- | :--- |
 | **WPS 签到与福利** | 每日签到、限量爆款抢领、会员试用申请、打卡、天天抽奖、小程序打卡 | [`wps.plugin`](./wps.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/wps.plugin` |
 | **QQ 音乐签到与福利** | 绿钻成长值、金币中心签到、每日任务领奖、定时金币、红包雨 | [`qqmusic.plugin`](./qqmusic.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/qqmusic.plugin` |
+| **小米商城 (米金+抽奖)** | 每日米金签到、连签奖励、「狂欢礼」活动任务与自动抽奖 | [`mishop.plugin`](./mishop.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/mishop.plugin` |
 
 ---
 
@@ -73,7 +74,7 @@
 
 | 参数 Key | 名称 | 默认值 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `qqmusic_data` | Cookie 数据 | 自动抓取 | 主凭证及续期凭证，自动维护 |
+| `qqmusic_data` | Cookie 数据 | 自动抓取 | 主凭证及自动续期凭证 |
 | `qqmusic_task_favorite` | 收藏任务 | `true` (开启) | 临时收藏歌曲/歌单/有声书并关注歌手，领奖后自动恢复原状态 |
 | `qqmusic_task_activity` | 附属活动任务 | `true` (开启) | 金币抽奖签到、红包雨、浮动宝箱与活动任务卡 |
 | `qqmusic_clear` | 清除 Cookie | `false` | 设为 `true` 运行一次后清空凭据并自动复位 |
@@ -83,7 +84,41 @@
 1. 在 Loon 中添加并启用 `qqmusic.plugin` 插件；
 2. 开启 Loon 的 **MITM** 并确保已信任证书；
 3. 打开 **「QQ 音乐」APP**，进入「我的 -> 会员中心」以及「金币中心 -> 每日签到」一次，收到 `✅ QQ 音乐 Cookie 获取成功` 通知即表示抓取成功；
-4. 之后保持挂着 Loon 代理即可，脚本会全自动续期、每日签到并按时段做任务。
+4. 挂着 Loon 代理即可，脚本会全自动续期、每日签到并按时段做任务。
+
+---
+
+## 3️⃣ 小米商城（米金签到 + 狂欢礼抽奖）(`mishop.plugin`)
+
+### 📌 功能特性
+- 📱 **米金签到**：每日自动签到领 5 米金，连签 2/7/14 天自动领取阶段红包奖励。
+- 📱 **狂欢礼活动与抽奖**：动态读取活动，随机间隔完成分享与 10 秒浏览任务，并自动消耗可用次数进行抽奖。
+
+### 🔧 BoxJS 参数对照
+
+#### 米金签到（应用 ID：`paperclip.mishop`）
+| 参数 Key | 名称 | 默认值 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `mishop_data` | Cookie 数据 | 自动抓取 | 米金商城签到凭证 |
+| `mishop_clear` | 清除 Cookie | `false` | 运行一次后清空已抓 Cookie 并复位 |
+| `mishop_debug` | 调试模式 | `false` | 开启后打印签到接口原始响应 |
+
+#### 狂欢礼抽奖（应用 ID：`paperclip.milottery`）
+| 参数 Key | 名称 | 默认值 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `milottery_data` | Cookie 数据 | 自动抓取 | 狂欢礼活动与抽奖凭证 |
+| `milottery_clear` | 清除 Cookie | `false` | 运行一次后清空已抓 Cookie 与活动配置并复位 |
+| `milottery_debug` | 调试模式 | `false` | 开启后打印诊断日志 |
+
+### 📖 使用方法
+1. 在 Loon 中添加并启用 `mishop.plugin` 插件；
+2. 开启 Loon 的 **MITM** 并确保已信任证书；
+3. **抓取凭据**：
+   - **米金签到**：打开小米商城 APP -> 首页「米金商城」入口 -> 手动点一次签到（收到 `✅ 小米商城 Cookie 获取成功`）；
+   - **狂欢礼抽奖**：打开小米商城 APP ->「狂欢礼」-> 进入抽奖活动页（收到 `✅ 小米抽奖 Cookie 获取成功`）；
+4. **定时执行**：
+   - 每天 **08:15** 自动执行米金签到；
+   - 每天 **08:30** 自动执行狂欢礼任务与抽奖。
 
 ---
 
@@ -91,6 +126,7 @@
 
 | 版本 | 日期 | 说明 |
 | :--- | :--- | :--- |
+| `v1.0.2` | 2026-08-21 | 合并适配小米商城全功能插件 (`mishop.plugin`)，集成米金签到与狂欢礼活动抽奖 |
 | `v1.0.1` | 2026-08-21 | 新增 QQ 音乐 Loon 插件适配 (`qqmusic.plugin`)，支持三条独立 cron 任务调度 |
 | `v1.0.0` | 2026-08-21 | 首发：将 MaYIHEI/paperclip 的 WPS 脚本转为 Loon 插件形式 (`wps.plugin`) |
 
@@ -100,4 +136,3 @@
 
 - 原项目仓库：[MaYIHEI/paperclip](https://github.com/MaYIHEI/paperclip)
 - 原作者频道：[Telegram @mayihei](https://t.me/mayihei)
-- QQ 音乐签名算法致谢：[L-1124/QQMusicApi](https://github.com/L-1124/QQMusicApi)

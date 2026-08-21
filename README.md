@@ -19,7 +19,7 @@
 | [**tyqh (统一茄皇)**](./tyqh) | 统一茄皇的家五期，自动做任务、浇水与偷能量。 | Quantumult X |
 | [**kuaishou (快手看广告)**](./kuaishou) | 快手/快手极速版看广告宝箱刷金币。 | Quantumult X |
 | [**pdd (拼多多果园)**](./pdd_orchard.js) | 拼多多果园自动抓取 Cookie，自动签到、浇水领水滴与偷好友水滴。 | Quantumult X |
-| [**paperclip (WPS & QQ音乐)**](./paperclip) | WPS 每日签到与 QQ 音乐绿钻/金币福利任务（Loon 插件适配）。 | Loon |
+| [**paperclip (WPS/QQ音乐/小米商城)**](./paperclip) | 适配并封装 Paperclip 系列脚本为 Loon 插件（WPS、QQ音乐、小米商城米金与抽奖）。 | Loon |
 
 ---
 
