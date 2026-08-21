@@ -17,6 +17,7 @@
 | **小米商城 (米金+抽奖)** | 每日米金签到、连签奖励、「狂欢礼」活动任务与自动抽奖 | [`mishop.plugin`](./mishop.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/mishop.plugin` |
 | **一点万象签到** | 华润万象商场每日签到，自动抓取 Token，支持连签天数与积分查询 | [`newmixc.plugin`](./newmixc.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/newmixc.plugin` |
 | **腾讯视频 VIP 签到** | VIP 每日签到领取 V力值，Cookie 一次抓取后自动续期，无人值守 | [`tenvideo.plugin`](./tenvideo.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/tenvideo.plugin` |
+| **龙湖天街 App 签到抽奖** | 日日签领取成长值/珑珠，内置随机时间防风控，自动扬剑珑珠抽奖 | [`lhtj.plugin`](./lhtj.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/lhtj.plugin` |
 
 ---
 
@@ -178,10 +179,40 @@
 
 ---
 
+## 6️⃣ 龙湖天街 App 签到抽奖 (`lhtj.plugin`)
+
+### 📌 功能特性
+- 🌆 **每日签到**：完成龙珠 H5「日日签」领取成长值与珑珠
+- 🌆 **幸运抽奖**：自动消耗当日次数进行珑珠抽奖（含大奖）
+- 🌆 **随机签到时间**：内置当日随机目标分钟，到点才签、当天不再重复触发，有效防范固定时刻特征识别
+- 🌆 **单脚本架构**：同一脚本兼任 Cookie 抓取与签到+抽奖任务
+
+### 🔧 BoxJS 参数对照（应用 ID：`paperclip.lhtj_app`）
+
+| 参数 Key | 名称 | 默认值 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `lhtj_app_data` | Cookie 数据 | 自动抓取 | L0 通道鉴权头（usertoken + dxrisk-token） |
+| `lhtj_app_random` | 随机签到时间 | `true` | 开启后内部随机摇出目标分钟，**需配密集 cron** |
+| `lhtj_app_window` | 随机时段 | `8-10` | 随机签到的小时范围，仅当 random 开启时生效 |
+| `lhtj_app_lottery` | 自动抽奖 | `true` | 签到后自动消耗当日抽奖次数抽奖 |
+| `lhtj_app_clear` | 清除 Cookie | `false` | 设为 `true` 运行一次后清空已抓 Cookie 并复位 |
+| `lhtj_app_debug` | 调试模式 | `false` | 开启后打印各接口请求/响应日志 |
+
+### 📖 使用方法
+1. 在 Loon 中添加并启用 `lhtj.plugin` 插件；
+2. 开启 Loon 的 **MITM** 并确保已信任证书；
+3. 打开 **「龙湖天街」App** →「会员 / 日日签」→ 点签到按鈕一次，收到 `✅ 龙湖天街 App Cookie 获取成功` 通知即抓取成功；
+4. 每天 **08:00–10:00** 内随机时刻自动签到并抽奖。
+
+> **注意**：本插件为 **App 通道(L0)**，与小程序通道互不兼容，勿同时启用。若签到返回风控码 (8040012/8040013)，建议暂停脚本、手动签到养号一段时间再恢复。
+
+---
+
 ## 📜 版本记录
 
 | 版本 | 日期 | 说明 |
 | :--- | :--- | :--- |
+| `v1.0.5` | 2026-08-21 | 新增龙湖天街 App 签到抽奖插件适配 (`lhtj.plugin`) |
 | `v1.0.4` | 2026-08-21 | 新增腾讯视频 VIP 签到插件适配 (`tenvideo.plugin`) |
 | `v1.0.3` | 2026-08-21 | 新增华润万象「一点万象」签到插件适配 (`newmixc.plugin`) |
 | `v1.0.2` | 2026-08-21 | 合并适配小米商城全功能插件 (`mishop.plugin`)，集成米金签到与狂欢礼活动抽奖 |
