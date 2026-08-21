@@ -15,6 +15,7 @@
 | **WPS 签到与福利** | 每日签到、限量爆款抢领、会员试用申请、打卡、天天抽奖、小程序打卡 | [`wps.plugin`](./wps.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/wps.plugin` |
 | **QQ 音乐签到与福利** | 绿钻成长值、金币中心签到、每日任务领奖、定时金币、红包雨 | [`qqmusic.plugin`](./qqmusic.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/qqmusic.plugin` |
 | **小米商城 (米金+抽奖)** | 每日米金签到、连签奖励、「狂欢礼」活动任务与自动抽奖 | [`mishop.plugin`](./mishop.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/mishop.plugin` |
+| **一点万象签到** | 华润万象商场每日签到，自动抓取 Token，支持连签天数与积分查询 | [`newmixc.plugin`](./newmixc.plugin) | `https://raw.githubusercontent.com/5jwoj/BeRich/main/paperclip/newmixc.plugin` |
 
 ---
 
@@ -122,10 +123,37 @@
 
 ---
 
+## 4️⃣ 一点万象签到 (`newmixc.plugin`)
+
+### 📌 功能特性
+- 🏬 **每日签到**：自动完成华润万象商场每日签到，领取积分
+- 🏬 **连签查询**：签到后自动显示当前连签天数与积分余额
+- 🏬 **阶段奖励**：如有连签阶段奖励（优惠券/积分）自动领取并通知
+- 🏬 **支持商场**：覆盖万象汇、万象城、万象天地等全系华润商场
+
+### 🔧 BoxJS 参数对照（应用 ID：`paperclip.newmixc`）
+
+| 参数 Key | 名称 | 默认值 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `newmixc_data` | Cookie 数据 | 自动抓取 | 签到凭证（含 token、mallNo、imei 等） |
+| `newmixc_clear` | 清除 Cookie | `false` | 设为 `true` 运行一次后清空凭证并自动复位 |
+| `newmixc_debug` | 调试模式 | `false` | 开启后打印签名、接口原始响应等诊断日志 |
+
+### 📖 使用方法
+1. 在 Loon 中添加并启用 `newmixc.plugin` 插件；
+2. 开启 Loon 的 **MITM** 并确保已信任证书；
+3. 打开 **「一点万象」APP**，进入任意页面停留约 1 秒（自动触发 `getPersonalData` 接口），收到 `✅ 一点万象 Cookie 获取成功` 通知即表示抓取成功；
+4. 每天 **08:37** 自动执行签到。
+
+> **注意**：脚本按 Cookie 中的 `mallNo` 签到**单一商场**。若需多商场签到，请切换商场后重新抓取 Cookie。
+
+---
+
 ## 📜 版本记录
 
 | 版本 | 日期 | 说明 |
 | :--- | :--- | :--- |
+| `v1.0.3` | 2026-08-21 | 新增华润万象「一点万象」签到插件适配 (`newmixc.plugin`) |
 | `v1.0.2` | 2026-08-21 | 合并适配小米商城全功能插件 (`mishop.plugin`)，集成米金签到与狂欢礼活动抽奖 |
 | `v1.0.1` | 2026-08-21 | 新增 QQ 音乐 Loon 插件适配 (`qqmusic.plugin`)，支持三条独立 cron 任务调度 |
 | `v1.0.0` | 2026-08-21 | 首发：将 MaYIHEI/paperclip 的 WPS 脚本转为 Loon 插件形式 (`wps.plugin`) |
