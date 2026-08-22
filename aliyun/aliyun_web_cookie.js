@@ -2,7 +2,7 @@
 阿里云社区 Cookie 抓取模块 - Surge版
 @Author: z.W.
 @Date: 2026-03-29
-@Version: 1.0.2
+@Version: 1.0.3
 @Description: 
   仅负责抓取阿里云社区Cookie，并同步至青龙面板
   不执行任何任务脚本
@@ -18,25 +18,29 @@
   - ql_data_name: 青龙变量名 (默认: aliyunWeb_data)
 
 更新日志:
+  v1.0.3 - 修复 $prefs/$persistentStore 双存储读取，避免 Loon+BoxJS 环境下配置漏读
   v1.0.2 - 添加BoxJS支持，多平台兼容层
   v1.0.1 - 添加用户名去重逻辑，避免重复创建青龙变量
   v1.0.0 - 初始版本
 */
 
 const scriptName = '阿里云Web Cookie';
-const version = 'v1.0.2';
+const version = 'v1.0.3';
 
 // --- 多平台兼容层 开始 ---
 const $ = {
     read: (key) => {
-        if (typeof $persistentStore !== 'undefined') return $persistentStore.read(key);
-        if (typeof $prefs !== 'undefined') return $prefs.valueForKey(key);
-        return null;
+        // 同时查两个存储，取第一个非空值（兼容 Loon BoxJS 用 $prefs 存、$persistentStore 读的场景）
+        let val = null;
+        if (typeof $persistentStore !== 'undefined') val = $persistentStore.read(key);
+        if (!val && typeof $prefs !== 'undefined') val = $prefs.valueForKey(key);
+        return val || null;
     },
     write: (val, key) => {
-        if (typeof $persistentStore !== 'undefined') return $persistentStore.write(val, key);
-        if (typeof $prefs !== 'undefined') return $prefs.setValueForKey(val, key);
-        return false;
+        // 双写两个存储，确保无论哪个 API 读都能取到值
+        if (typeof $persistentStore !== 'undefined') $persistentStore.write(val, key);
+        if (typeof $prefs !== 'undefined') $prefs.setValueForKey(val, key);
+        return true;
     },
     notify: (title, subtitle, body) => {
         if (typeof $notification !== 'undefined') $notification.post(title, subtitle, body);
