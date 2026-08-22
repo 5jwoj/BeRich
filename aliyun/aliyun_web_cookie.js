@@ -2,28 +2,75 @@
 阿里云社区 Cookie 抓取模块 - Surge版
 @Author: z.W.
 @Date: 2026-03-29
-@Version: 1.0.1
+@Version: 1.0.2
 @Description: 
   仅负责抓取阿里云社区Cookie，并同步至青龙面板
   不执行任何任务脚本
-  支持Surge模块参数配置
+  支持Surge模块参数配置，支持BoxJS配置青龙参数
   支持用户名去重，避免重复创建青龙变量
 
 获取 Cookie 方式: 阿里云 APP - 首页 - 积分商城
 
-参数说明 (通过Surge模块argument配置):
+参数说明 (通过Surge模块argument配置，或BoxJS面板配置):
   - ql_url: 青龙面板地址 (如: http://192.168.1.100:5700)
   - ql_client_id: 青龙Client ID
   - ql_client_secret: 青龙Client Secret
   - ql_data_name: 青龙变量名 (默认: aliyunWeb_data)
 
 更新日志:
+  v1.0.2 - 添加BoxJS支持，多平台兼容层
   v1.0.1 - 添加用户名去重逻辑，避免重复创建青龙变量
   v1.0.0 - 初始版本
 */
 
 const scriptName = '阿里云Web Cookie';
-const version = 'v1.0.1';
+const version = 'v1.0.2';
+
+// --- 多平台兼容层 开始 ---
+const $ = {
+    read: (key) => {
+        if (typeof $persistentStore !== 'undefined') return $persistentStore.read(key);
+        if (typeof $prefs !== 'undefined') return $prefs.valueForKey(key);
+        return null;
+    },
+    write: (val, key) => {
+        if (typeof $persistentStore !== 'undefined') return $persistentStore.write(val, key);
+        if (typeof $prefs !== 'undefined') return $prefs.setValueForKey(val, key);
+        return false;
+    },
+    notify: (title, subtitle, body) => {
+        if (typeof $notification !== 'undefined') $notification.post(title, subtitle, body);
+        if (typeof $notify !== 'undefined') $notify(title, subtitle, body);
+    },
+    get: (options) => {
+        return new Promise((resolve) => {
+            if (typeof $httpClient !== 'undefined') {
+                $httpClient.get(options, (err, resp, body) => {
+                    resolve({ err, resp, body });
+                });
+            }
+        });
+    },
+    post: (options) => {
+        return new Promise((resolve) => {
+            if (typeof $httpClient !== 'undefined') {
+                $httpClient.post(options, (err, resp, body) => {
+                    resolve({ err, resp, body });
+                });
+            }
+        });
+    },
+    put: (options) => {
+        return new Promise((resolve) => {
+            if (typeof $httpClient !== 'undefined') {
+                $httpClient.put(options, (err, resp, body) => {
+                    resolve({ err, resp, body });
+                });
+            }
+        });
+    }
+};
+// --- 多平台兼容层 结束 ---
 const ckName = 'aliyunWeb_data';
 
 // 解析Surge argument参数
@@ -47,45 +94,41 @@ function parseArgument() {
 
 const args = parseArgument();
 
-// 青龙配置 - 从argument参数获取
-const qlUrl = args.ql_url || '';
-const qlClientId = args.ql_client_id || '';
-const qlClientSecret = args.ql_client_secret || '';
-const qlDataName = args.ql_data_name || 'aliyunWeb_data';
+// 青龙配置 - 优先从argument参数获取(Surge)，然后从BoxJS/本地缓存获取
+const qlUrl = args.ql_url || $.read('ql_url') || '';
+const qlClientId = args.ql_client_id || $.read('ql_client_id') || '';
+const qlClientSecret = args.ql_client_secret || $.read('ql_client_secret') || '';
+const qlDataName = args.ql_data_name || $.read('ql_data_name') || 'aliyunWeb_data';
 
 /**
  * 获取青龙Token
  */
 async function getQlToken() {
     if (!qlUrl || !qlClientId || !qlClientSecret) {
-        console.log('⚠️ 青龙配置不完整，跳过同步');
+        console.log('⚠️ 青龙配置不完整，跳过同步。当前 qlUrl=' + qlUrl);
         return null;
     }
     
     const url = `${qlUrl}/open/auth/token?client_id=${qlClientId}&client_secret=${qlClientSecret}`;
     
-    return new Promise((resolve) => {
-        $httpClient.get(url, (error, response, body) => {
-            if (error) {
-                console.log('❌ 获取青龙Token失败: ' + error);
-                resolve(null);
-                return;
-            }
-            try {
-                const data = JSON.parse(body);
-                if (data.code === 200 && data.data && data.data.token) {
-                    console.log('✅ 获取青龙Token成功');
-                    resolve(data.data.token);
-                } else {
-                    console.log('❌ 获取青龙Token失败: ' + (data.message || JSON.stringify(data)));
-                    resolve(null);
-                }
-            } catch (e) {
-                console.log('❌ 解析青龙Token响应失败: ' + e);
-                resolve(null);
-            }
-        });
-    });
+    const res = await $.get(url);
+    if (res.err) {
+        console.log('❌ 获取青龙Token失败: ' + res.err);
+        return null;
+    }
+    try {
+        const data = JSON.parse(res.body);
+        if (data.code === 200 && data.data && data.data.token) {
+            console.log('✅ 获取青龙Token成功');
+            return data.data.token;
+        } else {
+            console.log('❌ 获取青龙Token失败: ' + (data.message || JSON.stringify(data)));
+            return null;
+        }
+    } catch (e) {
+        console.log('❌ 解析青龙Token响应失败: ' + e);
+        return null;
+    }
 }
 
 /**
@@ -94,36 +137,32 @@ async function getQlToken() {
 async function queryQlEnv(token) {
     const url = `${qlUrl}/open/envs?searchValue=${qlDataName}`;
     
-    return new Promise((resolve) => {
-        const options = {
-            url: url,
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-            }
-        };
-        
-        $httpClient.get(options, (error, response, body) => {
-            if (error) {
-                console.log('❌ 查询青龙变量失败: ' + error);
-                resolve([]);
-                return;
-            }
-            try {
-                const data = JSON.parse(body);
-                if (data.code === 200 && data.data) {
-                    console.log('✅ 查询青龙变量成功，数量: ' + data.data.length);
-                    resolve(data.data);
-                } else {
-                    console.log('⚠️ 查询青龙变量返回空');
-                    resolve([]);
-                }
-            } catch (e) {
-                console.log('❌ 解析青龙查询响应失败: ' + e);
-                resolve([]);
-            }
-        });
-    });
+    const options = {
+        url: url,
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        }
+    };
+    
+    const res = await $.get(options);
+    if (res.err) {
+        console.log('❌ 查询青龙变量失败: ' + res.err);
+        return [];
+    }
+    try {
+        const data = JSON.parse(res.body);
+        if (data.code === 200 && data.data) {
+            console.log('✅ 查询青龙变量成功，数量: ' + data.data.length);
+            return data.data;
+        } else {
+            console.log('⚠️ 查询青龙变量返回空');
+            return [];
+        }
+    } catch (e) {
+        console.log('❌ 解析青龙查询响应失败: ' + e);
+        return [];
+    }
 }
 
 /**
@@ -139,37 +178,33 @@ async function updateQlEnv(token, envId, value) {
         remarks: '阿里云社区Cookie - Surge自动同步 ' + new Date().toLocaleString()
     });
     
-    return new Promise((resolve) => {
-        const options = {
-            url: url,
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json;charset=UTF-8'
-            },
-            body: body
-        };
-        
-        $httpClient.put(options, (error, response, syncBody) => {
-            if (error) {
-                console.log('❌ 更新青龙变量失败: ' + error);
-                resolve(false);
-                return;
-            }
-            try {
-                const data = JSON.parse(syncBody);
-                if (data.code === 200) {
-                    console.log('✅ 更新青龙变量成功，ID: ' + envId);
-                    resolve(true);
-                } else {
-                    console.log('❌ 更新青龙变量失败: ' + (data.message || JSON.stringify(data)));
-                    resolve(false);
-                }
-            } catch (e) {
-                console.log('❌ 解析青龙更新响应失败: ' + e);
-                resolve(false);
-            }
-        });
-    });
+    const options = {
+        url: url,
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json;charset=UTF-8'
+        },
+        body: body
+    };
+    
+    const res = await $.put(options);
+    if (res.err) {
+        console.log('❌ 更新青龙变量失败: ' + res.err);
+        return false;
+    }
+    try {
+        const data = JSON.parse(res.body);
+        if (data.code === 200) {
+            console.log('✅ 更新青龙变量成功，ID: ' + envId);
+            return true;
+        } else {
+            console.log('❌ 更新青龙变量失败: ' + (data.message || JSON.stringify(data)));
+            return false;
+        }
+    } catch (e) {
+        console.log('❌ 解析青龙更新响应失败: ' + e);
+        return false;
+    }
 }
 
 /**
@@ -184,37 +219,33 @@ async function addQlEnv(token, value) {
         remarks: '阿里云社区Cookie - Surge自动同步 ' + new Date().toLocaleString()
     }]);
     
-    return new Promise((resolve) => {
-        const options = {
-            url: url,
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json;charset=UTF-8'
-            },
-            body: body
-        };
-        
-        $httpClient.post(options, (error, response, syncBody) => {
-            if (error) {
-                console.log('❌ 新增青龙变量失败: ' + error);
-                resolve(false);
-                return;
-            }
-            try {
-                const data = JSON.parse(syncBody);
-                if (data.code === 200) {
-                    console.log('✅ 新增青龙变量成功');
-                    resolve(true);
-                } else {
-                    console.log('❌ 新增青龙变量失败: ' + (data.message || JSON.stringify(data)));
-                    resolve(false);
-                }
-            } catch (e) {
-                console.log('❌ 解析青龙新增响应失败: ' + e);
-                resolve(false);
-            }
-        });
-    });
+    const options = {
+        url: url,
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json;charset=UTF-8'
+        },
+        body: body
+    };
+    
+    const res = await $.post(options);
+    if (res.err) {
+        console.log('❌ 新增青龙变量失败: ' + res.err);
+        return false;
+    }
+    try {
+        const data = JSON.parse(res.body);
+        if (data.code === 200) {
+            console.log('✅ 新增青龙变量成功');
+            return true;
+        } else {
+            console.log('❌ 新增青龙变量失败: ' + (data.message || JSON.stringify(data)));
+            return false;
+        }
+    } catch (e) {
+        console.log('❌ 解析青龙新增响应失败: ' + e);
+        return false;
+    }
 }
 
 /**
@@ -367,7 +398,7 @@ async function getCookie() {
     
     // 保存到本地
     const dataStr = JSON.stringify(existingData);
-    $persistentStore.write(dataStr, ckName);
+    $.write(dataStr, ckName);
     console.log('✅ Cookie已保存到本地，账号数: ' + existingData.length);
     
     // 同步到青龙
@@ -377,14 +408,14 @@ async function getCookie() {
         const syncResult = await syncToQinglong(token, cookieData, dataStr);
         
         if (syncResult) {
-            $notification.post(scriptName + ' ' + version, '🎉 Cookie同步成功', 
+            $.notify(scriptName + ' ' + version, '🎉 Cookie同步成功', 
                 `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已同步至青龙变量: ${qlDataName}`);
         } else {
-            $notification.post(scriptName + ' ' + version, '⚠️ Cookie已保存', 
+            $.notify(scriptName + ' ' + version, '⚠️ Cookie已保存', 
                 `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n本地保存成功，青龙同步失败`);
         }
     } else {
-        $notification.post(scriptName + ' ' + version, '🎉 Cookie获取成功', 
+        $.notify(scriptName + ' ' + version, '🎉 Cookie获取成功', 
             `用户: ${cookieData.userName}\n账号数: ${existingData.length}\n已保存到本地（青龙未配置或连接失败）`);
     }
     
