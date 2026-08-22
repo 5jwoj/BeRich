@@ -6,8 +6,10 @@
  * 2) 青龙端 Cookie 已存在且一致则静默同步（不发弹窗通知），不同或被禁用时自动更新/启用并提示
  * 3) 支持 BoxJS 配置参数，亦支持脚本内 MANUAL_CONFIG 本地配置
  * 4) 兼容青龙新版 API：data 可为数组（旧版）或 {list, total} 对象（新版 2.17+）
+ * 5) 防抖机制：同一 Pin 5秒内不重复同步，避免并发请求导致青龙限流误报
+ * 6) Token 获取失败时自动重试 1 次，并根据近期同步记录智能决定是否通知
  * 
- * Version: v1.0.1
+ * Version: v1.0.2
  * Author: z.W.
  * 
  * @script
@@ -88,10 +90,34 @@ const MANUAL_CONFIG = {
             }
         } catch (_) { }
 
-        // 2. 获取青龙Token
-        const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
+        // ── 防抖机制：同一 Pin 5秒内不重复同步 ──
+        const DEBOUNCE_MS = 5000;
+        const lastSyncKey = `JD_LAST_SYNC_TS_${pt_pin}`;
+        const lastSyncTs = parseInt($persistentStore.read(lastSyncKey) || "0");
+        const nowTs = Date.now();
+        if (nowTs - lastSyncTs < DEBOUNCE_MS) {
+            console.log(`[JD Cookie Sync] Debounced for ${pt_pin}, last sync ${nowTs - lastSyncTs}ms ago. Skipping.`);
+            $done({});
+            return;
+        }
+        $persistentStore.write(String(nowTs), lastSyncKey);
+
+        // 2. 获取青龙Token（失败自动重试 1 次）
+        let token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
         if (!token) {
-            $notification.post("同步失败", "获取青龙Token失败", "请检查青龙地址与应用密钥配置是否正确");
+            console.log(`[JD Cookie Sync] Token 首次获取失败，1秒后重试...`);
+            await delay(1000);
+            token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
+        }
+        if (!token) {
+            // 智能通知：检查近60秒内是否有成功同步记录
+            const lastOkTs = parseInt($persistentStore.read("JD_SYNC_LAST_OK") || "0");
+            if (nowTs - lastOkTs < 60000) {
+                // 近期有成功记录，说明配置没问题，静默跳过
+                console.log(`[JD Cookie Sync] Token失败但近60秒内有成功记录，静默跳过（并发限流）`);
+            } else {
+                $notification.post("同步失败", "获取青龙Token失败", "请检查青龙地址与应用密钥配置是否正确");
+            }
             $done({});
             return;
         }
@@ -105,6 +131,9 @@ const MANUAL_CONFIG = {
             $done({});
             return;
         }
+
+        // 同步成功，记录成功时间戳（供 Token 失败时的智能通知参考）
+        $persistentStore.write(String(Date.now()), "JD_SYNC_LAST_OK");
 
         // 4. 青龙端数据变动或重新启用时通知
         if (result.changed) {
@@ -144,6 +173,13 @@ function getBoxJSSetting(key) {
 function getCookieValue(cookieStr, key) {
     const match = cookieStr.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));
     return match ? match[1] : null;
+}
+
+/**
+ * 延迟指定毫秒数
+ */
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
