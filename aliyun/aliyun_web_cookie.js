@@ -2,7 +2,7 @@
 阿里云社区 Cookie 抓取模块 - Surge版
 @Author: z.W.
 @Date: 2026-03-29
-@Version: 1.0.3
+@Version: 1.0.4
 @Description: 
   仅负责抓取阿里云社区Cookie，并同步至青龙面板
   不执行任何任务脚本
@@ -18,6 +18,7 @@
   - ql_data_name: 青龙变量名 (默认: aliyunWeb_data)
 
 更新日志:
+  v1.0.4 - 修复 Loon 下 $httpClient 必须传对象参数导致青龙同步静默失败的问题
   v1.0.3 - 修复 $prefs/$persistentStore 双存储读取，避免 Loon+BoxJS 环境下配置漏读
   v1.0.2 - 添加BoxJS支持，多平台兼容层
   v1.0.1 - 添加用户名去重逻辑，避免重复创建青龙变量
@@ -25,7 +26,7 @@
 */
 
 const scriptName = '阿里云Web Cookie';
-const version = 'v1.0.3';
+const version = 'v1.0.4';
 
 // --- 多平台兼容层 开始 ---
 const $ = {
@@ -49,7 +50,9 @@ const $ = {
     get: (options) => {
         return new Promise((resolve) => {
             if (typeof $httpClient !== 'undefined') {
-                $httpClient.get(options, (err, resp, body) => {
+                // Loon 的 $httpClient 要求参数必须是对象，不接受纯字符串 URL
+                const opts = typeof options === 'string' ? { url: options } : options;
+                $httpClient.get(opts, (err, resp, body) => {
                     resolve({ err, resp, body });
                 });
             }
@@ -58,7 +61,8 @@ const $ = {
     post: (options) => {
         return new Promise((resolve) => {
             if (typeof $httpClient !== 'undefined') {
-                $httpClient.post(options, (err, resp, body) => {
+                const opts = typeof options === 'string' ? { url: options } : options;
+                $httpClient.post(opts, (err, resp, body) => {
                     resolve({ err, resp, body });
                 });
             }
@@ -67,7 +71,8 @@ const $ = {
     put: (options) => {
         return new Promise((resolve) => {
             if (typeof $httpClient !== 'undefined') {
-                $httpClient.put(options, (err, resp, body) => {
+                const opts = typeof options === 'string' ? { url: options } : options;
+                $httpClient.put(opts, (err, resp, body) => {
                     resolve({ err, resp, body });
                 });
             }
@@ -376,10 +381,10 @@ async function getCookie() {
         token: cookie
     };
     
-    // 获取现有Cookie数据（本地）
+    // 获取现有Cookie数据（本地）- 使用兼容层读取
     let existingData = [];
     try {
-        const stored = $persistentStore.read(ckName);
+        const stored = $.read(ckName);
         if (stored) {
             existingData = JSON.parse(stored);
             if (!Array.isArray(existingData)) {
