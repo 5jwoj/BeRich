@@ -1,7 +1,7 @@
 {
     "id": "5jwoj.berich.loon",
     "name": "BeRich Loon 合集",
-    "description": "Loon 专用订阅合集，包含京东Cookie同步、京豆资产查询、JD账号过期检测等插件的配置管理",
+    "description": "Loon 专用订阅合集，包含京东Cookie同步、京豆资产查询、JD账号过期检测、巴士论坛签到、V2EX每日签到等插件的配置管理",
     "author": "@5jwoj",
     "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/loon.png",
     "repo": "https://github.com/5jwoj/BeRich",
@@ -306,6 +306,46 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/javbus.js"
+        },
+        {
+            "id": "v2ex.daily.loon",
+            "name": "V2EX 每日签到 (Loon)",
+            "keys": [
+                "v2ex_daily.cookie",
+                "v2ex_daily.ua"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/V2EX",
+            "icons": [
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/v2ex.png",
+                "https://raw.githubusercontent.com/Orz-3/mini/master/Color/v2ex.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">V2EX 每日签到，支持 Cookie 自动捕获</h4>",
+                "<p style='color:#16a085;text-align:center;margin-top:20px;'>1. 在 Loon 中安装插件：<a href='https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.plugin'>v2ex_daily_loon.plugin</a></p>",
+                "<p style='color:#e67e22;text-align:center;'>2. 打开 <a href='https://www.v2ex.com/' target='_blank'>V2EX</a> 并登录，Cookie 将自动获取</p>",
+                "<p style='color:#e74c3c;text-align:center;'>3. 脚本每天 08:00 自动签到并推送余额通知</p>",
+                "<p style='color:#3498db;text-align:center;'>4. Cookie 过期后重新访问 V2EX 即可自动更新</p>"
+            ],
+            "settings": [
+                {
+                    "id": "v2ex_daily.cookie",
+                    "name": "V2EX Cookie",
+                    "val": "",
+                    "type": "textarea",
+                    "autoGrow": true,
+                    "rows": 3,
+                    "desc": "访问 V2EX 网站后自动获取。也可手动填写，多账号用换行分隔。"
+                },
+                {
+                    "id": "v2ex_daily.ua",
+                    "name": "User-Agent（可选）",
+                    "val": "",
+                    "type": "text",
+                    "desc": "自定义请求 UA，留空则使用默认 Chrome UA"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js"
         }
     ]
 }

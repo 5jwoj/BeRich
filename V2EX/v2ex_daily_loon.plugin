@@ -1,0 +1,44 @@
+#!name = V2EX 每日签到
+#!desc = V2EX 每日签到 + Cookie 自动捕获。访问 V2EX 网站时自动获取 Cookie，每天定时执行签到并推送余额通知。
+#!openUrl = http://boxjs.com/#/app/v2ex.daily.loon
+#!author = 5jwoj[https://github.com/5jwoj]
+#!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
+#!icon = https://www.v2ex.com/favicon.ico
+#!tag = 签到, V2EX
+#!version = 1.0.0
+#!date = 2026-08-23
+
+# ==============================================================================
+# V2EX 每日签到 Loon 插件
+#
+# 功能:
+# 1. 访问 V2EX 网站时自动拦截并保存 Cookie（无需手动填写）
+# 2. 每天 08:00 定时执行签到，领取每日登录奖励
+# 3. 签到后推送账户余额通知（铜币、银币、金币）
+# 4. 支持多账号、Cookie 过期自动更新
+#
+# 使用方法:
+# 1. 在 Loon 中安装本插件
+# 2. 在 BoxJS 中添加 Loon 专用订阅:
+#    https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json
+# 3. 打开 https://www.v2ex.com/ 并登录
+# 4. 提示 Cookie 获取成功后，脚本将每天自动签到
+#
+# BoxJS 可配置项 (App ID: v2ex.daily.loon):
+# - v2ex_daily.cookie: V2EX Cookie（访问网站后自动获取）
+# - v2ex_daily.ua: 自定义 User-Agent（可选）
+#
+# 插件版本: v1.0.0
+# ==============================================================================
+
+[Script]
+# --- Cookie 自动捕获 ---
+# 访问 V2EX 网站时自动抓取 Cookie
+http-request ^https?://www\.v2ex\.com tag=V2EX Cookie捕获, script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
+
+# --- 每日签到 ---
+# 每天 08:00 自动签到并推送余额通知
+cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js, tag=V2EX每日签到, timeout=30, img-url=https://www.v2ex.com/favicon.ico, enable=true
+
+[MITM]
+hostname = www.v2ex.com
