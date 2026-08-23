@@ -345,7 +345,7 @@
                     "desc": "自定义请求 UA，留空则使用默认 Chrome UA"
                 }
             ],
-            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_surge.js"
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js"
         }
     ]
 }
