@@ -5,8 +5,8 @@
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
 #!icon = https://www.v2ex.com/favicon.ico
 #!tag = 签到, V2EX
-#!version = 1.0.0
-#!date = 2026-08-23
+#!version = 1.0.2
+#!date = 2026-08-23 12:00:00
 
 # ==============================================================================
 # V2EX 每日签到 Loon 插件
@@ -28,7 +28,7 @@
 # - v2ex_daily.cookie: V2EX Cookie（访问网站后自动获取）
 # - v2ex_daily.ua: 自定义 User-Agent（可选）
 #
-# 插件版本: v1.0.0
+# 插件版本: v1.0.2
 # ==============================================================================
 
 [Script]
