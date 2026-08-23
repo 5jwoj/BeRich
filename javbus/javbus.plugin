@@ -1,0 +1,44 @@
+#!name = 巴士论坛签到
+#!desc = 巴士论坛自动签到 + Cookie 抓取。原作者 @Yuheng0101，参数配置复用原作者 BoxJS 订阅。
+#!openUrl = http://boxjs.com/#/app/yuheng.javbus
+#!author = Yuheng0101[https://github.com/Yuheng0101]
+#!homepage = https://github.com/5jwoj/BeRich/tree/main/javbus
+#!icon = https://raw.githubusercontent.com/Yuheng0101/X/main/Assets/bus.png
+#!tag = 签到, 巴士论坛
+#!version = 1.0.0
+#!date = 2026-08-23
+
+# ==============================================================================
+# 声明与致谢:
+# 本插件底层脚本来源于原作者 @Yuheng0101 (https://github.com/Yuheng0101/X)
+# 封装为 Loon 插件形式仅为方便 Loon 用户一键导入配置与统一管理。
+#
+# 使用方法:
+# 1. 安装本插件
+# 2. 在 BoxJS 中添加原作者订阅:
+#    https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/boxjs.json
+#    或使用 BeRich 订阅合集:
+#    https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich.boxjs.json
+# 3. 打开 https://www.javbus.com/forum/ 并登录
+# 4. 点击右上角头像，提示获取 Cookie 成功后即可使用
+#
+# BoxJS 可配置项 (App ID: yuheng.javbus):
+# - javbus_bark_push: Bark 推送密钥（可选）
+# - javbus_debug: 调试模式开关
+# - javbus_users: 账号数据（自动获取，无需手动填写）
+# - javbus_notification_image: 是否开启媒体通知
+#
+# 插件版本: v1.0.0
+# ==============================================================================
+
+[Script]
+# --- 获取 Cookie ---
+# 登录巴士论坛后，访问个人主页自动抓取 Cookie
+http-request ^https?:\/\/www\.javbus\.com\/forum\/home\.php\?mod= tag=巴士论坛获取Cookie, script-path=https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/javbus.js, requires-body=false, img-url=https://raw.githubusercontent.com/Yuheng0101/X/main/Assets/bus.png
+
+# --- 定时签到 ---
+# 每天早上 6:00 自动签到
+cron "0 6 * * *" script-path=https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/javbus.js, tag=巴士论坛签到, timeout=60, img-url=https://raw.githubusercontent.com/Yuheng0101/X/main/Assets/bus.png, enable=true
+
+[MITM]
+hostname = www.javbus.com
