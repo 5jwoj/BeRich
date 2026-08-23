@@ -251,6 +251,61 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/refs/heads/main/aliyun/aliyun_web_wrapper.js"
+        },
+        {
+            "id": "yuheng.javbus",
+            "name": "巴士论坛签到 (Loon)",
+            "keys": [
+                "javbus_bark_push",
+                "javbus_debug",
+                "javbus_users",
+                "javbus_notification_image"
+            ],
+            "author": "@Yuheng0101",
+            "repo": "https://github.com/Yuheng0101/X",
+            "icons": [
+                "https://raw.githubusercontent.com/Yuheng0101/X/main/Assets/bus.png",
+                "https://raw.githubusercontent.com/Yuheng0101/X/main/Assets/bus.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">巴士论坛自动签到，支持 Cookie 自动抓取</h4>",
+                "<p style='color:#16a085;text-align:center;margin-top:20px;'>1. 在 Loon 中安装插件：<a href='https://raw.githubusercontent.com/5jwoj/BeRich/main/javbus/javbus.plugin'>javbus.plugin</a></p>",
+                "<p style='color:#e67e22;text-align:center;'>2. 打开 <a href='https://www.javbus.com/forum/' target='_blank'>巴士论坛</a> 登录后点击右上角头像</p>",
+                "<p style='color:#e74c3c;text-align:center;'>3. 提示获取 Cookie 成功后，脚本每天 6:00 自动签到</p>"
+            ],
+            "settings": [
+                {
+                    "id": "javbus_bark_push",
+                    "name": "Bark 推送密钥",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "填写 Bark 的 Key",
+                    "desc": "填写后使用 Bark 进行推送通知，留空则使用默认通知方式"
+                },
+                {
+                    "id": "javbus_debug",
+                    "name": "调试模式",
+                    "val": false,
+                    "type": "boolean",
+                    "desc": "开启后输出详细调试日志"
+                },
+                {
+                    "id": "javbus_users",
+                    "name": "账号数据",
+                    "val": "",
+                    "type": "textarea",
+                    "rows": 5,
+                    "desc": "自动获取，无需手动填写。如需手动配置多账号可在此处填写"
+                },
+                {
+                    "id": "javbus_notification_image",
+                    "name": "是否开启媒体通知🔞",
+                    "val": false,
+                    "type": "boolean",
+                    "desc": "开启后签到通知将附带媒体图片"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/Yuheng0101/X/main/Tasks/javbus.js"
         }
     ]
 }
