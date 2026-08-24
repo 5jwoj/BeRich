@@ -1,13 +1,13 @@
 {
-    "id": "5jwoj.berich",
-    "name": "BeRich 订阅合集",
-    "description": "包含京东Cookie同步、京豆资产查询、京东账号过期检测、日志检测与PIN通知、阿里云Cookie同步和V2EX每日签到的BoxJS订阅合集",
+    "id": "5jwoj.berich.qx",
+    "name": "BeRich QX 合集",
+    "description": "Quantumult X 专用订阅合集，包含京东Cookie同步、京豆资产查询、京东账号过期检测、日志检测与PIN通知、阿里云Cookie同步和V2EX每日签到的BoxJS配置管理",
     "author": "@5jwoj",
-    "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/available.png",
+    "icon": "https://raw.githubusercontent.com/Orz-3/mini/master/Color/quantumultx.png",
     "repo": "https://github.com/5jwoj/BeRich",
     "apps": [
         {
-            "id": "jd.cookie.sync.qx",
+            "id": "jd.cookie.sync.qx2",
             "name": "京东Cookie同步",
             "keys": [
                 "jd_ql_url",
@@ -238,7 +238,7 @@
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/aliyun/aliyun_web_cookie_qx.js"
         },
         {
-            "id": "v2ex_daily_qx",
+            "id": "v2ex.daily.qx",
             "name": "V2EX 每日签到",
             "keys": [
                 "v2ex_daily.cookie",
@@ -295,7 +295,7 @@
                 "https://raw.githubusercontent.com/58xinian/icon/master/jd_sy.png"
             ],
             "descs_html": [
-                "<h4 align=\"center\">青龙脚本日志数值检测与 PIN 定向通知 (QuanX / 青龙)</h4>",
+                "<h4 align=\"center\">青龙脚本日志数值检测与 PIN 定向通知 (Quantumult X 专用)</h4>",
                 "<p>自动读取青龙面板中指定脚本的最新日志，当提取到 '现有: XX.XX' 数值大于设定阈值时，针对指定的 PIN 账户发送系统弹窗通知。</p>"
             ],
             "settings": [
