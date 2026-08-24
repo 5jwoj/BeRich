@@ -7,7 +7,7 @@
  * 3) Cookie 失效后重新使用浏览器访问 V2EX 即可自动更新
  * 4) 支持多账号（多段 Cookie 换行分隔）
  *
- * Version: v1.0.3
+ * Version: v1.0.4
  * Author: @5jwoj
  *
  * Loon 插件地址：
@@ -27,7 +27,7 @@ const BOXJS_KEY_UA     = "v2ex_daily.ua";
 // 常量与配置
 // ====================================================
 const SCRIPT_NAME = "V2EX签到";
-const SCRIPT_TAG  = "[V2EX-Loon v1.0.3]";
+const SCRIPT_TAG  = "[V2EX-Loon v1.0.4]";
 const BASE_URL    = "https://www.v2ex.com";
 const DAILY_URL   = `${BASE_URL}/mission/daily`;
 const BALANCE_URL = `${BASE_URL}/balance`;
