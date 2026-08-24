@@ -7,7 +7,7 @@
  * 3) Cookie 失效后重新使用浏览器访问 V2EX 即可自动更新
  * 4) 支持多账号（多段 Cookie 换行分隔）
  *
- * Version: v1.0.0
+ * Version: v1.0.3
  * Author: @5jwoj
  *
  * Loon 插件地址：
@@ -27,7 +27,7 @@ const BOXJS_KEY_UA     = "v2ex_daily.ua";
 // 常量与配置
 // ====================================================
 const SCRIPT_NAME = "V2EX签到";
-const SCRIPT_TAG  = "[V2EX-Loon v1.0.0]";
+const SCRIPT_TAG  = "[V2EX-Loon v1.0.3]";
 const BASE_URL    = "https://www.v2ex.com";
 const DAILY_URL   = `${BASE_URL}/mission/daily`;
 const BALANCE_URL = `${BASE_URL}/balance`;
@@ -54,14 +54,19 @@ if (typeof $request !== "undefined") {
 function captureCookie() {
   try {
     const headers = $request.headers || {};
-    // 兼容各大小写 headers
+    // 兼容各大小写 headers（Loon 通常用小写 key）
     const cookie = headers["Cookie"] || headers["cookie"] || headers["COOKIE"] || "";
     const reqUrl = $request.url || "";
 
     console.log(`${SCRIPT_TAG} [捕获触发] URL: ${reqUrl}`);
+    console.log(`${SCRIPT_TAG} [捕获调试] Headers Keys: ${Object.keys(headers).join(", ")}`);
+    console.log(`${SCRIPT_TAG} [捕获调试] Cookie 长度: ${cookie.length}`);
 
-    if (!cookie || cookie.trim().length < 10) {
-      console.log(`${SCRIPT_TAG} [捕获跳过] 未检测到有效 Cookie (长度不足)`);
+    // ⚠️ 注意：若 MitM 证书未安装/信任，Loon 无法解密 HTTPS 流量，此处 cookie 将永远为空
+    // 请确认: Loon → 设置 → HTTPS 解密 → 已安装并信任证书
+    if (!cookie || cookie.trim().length < 5) {
+      console.log(`${SCRIPT_TAG} [捕获跳过] 未检测到有效 Cookie。`);
+      console.log(`${SCRIPT_TAG} [捕获提示] 如 Cookie 始终为空，请检查 Loon MitM 证书是否已安装并在系统设置中信任。`);
       $done({});
       return;
     }
@@ -80,6 +85,11 @@ function captureCookie() {
         );
       } else {
         console.log(`${SCRIPT_TAG} [捕获失败] $persistentStore.write 写入返回 false`);
+        notify(
+          `${SCRIPT_NAME} ❌`,
+          "Cookie 写入失败",
+          "$persistentStore.write 返回 false，请检查 Loon 权限"
+        );
       }
     } else {
       console.log(`${SCRIPT_TAG} [捕获忽略] Cookie 与当前已存内容一致，无需重复写入`);
