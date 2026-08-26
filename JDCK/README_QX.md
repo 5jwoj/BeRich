@@ -164,6 +164,12 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs
 
 ## 📝 版本历史
 
+### v1.0.6 (2026-08-26)
+- 🐛 **修复青龙新版 API 兼容性**: 完美兼容青龙面板 v2.17+ 响应格式（`data.list` 分页结构）及旧版数组结构
+- ⚡ **新增防抖保护**: 5秒内相同账号（pt_pin）不重复发起同步，避免京东 App 启动并发请求导致青龙限流
+- 🔄 **新增 Token 自动重试**: 获取 Token 失败时自动延迟 1 秒重试 1 次
+- 🔔 **智能通知策略**: 近 60 秒内有成功同步记录时静默跳过临时异常，避免误报配置错误
+
 ### v1.0.2 (2026-02-09)
 - ⏱️ **新增冷却机制**: 添加可配置的冷却时间（默认 5 分钟），避免频繁同步
 - 🚀 **性能优化**: Cookie 未变化且在冷却期内时完全跳过验证和同步，大幅减少网络请求
@@ -185,3 +191,4 @@ https://raw.githubusercontent.com/5jwoj/BeRich/main/JDCK/JD_Cookie_Sync_QX.boxjs
 ## 📄 许可证
 
 本项目遵循原项目许可证
+

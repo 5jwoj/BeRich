@@ -2,19 +2,24 @@
  * JD Cookie Sync to Qinglong - Quantumult X Version
  * 
  * 行为：
- * 1) 抓到 pt_key + pt_pin 后直接同步至青龙面板（不进行有效性校验）
+ * 1) 抓到 pt_key + pt_pin 后直接同步至青龙面板（不进行多余的有效性校验）
  * 2) 青龙端 Cookie 已存在且一致则静默同步（不发弹窗通知），不同或被禁用时自动更新/启用并提示
- * Version: v1.0.5
+ * 3) 支持 BoxJS 配置参数，亦支持脚本内 MANUAL_CONFIG 本地配置
+ * 4) 兼容青龙新版 API：data 可为数组（旧版）或 {list, total} 对象（新版 2.17+）
+ * 5) 防抖机制：同一 Pin 5秒内不重复同步，避免京东App并发请求触发多次同步与限流
+ * 6) Token 获取失败时自动重试 1 次，并根据近期同步记录智能决定是否通知
+ * 
+ * Version: v1.0.6
  * Author: z.W.
  * 
  * @script
  * api.m.jd.com
  * 
  * @config
- * 需要在Quantumult X配置中设置以下参数（通过BoxJS或直接修改下方MANUAL_CONFIG）：
- * - ql_url: 青龙面板地址 (例如: http://192.168.1.1:5700)
- * - ql_client_id: 青龙面板 API Client ID
- * - ql_client_secret: 青龙面板 API Client Secret
+ * 需要在 Quantumult X 配置中设置以下参数（通过 BoxJS 或直接修改下方 MANUAL_CONFIG）：
+ * - jd_ql_url: 青龙面板地址 (例如: http://192.168.1.1:5700)
+ * - jd_ql_client_id: 青龙面板 API Client ID
+ * - jd_ql_client_secret: 青龙面板 API Client Secret
  */
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -34,11 +39,11 @@ const MANUAL_CONFIG = {
         const ql_client_id = MANUAL_CONFIG.id || $prefs.valueForKey("jd_ql_client_id");
         const ql_client_secret = MANUAL_CONFIG.secret || $prefs.valueForKey("jd_ql_client_secret");
 
-        console.log(`[JD Cookie Sync] Config: URL=${ql_url}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
+        console.log(`[JD Cookie Sync] Config: URL=${ql_url || 'Missing'}, ID=${ql_client_id ? '***' : 'Missing'}, Secret=${ql_client_secret ? '***' : 'Missing'}`);
 
         // 检查配置是否完整
         if (!ql_url || !ql_client_id || !ql_client_secret || ql_url.includes("{ql_url}")) {
-            $notify("配置未生效", "参数未正确设置", "请在BoxJS或脚本中配置青龙信息");
+            $notify("配置未生效", "参数未正确设置", "请在BoxJS或脚本MANUAL_CONFIG中配置青龙信息");
             $done();
             return;
         }
@@ -86,10 +91,33 @@ const MANUAL_CONFIG = {
             }
         } catch (e) { }
 
-        // 2. 获取青龙Token
-        const token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
+        // ── 防抖机制：同一 Pin 5秒内不重复同步 ──
+        const DEBOUNCE_MS = 5000;
+        const lastSyncKey = `JD_LAST_SYNC_TS_${pt_pin}`;
+        const lastSyncTs = parseInt($prefs.valueForKey(lastSyncKey) || "0");
+        const nowTs = Date.now();
+        if (nowTs - lastSyncTs < DEBOUNCE_MS) {
+            console.log(`[JD Cookie Sync] Debounced for ${pt_pin}, last sync ${nowTs - lastSyncTs}ms ago. Skipping.`);
+            $done();
+            return;
+        }
+        $prefs.setValueForKey(String(nowTs), lastSyncKey);
+
+        // 2. 获取青龙Token（失败自动重试 1 次）
+        let token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
         if (!token) {
-            $notify("同步失败", "获取青龙Token失败", "请检查配置信息是否正确");
+            console.log(`[JD Cookie Sync] Token 首次获取失败，1秒后重试...`);
+            await delay(1000);
+            token = await getQLToken(ql_url, ql_client_id, ql_client_secret);
+        }
+        if (!token) {
+            // 智能通知：检查近60秒内是否有成功同步记录
+            const lastOkTs = parseInt($prefs.valueForKey("JD_SYNC_LAST_OK") || "0");
+            if (nowTs - lastOkTs < 60000) {
+                console.log(`[JD Cookie Sync] Token失败但近60秒内有成功记录，静默跳过（并发限流）`);
+            } else {
+                $notify("同步失败", "获取青龙Token失败", "请检查青龙地址与应用密钥配置是否正确");
+            }
             $done();
             return;
         }
@@ -98,15 +126,19 @@ const MANUAL_CONFIG = {
         const result = await syncCookieToQL(ql_url, token, pt_pin, jd_cookie);
 
         if (!result.ok) {
-            $notify("同步失败", "青龙接口返回异常", result.message || "Unknown error");
+            console.log(`[JD Cookie Sync] 同步失败: ${result.message || 'Unknown error'}`);
             $done();
             return;
         }
+
+        // 同步成功，记录成功时间戳（供 Token 失败时的智能通知参考）
+        $prefs.setValueForKey(String(Date.now()), "JD_SYNC_LAST_OK");
 
         // 4. 青龙端数据变动或重新启用时通知
         if (result.changed) {
             $prefs.setValueForKey(jd_cookie, `JD_COOKIE_CACHE_${pt_pin}`);
             $notify(result.title, result.subtitle, result.body);
+            console.log(`[JD Cookie Sync] ${result.title}: ${result.subtitle}`);
         } else {
             console.log(`[JD Cookie Sync] Cookie synced for ${pt_pin} (no status/value change in QL). Skipping notification.`);
         }
@@ -121,6 +153,13 @@ const MANUAL_CONFIG = {
 
 
 // ========== 工具函数 ==========
+
+/**
+ * 延迟指定毫秒数
+ */
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 /**
  * 从Cookie字符串中提取指定键的值
@@ -172,7 +211,7 @@ async function getQLToken(url, clientId, clientSecret) {
  * - 未找到则创建
  * - 找到但 value 不同则更新
  * - 找到但被禁用则启用
- * 若 value 相同且已启用，则 changed=false（不通知）
+ * 若 value 相同且已启用，则 changed=false（静默同步，不弹通知）
  */
 async function syncCookieToQL(url, token, pt_pin, newValue) {
     const headers = {
@@ -190,12 +229,24 @@ async function syncCookieToQL(url, token, pt_pin, newValue) {
         const response = await $task.fetch(getOptions);
         const body = JSON.parse(response.body);
 
-        if (body.code !== 200 || !Array.isArray(body.data)) {
-            console.log(`[JD Cookie Sync] Sync Unexpected Response: ${response.body}`);
-            return { ok: false, message: "Unexpected Qinglong response" };
+        if (body.code !== 200) {
+            console.log(`[JD Cookie Sync] Sync Unexpected Response (code=${body.code}): ${response.body}`);
+            return { ok: false, message: `Qinglong response code=${body.code}` };
         }
 
-        const envs = body.data;
+        // 兼容青龙新旧两种 API 格式：
+        // 旧版（<2.17）: body.data = []
+        // 新版（>=2.17）: body.data = { list: [], total: N }
+        let envs;
+        if (Array.isArray(body.data)) {
+            envs = body.data;
+        } else if (body.data && Array.isArray(body.data.list)) {
+            envs = body.data.list;
+        } else {
+            console.log(`[JD Cookie Sync] Unknown data structure: ${JSON.stringify(body.data)}`);
+            return { ok: false, message: "Unknown Qinglong data structure" };
+        }
+
         const targetEnv = envs.find(e =>
             e && e.name === "JD_COOKIE" &&
             typeof e.value === "string" &&
