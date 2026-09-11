@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  salon-seat-system:
+    build: .
+    image: salon-seat-system:1.0.0
+    container_name: salon-seat-system
+    restart: always
+    ports:
+      # 格式: "外部宿主机访问端口:容器内部端口"
+      # 家庭宽带无80/443端口，使用如 28888 等高位非标端口
+      # 门店访问地址即为: http://你的公网域名:28888
+      - "${PORT:-28888}:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+    volumes:
+      # ===================================================================
+      # 核心亮点：代码与资源目录直接双向挂载！
+      # 任何代码修改（前端/后端/平面图）保存后：
+      # - 修改前端 public/*：浏览器直接刷新即可看到最新界面！
+      # - 修改后端 server/*：执行 docker compose restart 1秒立即生效，无需重做镜像！
+      # - 数据目录 ./data：持久化存储预约记录，容器重启或删除升级绝不丢数据！
+      # ===================================================================
+      - ./public:/app/public
+      - ./server:/app/server
+      - ./data:/app/data
+      - ./package.json:/app/package.json

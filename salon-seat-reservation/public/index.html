@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>沙龙席位可视化预约看板 - Salon Seat System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- 顶部导航与状态总览栏 -->
+    <header class="top-navbar">
+      <div class="nav-left">
+        <div class="brand-logo">
+          <div class="logo-text">
+            <h1>ReMINGLE PLUS</h1>
+            <span class="sub-title">席位预约与调度系统 <span class="author-tag">Author: z.W.</span></span>
+          </div>
+        </div>
+        <div class="live-badge" id="ws-status" title="实时通信状态">
+          <span class="status-dot"></span>
+          <span class="status-text">实时连接</span>
+        </div>
+      </div>
+
+      <!-- 核心统计指标胶囊 -->
+      <div class="stats-pills">
+        <div class="stat-pill total">
+          <span class="pill-label">总工位</span>
+          <span class="pill-value" id="stat-total">0</span>
+        </div>
+        <div class="stat-pill booked">
+          <span class="pill-label">已预约</span>
+          <span class="pill-value" id="stat-booked">0</span>
+        </div>
+        <div class="stat-pill unused">
+          <span class="pill-label">未使用</span>
+          <span class="pill-value" id="stat-unused">0</span>
+        </div>
+        <div class="stat-pill rate">
+          <span class="pill-label">上座率</span>
+          <span class="pill-value" id="stat-rate">0%</span>
+        </div>
+      </div>
+
+      <!-- 搜索与操作控制区 -->
+      <div class="nav-right">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="搜发型师 / 顾客 / 席位..." autocomplete="off">
+          <button class="clear-search-btn" id="clear-search" style="display:none;">×</button>
+        </div>
+
+        <button class="btn btn-secondary" id="history-btn" title="查看今日操作历史">
+          <span>📜</span>
+          <span>历史</span>
+        </button>
+
+        <button class="btn btn-secondary" id="calibrate-toggle-btn" title="微调席位点位坐标">
+          <span>🎯</span>
+          <span id="calibrate-btn-text">微调点位</span>
+        </button>
+
+        <button class="btn btn-secondary" id="settings-btn" title="维护发型师、助理、项目与房间名称">
+          <span>⚙️</span>
+          <span>沙龙设置</span>
+        </button>
+
+        <div class="system-version" id="sys-version">v1.1.1</div>
+      </div>
+    </header>
+
+    <!-- 筛选快捷与日期切换栏 -->
+    <div class="filter-toolbar">
+      <!-- 1. 日期切换导航 -->
+      <div class="date-switcher-group">
+        <span class="filter-label">预约日期:</span>
+        <div class="date-chips" id="date-chips">
+          <button type="button" class="date-chip active" data-type="today">📅 今天</button>
+          <button type="button" class="date-chip" data-type="tomorrow">明天</button>
+          <button type="button" class="date-chip" data-type="afterTomorrow">后天</button>
+        </div>
+        <div class="custom-date-box">
+          <input type="date" id="custom-date-picker" title="选择任意未来日期">
+        </div>
+      </div>
+
+      <!-- 2. 区域筛选 -->
+      <div class="filter-group">
+        <span class="filter-label">区域:</span>
+        <div class="tag-chips" id="area-filters">
+          <button class="chip active" data-area="ALL">全部</button>
+          <button class="chip" data-area="VIP包间(左上)">VIP包间(左上)</button>
+          <button class="chip" data-area="弧形剪发区">弧形剪发区</button>
+          <button class="chip" data-area="VIP三人间">VIP三人间</button>
+          <button class="chip" data-area="VIP双人间(中下)">VIP双人间(中下)</button>
+          <button class="chip" data-area="中央剪发区">中央剪发区</button>
+          <button class="chip" data-area="独立包间">单人包间/SPA</button>
+        </div>
+      </div>
+
+      <div class="legend-group">
+        <div class="legend-item"><span class="legend-dot status-unused"></span> 未使用</div>
+        <div class="legend-item"><span class="legend-dot status-booked"></span> 已预约</div>
+      </div>
+    </div>
+
+    <!-- 未来日期提示横幅 -->
+    <div class="future-date-banner" id="future-date-banner" style="display:none;">
+      <div class="banner-left">
+        <span class="banner-icon">📆</span>
+        <span class="banner-text">当前正在查看预约看板：<strong id="banner-date-label">2026-09-12</strong></span>
+        <span class="banner-badge">未来预约模式</span>
+      </div>
+      <button type="button" class="btn btn-sm btn-secondary" id="btn-back-to-today">切回今天看板</button>
+    </div>
+
+    <!-- 主体平面图展示画布区域 -->
+    <main class="viewport-main">
+      <div class="canvas-wrapper" id="canvas-wrapper">
+        <div class="floorplan-container" id="floorplan-container">
+          <!-- 平面设计图底图 -->
+          <img src="assets/floorplan.png" alt="店面平面图" id="floorplan-img" class="floorplan-image" />
+
+          <!-- 席位交互图层 -->
+          <div class="seats-overlay" id="seats-overlay"></div>
+        </div>
+      </div>
+
+      <!-- 微调模式底部浮动保存条 -->
+      <div class="calibration-bar" id="calibration-bar" style="display:none;">
+        <span class="cal-tip">🎯 <strong>点位微调模式已开启</strong>：可直接按住座位进行拖拽微调位置</span>
+        <div class="cal-actions">
+          <button class="btn btn-primary" id="save-coords-btn">保存新点位</button>
+          <button class="btn btn-secondary" id="cancel-coords-btn">取消还原</button>
+        </div>
+      </div>
+
+      <!-- 画布智能缩放与全屏控制面板 -->
+      <div class="viewport-controls">
+        <button type="button" class="ctrl-btn" id="zoom-in-btn" title="放大平面图 (支持滚轮)">➕ 放大</button>
+        <span class="ctrl-text" id="zoom-text">自适应</span>
+        <button type="button" class="ctrl-btn" id="zoom-out-btn" title="缩小平面图">➖ 缩小</button>
+        <button type="button" class="ctrl-btn" id="zoom-fit-btn" title="重置并铺满屏幕">↺ 适应屏幕</button>
+        <button type="button" class="ctrl-btn" id="fullscreen-btn" title="切换浏览器全屏">⛶ 全屏模式</button>
+      </div>
+    </main>
+
+    <!-- 预约录入模态弹窗 -->
+    <div class="modal-backdrop" id="booking-modal" style="display:none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h3 id="modal-seat-title">预约席位：VIP-A包间</h3>
+            <button type="button" class="btn-icon-rename" id="modal-rename-btn" title="点击修改房间/工位名称">✏️</button>
+            <span class="seat-badge" id="modal-seat-area">VIP包间(左上)</span>
+          </div>
+          <button class="modal-close" id="modal-close-btn">&times;</button>
+        </div>
+
+        <form id="booking-form" class="modal-body">
+          <input type="hidden" id="form-seat-id">
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="required">主理发型师</label>
+              <input type="text" id="form-stylist" placeholder="输入或点击常用发型师" required list="stylist-list">
+              <datalist id="stylist-list">
+                <option value="Tony (总监)"></option>
+                <option value="Alex (首席)"></option>
+                <option value="David (资深)"></option>
+                <option value="Emily (设计总监)"></option>
+                <option value="Kevin (烫染总监)"></option>
+              </datalist>
+              <div class="quick-tags" id="quick-stylists">
+                <span class="q-tag">Tony</span>
+                <span class="q-tag">Alex</span>
+                <span class="q-tag">David</span>
+                <span class="q-tag">Emily</span>
+                <span class="q-tag">Kevin</span>
+              </div>
+            </div>
+
+            <div class="form-group flex-1">
+              <label>协作助理</label>
+              <input type="text" id="form-assistant" placeholder="助理技师 (选填)" list="assistant-list">
+              <datalist id="assistant-list">
+                <option value="无"></option>
+                <option value="阿杰"></option>
+                <option value="小敏"></option>
+                <option value="小刘"></option>
+              </datalist>
+              <div class="quick-tags" id="quick-assistants">
+                <span class="q-tag">无</span>
+                <span class="q-tag">阿杰</span>
+                <span class="q-tag">小敏</span>
+                <span class="q-tag">小刘</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="required">预约日期</label>
+              <input type="date" id="form-booking-date" required>
+            </div>
+            <div class="form-group flex-1">
+              <label class="required">到店时间</label>
+              <input type="time" id="form-arrival-time" required>
+            </div>
+            <div class="form-group flex-1">
+              <label>预计结束时间</label>
+              <input type="time" id="form-end-time">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="required">服务项目</label>
+            <input type="text" id="form-service" placeholder="如：洗剪吹 / 资生堂染发 / 烫发" required>
+            <div class="quick-tags" id="quick-services">
+              <span class="q-tag service-tag" data-mins="45">洗剪吹 (+45分)</span>
+              <span class="q-tag service-tag" data-mins="120">高级染发 (+120分)</span>
+              <span class="q-tag service-tag" data-mins="150">热烫/造型 (+150分)</span>
+              <span class="q-tag service-tag" data-mins="60">头皮深层SPA (+60分)</span>
+              <span class="q-tag service-tag" data-mins="30">吹风造型 (+30分)</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="required">顾客来源</label>
+            <div class="source-selector" id="source-selector">
+              <label class="source-radio"><input type="radio" name="source" value="大众点评" checked> <span>大众点评</span></label>
+              <label class="source-radio"><input type="radio" name="source" value="小红书"> <span>小红书</span></label>
+              <label class="source-radio"><input type="radio" name="source" value="抖音团购"> <span>抖音</span></label>
+              <label class="source-radio"><input type="radio" name="source" value="会员老客"> <span>会员老客</span></label>
+              <label class="source-radio"><input type="radio" name="source" value="转介绍"> <span>转介绍</span></label>
+              <label class="source-radio"><input type="radio" name="source" value="自然到店"> <span>自然到店</span></label>
+              <label class="source-radio"><input type="radio" name="source" value="其他渠道"> <span>其他</span></label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>顾客姓名 (选填)</label>
+              <input type="text" id="form-customer-name" placeholder="如：王女士">
+            </div>
+            <div class="form-group flex-1">
+              <label>手机尾号 (选填)</label>
+              <input type="text" id="form-customer-phone" placeholder="如：8899" maxlength="11">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>特殊要求/备注</label>
+            <input type="text" id="form-notes" placeholder="如：自带染膏、头皮敏感、饮用温水等">
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="modal-cancel-btn">取消</button>
+            <button type="submit" class="btn btn-primary" id="modal-submit-btn">确认预约并占用</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 占用详情与取消占用确认弹窗 -->
+    <div class="modal-backdrop" id="detail-modal" style="display:none;">
+      <div class="modal-card detail-card">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h3 id="detail-seat-name">VIP-A包间 (已预约)</h3>
+            <button type="button" class="btn-icon-rename" id="detail-rename-btn" title="点击修改房间/工位名称">✏️</button>
+            <span class="seat-badge status-booked">占用中</span>
+          </div>
+          <button class="modal-close" id="detail-close-btn">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="d-label">主理发型师</span>
+              <span class="d-value highlight" id="d-stylist">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="d-label">协作助理</span>
+              <span class="d-value" id="d-assistant">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="d-label">到店时间</span>
+              <span class="d-value" id="d-arrival">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="d-label">预计结束</span>
+              <span class="d-value" id="d-end">-</span>
+            </div>
+            <div class="detail-item full-width">
+              <span class="d-label">服务项目</span>
+              <span class="d-value service-highlight" id="d-service">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="d-label">顾客来源</span>
+              <span class="d-value source-tag-badge" id="d-source">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="d-label">顾客称呼</span>
+              <span class="d-value" id="d-customer">-</span>
+            </div>
+            <div class="detail-item full-width" id="d-notes-row">
+              <span class="d-label">备注信息</span>
+              <span class="d-value" id="d-notes">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer space-between">
+          <button type="button" class="btn btn-danger" id="detail-cancel-seat-btn">
+            <span>🚫</span> 取消占用 (恢复为未使用)
+          </button>
+          <div class="footer-right-btns">
+            <button type="button" class="btn btn-secondary" id="detail-close-bottom-btn">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 历史记录侧边抽屉 -->
+    <div class="drawer-backdrop" id="history-drawer" style="display:none;">
+      <div class="drawer-content">
+        <div class="drawer-header">
+          <h3>今日操作日志</h3>
+          <button class="modal-close" id="history-close-btn">&times;</button>
+        </div>
+        <div class="drawer-body" id="history-list">
+          <div class="loading-tip">加载中...</div>
+        </div>
+      </div>
+    </div>
+    <!-- 员工与项目维护后台弹窗 -->
+    <div class="modal-backdrop" id="settings-modal" style="display:none;">
+      <div class="modal-card settings-card">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h3>⚙️ 沙龙人员与服务项目维护</h3>
+          </div>
+          <button class="modal-close" id="settings-close-btn">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- 1. 发型师管理 -->
+          <div class="settings-section">
+            <div class="section-title-row">
+              <label class="section-title">👤 主理发型师列表</label>
+              <span class="section-tip">前台开单快捷选择</span>
+            </div>
+            <div class="tags-editor-box" id="stylist-tags-box"></div>
+            <div class="add-tag-row">
+              <input type="text" id="new-stylist-input" placeholder="输入发型师姓名（如：Leo总监）按回车添加">
+              <button type="button" class="btn btn-secondary btn-sm" id="add-stylist-btn">+ 添加</button>
+            </div>
+          </div>
+
+          <hr class="settings-divider" />
+
+          <!-- 2. 助理管理 -->
+          <div class="settings-section">
+            <div class="section-title-row">
+              <label class="section-title">🤝 协作助理/技师列表</label>
+            </div>
+            <div class="tags-editor-box" id="assistant-tags-box"></div>
+            <div class="add-tag-row">
+              <input type="text" id="new-assistant-input" placeholder="输入助理姓名（如：小华）按回车添加">
+              <button type="button" class="btn btn-secondary btn-sm" id="add-assistant-btn">+ 添加</button>
+            </div>
+          </div>
+
+          <hr class="settings-divider" />
+
+          <!-- 3. 服务项目管理 -->
+          <div class="settings-section">
+            <div class="section-title-row">
+              <label class="section-title">✂️ 服务项目与预估时长</label>
+            </div>
+            <div class="services-editor-list" id="services-editor-list"></div>
+            <div class="add-service-row">
+              <input type="text" id="new-service-name" placeholder="新项目名称（如：蛋白矫正）" style="flex: 2;">
+              <input type="number" id="new-service-mins" placeholder="分钟" value="60" style="flex: 1;" min="10" step="5">
+              <button type="button" class="btn btn-secondary btn-sm" id="add-service-btn">+ 添加项目</button>
+            </div>
+          </div>
+
+          <hr class="settings-divider" />
+
+          <!-- 4. 房间与席位名称管理 -->
+          <div class="settings-section">
+            <div class="section-title-row">
+              <label class="section-title">🏛️ 房间与工位名称修改</label>
+              <span class="section-tip">可直接修改各个房间/工位名称</span>
+            </div>
+            <div class="seats-rename-list" id="seats-rename-list"></div>
+          </div>
+        </div>
+
+        <div class="modal-footer space-between">
+          <button type="button" class="btn btn-secondary" id="settings-calibrate-btn" title="进入席位微调模式">
+            <span>🎯</span> 微调工位点位
+          </button>
+          <div class="footer-right-btns">
+            <button type="button" class="btn btn-secondary" id="settings-cancel-btn">取消</button>
+            <button type="button" class="btn btn-primary" id="settings-save-btn">保存全部设置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速重命名工位/房间小弹窗 -->
+    <div class="modal-backdrop" id="rename-modal" style="display:none; z-index: 1200;">
+      <div class="modal-card rename-card" style="max-width: 380px;">
+        <div class="modal-header">
+          <h3>✏️ 修改房间/工位名称</h3>
+          <button class="modal-close" id="rename-close-btn">&times;</button>
+        </div>
+        <form id="rename-form" class="modal-body">
+          <input type="hidden" id="rename-seat-id">
+          <div class="form-group">
+            <label>所属区域</label>
+            <input type="text" id="rename-seat-area" placeholder="如：VIP包间(左上)">
+          </div>
+          <div class="form-group">
+            <label class="required">房间/工位名称</label>
+            <input type="text" id="rename-seat-name" placeholder="如：VIP-A包间" required>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="rename-cancel-btn">取消</button>
+            <button type="submit" class="btn btn-primary" id="rename-submit-btn">保存修改</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

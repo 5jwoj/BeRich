@@ -1,0 +1,142 @@
+[
+  {
+    "id": "vip-a-1",
+    "name": "VIP-A包间",
+    "area": "VIP包间(左上)",
+    "type": "cutting",
+    "x": 9.8,
+    "y": 24.5,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "arc-1",
+    "name": "弧形位1",
+    "area": "弧形剪发区",
+    "type": "cutting",
+    "x": 15.6,
+    "y": 66.0,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "arc-2",
+    "name": "弧形位2",
+    "area": "弧形剪发区",
+    "type": "cutting",
+    "x": 17.5,
+    "y": 86.5,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "vip3-1",
+    "name": "三人间-01",
+    "area": "VIP三人间",
+    "type": "cutting",
+    "x": 29.5,
+    "y": 63.5,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "vip3-2",
+    "name": "三人间-02",
+    "area": "VIP三人间",
+    "type": "cutting",
+    "x": 35.8,
+    "y": 63.5,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "vip3-3",
+    "name": "三人间-03",
+    "area": "VIP三人间",
+    "type": "cutting",
+    "x": 42.0,
+    "y": 63.5,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "vip3-4",
+    "name": "三人间-04",
+    "area": "VIP三人间",
+    "type": "cutting",
+    "x": 35.8,
+    "y": 80.0,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "vip-b-1",
+    "name": "VIP-B包间",
+    "area": "VIP双人间(中下)",
+    "type": "cutting",
+    "x": 58.0,
+    "y": 78.5,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "center-1",
+    "name": "剪发位-01",
+    "area": "中央剪发区",
+    "type": "cutting",
+    "x": 73.5,
+    "y": 66.0,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "center-2",
+    "name": "剪发位-02",
+    "area": "中央剪发区",
+    "type": "cutting",
+    "x": 79.5,
+    "y": 66.0,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "center-3",
+    "name": "剪发位-03",
+    "area": "中央剪发区",
+    "type": "cutting",
+    "x": 73.5,
+    "y": 85.0,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "center-4",
+    "name": "剪发位-04",
+    "area": "中央剪发区",
+    "type": "cutting",
+    "x": 79.5,
+    "y": 85.0,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "vip-single-1",
+    "name": "独立VIP单间",
+    "area": "VIP单人间(右上)",
+    "type": "cutting",
+    "x": 93.8,
+    "y": 46.5,
+    "status": "unused",
+    "booking": null
+  },
+  {
+    "id": "spa-single-1",
+    "name": "头皮护理单间",
+    "area": "头皮护理单人间(右下)",
+    "type": "spa",
+    "x": 93.8,
+    "y": 78.5,
+    "status": "unused",
+    "booking": null
+  }
+]

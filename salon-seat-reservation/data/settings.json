@@ -1,0 +1,11 @@
+{
+  "stylists": ["Tony (总监)", "Alex (首席)", "David (资深)", "Emily (设计总监)", "Kevin (烫染总监)"],
+  "assistants": ["无", "阿杰", "小敏", "小刘", "小张"],
+  "services": [
+    { "name": "洗剪吹", "mins": 45 },
+    { "name": "高级染发", "mins": 120 },
+    { "name": "热烫/造型", "mins": 150 },
+    { "name": "头皮深层SPA", "mins": 60 },
+    { "name": "吹风造型", "mins": 30 }
+  ]
+}
