@@ -13,6 +13,7 @@
 | [**weibo (微博)**](./weibo) | 微博每日自动签到，支持多账号。 | Surge, Loon |
 | [**JDCK (京东)**](./JDCK) | 自动化。自动捕获京东 Cookie 并同步至青龙面板。 | Surge, Loon |
 | [**NFSQ (农夫山泉)**](./NFSQ) | 农夫山泉小程序自动任务与抽奏。 | Surge, Loon |
+| [**zeeho (极核)**](./zeeho) | 极核 ZEEHO App CK 自动抓取，同步至青龙面板，配合签到脚本全自动签到。 | Loon |
 | [**V2EX**](./V2EX) | V2EX 每日签到，自动领取登录奖励。 | 青龙面板 |
 | [**Ninebot (九号出行)**](./Ninebot) | 九号出行自动签到，支持自动领取任务奖励。 | 青龙面板 |
 | [**xyy (小阅阅)**](./xyy) | 微信小阅阅全自动阅读与金币结算。 | Quantumult X |

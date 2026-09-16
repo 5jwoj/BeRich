@@ -346,6 +346,57 @@
                 }
             ],
             "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js"
+        },
+        {
+            "id": "zeeho.ck.sync.loon",
+            "name": "极核ZEEHO CK同步 (Loon)",
+            "keys": [
+                "zeeho_ql_url",
+                "zeeho_ql_client_id",
+                "zeeho_ql_client_secret"
+            ],
+            "author": "@5jwoj",
+            "repo": "https://github.com/5jwoj/BeRich/tree/main/zeeho",
+            "icons": [
+                "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Riding.png",
+                "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Riding.png"
+            ],
+            "descs_html": [
+                "<h4 align=\"center\">Loon 版 · 极核 ZEEHO App CK 自动抓取并同步到青龙面板</h4>",
+                "<p>打开极核 App 进入签到页，Loon 自动拦截请求并提取 <code>Authorization / Cookie / user_id</code>，同步至青龙面板的 <code>ZEEHO_AUTHORIZATION</code> / <code>ZEEHO_COOKIE</code> / <code>ZEEHO_USER_ID</code> 环境变量。值无变化时静默同步，仅在实际变更时发出通知。</p>",
+                "<hr>",
+                "<p><b>使用步骤：</b></p>",
+                "<ol><li>在 Loon 中安装插件：<a href=\"https://raw.githubusercontent.com/5jwoj/BeRich/main/zeeho/zeeho_ck_sync_loon.plugin\">zeeho_ck_sync_loon.plugin</a></li><li>在下方填写青龙面板信息并保存</li><li>确保 Loon 开启 MitM 并已信任证书</li><li>打开极核 App → 进入签到页 → 点击「签到」，即可自动触发 CK 同步</li></ol>",
+                "<p><b>搭配签到脚本：</b>将 <a href=\"https://github.com/jixiaotong1999/zeeho-signin\">zeeho-signin</a> 部署到青龙面板，签到脚本会自动读取上述环境变量，无需手动填写配置。</p>",
+                "<p align=\"center\">使用说明请查看 <a href=\"https://github.com/5jwoj/BeRich/blob/main/zeeho/README_Loon.md\">README_Loon.md</a></p>"
+            ],
+            "settings": [
+                {
+                    "id": "zeeho_ql_url",
+                    "name": "青龙面板地址",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "https://ql.example.com",
+                    "desc": "青龙面板的完整地址，包括端口号（例如 http://192.168.1.1:5700 或 https://ql.example.com）"
+                },
+                {
+                    "id": "zeeho_ql_client_id",
+                    "name": "Client ID",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client ID",
+                    "desc": "在青龙面板 → 系统设置 → 开放API 中创建应用获取（需勾选环境变量权限）"
+                },
+                {
+                    "id": "zeeho_ql_client_secret",
+                    "name": "Client Secret",
+                    "val": "",
+                    "type": "text",
+                    "placeholder": "请输入青龙面板的 Client Secret",
+                    "desc": "在青龙面板 → 系统设置 → 开放API 中创建应用获取（需勾选环境变量权限）"
+                }
+            ],
+            "script": "https://raw.githubusercontent.com/5jwoj/BeRich/main/zeeho/zeeho_ck_sync_loon.js"
         }
     ]
 }

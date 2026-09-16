@@ -1,0 +1,17 @@
+#!name=极核ZEEHO CK同步 (Loon)
+#!desc=拦截极核 ZEEHO App 签到请求，自动提取 Authorization/Cookie/user_id 并同步至青龙面板环境变量。支持 BoxJS 配置，静默同步与变动通知。
+#!openUrl=
+#!author=z.W.
+#!tag=极核, ZEEHO, 青龙, Cookie
+#!system=
+#!system_version=
+#!loon_version=
+#!homepage=https://github.com/5jwoj/BeRich
+#!icon=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Riding.png
+#!date=2026-09-16 00:00:00
+
+[Script]
+http-request ^https?:\/\/h5\.zeehoev\.com\/cfmotoservermine\/signin script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/zeeho/zeeho_ck_sync_loon.js, requires-body=false, timeout=30, tag=极核ZEEHO CK同步
+
+[Mitm]
+hostname = h5.zeehoev.com
