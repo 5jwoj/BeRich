@@ -2,7 +2,7 @@
 阿里云社区 Cookie 抓取模块 - Loon 专用版
 @Author: z.W.
 @Date: 2026-08-22
-@Version: 2.0.0
+@Version: 2.1.0
 @Description: 
   仅负责抓取阿里云社区Cookie，并同步至青龙面板
   不执行任何任务脚本
@@ -32,7 +32,7 @@
 */
 
 const scriptName = '阿里云Web Cookie';
-const version = 'v2.0.0';
+const version = 'v2.1.0';
 const ckName = 'aliyunWeb_data';
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -296,7 +296,10 @@ async function addQlEnv(token, value) {
 }
 
 /**
- * 同步变量到青龙 - 智能去重
+ * 同步变量到青龙 - 智能去重（v2.1.0 修复版）
+ * 修复：① userName/userId 为「未知用户」时去重失效
+ *       ② 青龙存储格式（数组/对象/字符串）不一致导致匹配失败
+ *       ③ 兜底：同名变量已存在则直接更新，杜绝重复创建
  */
 async function syncToQinglong(token, cookieData, dataStr) {
     if (!token) {
@@ -307,57 +310,73 @@ async function syncToQinglong(token, cookieData, dataStr) {
     // 查询青龙中现有的变量
     const existingEnvs = await queryQlEnv(token);
     
-    // 查找是否存在相同用户名的变量
+    // 过滤出所有同名变量（name === qlDataName）
+    const sameNameEnvs = existingEnvs.filter(env => env.name === qlDataName);
+    console.log(`[${scriptName}] 🔍 同名变量数量: ${sameNameEnvs.length}`);
+    
+    // 用户名为「未知用户」时：只要同名变量存在就直接更新第一个，避免无法匹配而重复创建
+    const isUnknownUser = !cookieData.userId || cookieData.userId === '未知用户' ||
+                          !cookieData.userName || cookieData.userName === '未知用户';
+    
+    if (isUnknownUser && sameNameEnvs.length > 0) {
+        const target = sameNameEnvs[0];
+        console.log(`[${scriptName}] ⚠️ 用户信息未知，兜底更新同名变量，ID: ${target.id}`);
+        return await updateQlEnv(token, target.id, dataStr);
+    }
+    
+    // 精确匹配：尝试通过 userId / userName 找到对应的青龙变量
     let matchedEnv = null;
     
-    for (const env of existingEnvs) {
-        if (env.name === qlDataName && env.value) {
-            try {
-                let storedData = env.value;
-                let parsedData = null;
-                if (storedData.startsWith('[') || storedData.startsWith('{')) {
-                    parsedData = JSON.parse(storedData);
-                }
-                
-                if (parsedData) {
-                    if (Array.isArray(parsedData)) {
-                        for (const item of parsedData) {
-                            if (item.userId === cookieData.userId || item.userName === cookieData.userName) {
-                                matchedEnv = env;
-                                console.log(`[${scriptName}] 📝 找到匹配用户: ${cookieData.userName}, 变量ID: ${env.id}`);
-                                break;
-                            }
-                        }
-                    } else if (parsedData.userId === cookieData.userId || parsedData.userName === cookieData.userName) {
+    for (const env of sameNameEnvs) {
+        if (!env.value) continue;
+        try {
+            let parsedData = null;
+            const trimmed = env.value.trim();
+            if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                parsedData = JSON.parse(trimmed);
+            }
+            
+            if (parsedData) {
+                const list = Array.isArray(parsedData) ? parsedData : [parsedData];
+                for (const item of list) {
+                    if (item.userId === cookieData.userId || item.userName === cookieData.userName) {
                         matchedEnv = env;
                         console.log(`[${scriptName}] 📝 找到匹配用户: ${cookieData.userName}, 变量ID: ${env.id}`);
-                    }
-                } else {
-                    if (storedData.includes(cookieData.userName) || storedData.includes(cookieData.userId)) {
-                        matchedEnv = env;
-                        console.log(`[${scriptName}] 📝 找到匹配用户(字符串匹配): ${cookieData.userName}, 变量ID: ${env.id}`);
+                        break;
                     }
                 }
-                
-                if (matchedEnv) break;
-                
-            } catch (e) {
+            } else {
+                // 纯字符串兜底匹配
                 if (env.value.includes(cookieData.userName) || env.value.includes(cookieData.userId)) {
                     matchedEnv = env;
                     console.log(`[${scriptName}] 📝 找到匹配用户(字符串匹配): ${cookieData.userName}, 变量ID: ${env.id}`);
-                    break;
                 }
             }
+        } catch (e) {
+            if (env.value.includes(cookieData.userName) || env.value.includes(cookieData.userId)) {
+                matchedEnv = env;
+                console.log(`[${scriptName}] 📝 找到匹配用户(异常兜底): ${cookieData.userName}, 变量ID: ${env.id}`);
+            }
         }
+        if (matchedEnv) break;
     }
     
     if (matchedEnv) {
         console.log(`[${scriptName}] 📝 更新现有变量，ID: ${matchedEnv.id}`);
         return await updateQlEnv(token, matchedEnv.id, dataStr);
-    } else {
-        console.log(`[${scriptName}] 📝 新增新变量`);
-        return await addQlEnv(token, dataStr);
     }
+    
+    // 最终兜底：如果同名变量只有一个且用户名匹配不上（可能首次写入时用户名不一致），直接更新
+    // 这可以防止因用户名变化/格式不一致导致重复创建
+    if (sameNameEnvs.length === 1) {
+        const target = sameNameEnvs[0];
+        console.log(`[${scriptName}] ⚠️ 未匹配到用户但同名变量唯一，兜底更新，ID: ${target.id}`);
+        return await updateQlEnv(token, target.id, dataStr);
+    }
+    
+    // 确实没有同名变量，才新增
+    console.log(`[${scriptName}] 📝 未找到同名变量，新增变量`);
+    return await addQlEnv(token, dataStr);
 }
 
 /**
