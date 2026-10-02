@@ -2,7 +2,7 @@
 阿里云社区 Cookie 抓取模块 - Loon 专用版
 @Author: z.W.
 @Date: 2026-08-22
-@Version: 2.1.0
+@Version: 2.1.1
 @Description: 
   仅负责抓取阿里云社区Cookie，并同步至青龙面板
   不执行任何任务脚本
@@ -22,6 +22,8 @@
   - ql_data_name: 青龙变量名 (默认: aliyunWeb_data)
 
 更新日志:
+  v2.1.1 - 修复兜底逻辑：精确匹配失败时，只要有同名变量（>=1）就更新第一个，不再新建
+           修复 userId 写死 nickname 导致去重语义丢失：改用 Cookie 中 cna 字段作唯一标识
   v2.0.0 - 重写为 Loon 专用版，参照 JD_Cookie_Sync_Loon.js 的 BoxJS 读取模式
            移除 Surge $argument 依赖，直接用 $persistentStore 读 BoxJS 配置
   v1.0.4 - 修复 Loon 下 $httpClient 必须传对象参数导致青龙同步静默失败的问题
@@ -32,7 +34,7 @@
 */
 
 const scriptName = '阿里云Web Cookie';
-const version = 'v2.1.0';
+const version = 'v2.1.1';
 const ckName = 'aliyunWeb_data';
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -366,11 +368,11 @@ async function syncToQinglong(token, cookieData, dataStr) {
         return await updateQlEnv(token, matchedEnv.id, dataStr);
     }
     
-    // 最终兜底：如果同名变量只有一个且用户名匹配不上（可能首次写入时用户名不一致），直接更新
-    // 这可以防止因用户名变化/格式不一致导致重复创建
-    if (sameNameEnvs.length === 1) {
+    // 最终兜底：精确匹配失败但同名变量已存在（≥1个），直接更新第一个，杜绝重复创建
+    // 修复 v2.1.1: 原逻辑仅在 length===1 时兜底，当存在≥2个同名变量时会继续走到新建逻辑
+    if (sameNameEnvs.length >= 1) {
         const target = sameNameEnvs[0];
-        console.log(`[${scriptName}] ⚠️ 未匹配到用户但同名变量唯一，兜底更新，ID: ${target.id}`);
+        console.log(`[${scriptName}] ⚠️ 未精确匹配到用户，兜底更新第一个同名变量（共${sameNameEnvs.length}个），ID: ${target.id}`);
         return await updateQlEnv(token, target.id, dataStr);
     }
     
@@ -422,10 +424,20 @@ async function syncToQinglong(token, cookieData, dataStr) {
             }
         }
         
+        // 从 Cookie 中提取稳定的唯一标识 cna（阿里云设备ID，不会随昵称变化）
+        // 格式示例: cna=XXXXXXXXXXXXXXXX; 若不存在则回退使用 nickname
+        let stableUserId = '未知用户';
+        const cnaMatch = cookie.match(/(?:^|;\s*)cna=([^;]+)/);
+        if (cnaMatch && cnaMatch[1]) {
+            stableUserId = cnaMatch[1].trim();
+        } else if (userInfo && userInfo.nickname) {
+            stableUserId = userInfo.nickname;
+        }
+        
         // 构建Cookie数据
         const cookieData = {
-            userId: (userInfo && userInfo.nickname) || '未知用户',
-            userName: (userInfo && userInfo.nickname) || '未知用户',
+            userId: stableUserId,                               // 唯一标识（cna 或 nickname 兜底）
+            userName: (userInfo && userInfo.nickname) || '未知用户', // 展示用昵称
             avatar: (userInfo && userInfo.avatar) || '',
             token: cookie
         };
