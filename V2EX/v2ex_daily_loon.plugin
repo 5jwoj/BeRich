@@ -5,8 +5,8 @@
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
 #!icon = https://www.v2ex.com/favicon.ico
 #!tag = 签到, V2EX
-#!version = 1.0.5
-#!date = 2026-10-04 17:37:00
+#!version = 1.0.6
+#!date = 2026-10-04 18:14:00
 
 # ==============================================================================
 # V2EX 每日签到 Loon 插件 (v1.0.5 修复版)
@@ -31,6 +31,7 @@
 # BoxJS 可配置项 (App ID: v2ex.daily.loon):
 #   - v2ex_daily.cookie: V2EX Cookie（访问网站后自动获取，无需手动填写）
 #   - v2ex_daily.ua: 自定义 User-Agent（可选）
+#   - v2ex_daily.policy: Loon 代理策略名（可选，如 PROXY / 香港节点 / Global 等，用于解决签到时 HTTP 超时）
 #
 # BoxJS 订阅 (Loon 专用):
 #   https://raw.githubusercontent.com/5jwoj/BeRich/main/boxjs/BeRich_Loon.boxjs.json

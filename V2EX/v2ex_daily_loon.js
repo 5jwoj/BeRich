@@ -4,10 +4,10 @@
  * 行为特性：
  * 1) [http-request]  访问 www.v2ex.com 时从「请求头」捕获现有 Cookie（已登录状态）
  * 2) [http-response] 登录 v2ex.com 时从「响应头 Set-Cookie」捕获新 Cookie（首次/重新登录）
- * 3) 定时任务每天 08:00 自动签到、推送余额通知
+ * 3) 定时任务每天 08:00 自动签到、推送余额通知（支持指定代理策略，解决超时问题）
  * 4) Cookie 失效后重新用手机浏览器登录 V2EX 即可自动更新
  *
- * Version: v1.0.5
+ * Version: v1.0.6
  * Author: @5jwoj (修复版 by Antigravity)
  *
  * Loon 插件地址：
@@ -19,16 +19,20 @@
 // ====================================================
 const BOXJS_KEY_COOKIE = "v2ex_daily.cookie";
 const BOXJS_KEY_UA     = "v2ex_daily.ua";
+const BOXJS_KEY_POLICY = "v2ex_daily.policy"; // Loon 代理策略名，留空则使用系统默认策略
 
 // ====================================================
 // 常量与配置
 // ====================================================
-const SCRIPT_NAME = "V2EX签到";
-const SCRIPT_TAG  = "[V2EX-Loon v1.0.5]";
-const BASE_URL    = "https://www.v2ex.com";
-const DAILY_URL   = `${BASE_URL}/mission/daily`;
-const BALANCE_URL = `${BASE_URL}/balance`;
-const DEFAULT_UA  = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.0.0 Mobile/15E148 Safari/604.1";
+const SCRIPT_NAME  = "V2EX签到";
+const SCRIPT_TAG   = "[V2EX-Loon v1.0.6]";
+const BASE_URL     = "https://www.v2ex.com";
+const DAILY_URL    = `${BASE_URL}/mission/daily`;
+const BALANCE_URL  = `${BASE_URL}/balance`;
+const DEFAULT_UA   = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.0.0 Mobile/15E148 Safari/604.1";
+const HTTP_TIMEOUT = 30;   // 单次请求超时（秒）
+const MAX_RETRIES  = 3;    // 最大重试次数
+const RETRY_DELAY  = 3000; // 重试间隔（毫秒）
 
 // ====================================================
 // 运行入口分发
@@ -195,6 +199,11 @@ function getStoredUA() {
   return (val && val.trim()) ? val.trim() : DEFAULT_UA;
 }
 
+function getStoredPolicy() {
+  const val = $persistentStore.read(BOXJS_KEY_POLICY);
+  return (val && val.trim()) ? val.trim() : null;
+}
+
 function buildHeaders(cookie) {
   return {
     "User-Agent":      getStoredUA(),
@@ -205,9 +214,16 @@ function buildHeaders(cookie) {
   };
 }
 
+// 单次 HTTP GET，支持 Loon policy 指定代理策略
 function httpGet(url, headers) {
   return new Promise((resolve, reject) => {
-    $httpClient.get({ url, headers, timeout: 15 }, (err, resp, body) => {
+    const options = { url, headers, timeout: HTTP_TIMEOUT };
+    const policy  = getStoredPolicy();
+    if (policy) {
+      options["policy"] = policy; // Loon 专属：指定出口代理策略，解决直连超时
+      console.log(`${SCRIPT_TAG} [请求] 使用策略: ${policy}`);
+    }
+    $httpClient.get(options, (err, resp, body) => {
       if (err) { reject(err); return; }
       resolve({
         statusCode: resp ? (resp.status || resp.statusCode) : 0,
@@ -216,6 +232,26 @@ function httpGet(url, headers) {
       });
     });
   });
+}
+
+// 带自动重试的 HTTP GET
+async function httpGetWithRetry(url, headers) {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await httpGet(url, headers);
+    } catch (e) {
+      lastErr = e;
+      const isTimeout = String(e).includes("timeout") || String(e).includes("Timeout");
+      const isConnErr = String(e).includes("connect") || String(e).includes("network");
+      if (!isTimeout && !isConnErr) throw e; // 非网络错误不重试
+      if (attempt < MAX_RETRIES) {
+        console.log(`${SCRIPT_TAG} [重试 ${attempt}/${MAX_RETRIES}] ${e} — ${RETRY_DELAY / 1000}s 后重试...`);
+        await new Promise(r => setTimeout(r, RETRY_DELAY));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 function notify(title, subtitle, body) {
@@ -289,7 +325,7 @@ function formatBalance(balance) {
 
 async function getOnceCode(cookie) {
   try {
-    const res  = await httpGet(DAILY_URL, buildHeaders(cookie));
+    const res  = await httpGetWithRetry(DAILY_URL, buildHeaders(cookie));
     const body = res.body || "";
     if (body.includes("/signin") || body.includes("请登录"))
       return { onceCode: null, alreadyClaimed: false, cookieExpired: true };
@@ -306,7 +342,7 @@ async function getOnceCode(cookie) {
 
 async function getBalance(cookie) {
   try {
-    const res = await httpGet(BALANCE_URL, buildHeaders(cookie));
+    const res = await httpGetWithRetry(BALANCE_URL, buildHeaders(cookie));
     return parseBalance(res.body || "");
   } catch (e) {
     return { copper: null, silver: null, gold: null };
@@ -316,7 +352,7 @@ async function getBalance(cookie) {
 async function redeemReward(cookie, onceCode) {
   const redeemUrl = `${BASE_URL}/mission/daily/redeem?once=${onceCode}`;
   try {
-    const res  = await httpGet(redeemUrl, buildHeaders(cookie));
+    const res  = await httpGetWithRetry(redeemUrl, buildHeaders(cookie));
     const body = res.body || "";
     if (body.includes("/signin") || body.includes("请重新登录"))
       return { success: false, reason: "cookie_expired" };
