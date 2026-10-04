@@ -7,7 +7,7 @@
  * 3) 定时任务每天 08:00 自动签到、推送余额通知（支持指定代理策略，解决超时问题）
  * 4) Cookie 失效后重新用手机浏览器登录 V2EX 即可自动更新
  *
- * Version: v1.0.6
+ * Version: v1.0.7
  * Author: @5jwoj (修复版 by Antigravity)
  *
  * Loon 插件地址：
@@ -25,8 +25,10 @@ const BOXJS_KEY_POLICY = "v2ex_daily.policy"; // Loon 代理策略名，留空�
 // 常量与配置
 // ====================================================
 const SCRIPT_NAME  = "V2EX签到";
-const SCRIPT_TAG   = "[V2EX-Loon v1.0.6]";
-const BASE_URL     = "https://www.v2ex.com";
+const SCRIPT_TAG   = "[V2EX-Loon v1.0.7]";
+// 脱去 www 前缀，避免被 Loon MitM 列表劫持到 127.0.0.1 导致请求失败
+// www.v2ex.com 已加入 MitM 用于捕获 Cookie，脚本自身出请请求走 v2ex.com
+const BASE_URL     = "https://v2ex.com";
 const DAILY_URL    = `${BASE_URL}/mission/daily`;
 const BALANCE_URL  = `${BASE_URL}/balance`;
 const DEFAULT_UA   = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.0.0 Mobile/15E148 Safari/604.1";

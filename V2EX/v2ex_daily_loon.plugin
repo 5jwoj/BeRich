@@ -5,15 +5,17 @@
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
 #!icon = https://www.v2ex.com/favicon.ico
 #!tag = 签到, V2EX
-#!version = 1.0.6
-#!date = 2026-10-04 18:14:00
+#!version = 1.0.7
+#!date = 2026-10-04 18:43:00
 
 # ==============================================================================
-# V2EX 每日签到 Loon 插件 (v1.0.5 修复版)
+# V2EX 每日签到 Loon 插件 (v1.0.7 修复版)
 #
-# 修复说明 (v1.0.5):
-#   新增 http-response 拦截 → 从服务器「响应头 Set-Cookie」自动捕获 Cookie
-#   这是手机浏览器登录 V2EX 时的核心捕获路径，彻底解决抓包成功但 Cookie 无效的问题
+# 修复说明 (v1.0.7):
+#   脚本出站请求改为 v2ex.com（去掉 www 前缀）
+#   原因：www.v2ex.com 在 MitM 列表中，Loon 会将脚本的 $httpClient 请求
+#   也劫持到 127.0.0.1（自身的 MitM 处理器），导致请求失败、下载 0 字节
+#   改用 v2ex.com（不在 MitM 列表）发出请求，则正常走代理节点
 #
 # 功能:
 #   1. [http-response] 手机浏览器登录 V2EX 时，自动捕获服务器返回的 Session Cookie
@@ -50,4 +52,6 @@ http-request ^https?://(www\.)?v2ex\.com/ tag=V2EX Cookie捕获(请求头), scri
 cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js, tag=V2EX每日签到, timeout=30, img-url=https://www.v2ex.com/favicon.ico, enable=true
 
 [Mitm]
-hostname = www.v2ex.com, v2ex.com
+# 只保留 www.v2ex.com 做 MitM（用于捕获浏览器登录时的 Cookie）
+# 不加 v2ex.com，避免脚本的 $httpClient 请求被劫持到 127.0.0.1 导致签到失败
+hostname = www.v2ex.com
