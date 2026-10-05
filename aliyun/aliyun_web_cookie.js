@@ -2,7 +2,7 @@
 阿里云社区 Cookie 抓取模块 - Loon 专用版
 @Author: z.W.
 @Date: 2026-08-22
-@Version: 2.2.0
+@Version: 2.2.1
 @Description: 
   仅负责抓取阿里云社区Cookie，并同步至青龙面板
   不执行任何任务脚本
@@ -22,6 +22,8 @@
   - ql_data_name: 青龙变量名 (默认: aliyunWeb_data)
 
 更新日志:
+  v2.2.1 - 修复本地去重：三重匹配（userId / token内cna / token完全相同）
+           写入前清理历史重复条目，防止旧版残留数据导致假多账号
   v2.2.0 - 【关键修复】青龙存储格式改为纯 Cookie 字符串（多账号用@分隔）
            原 JSON 数组格式导致主脚本按@分割出假多账号，每段都不是合法 Cookie → 提示失效
            本地 Loon 持久化仍保留 JSON 数组（供去重用）
@@ -37,7 +39,7 @@
 */
 
 const scriptName = '阿里云Web Cookie';
-const version = 'v2.2.0';
+const version = 'v2.2.1';
 const ckName = 'aliyunWeb_data';
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -459,8 +461,32 @@ async function syncToQinglong(token, cookieData, dataStr) {
             existingData = [];
         }
         
-        // 检查是否已存在该用户（本地），更新或新增
-        const existingIndex = existingData.findIndex(item => item.userId === cookieData.userId);
+        // 检查是否已存在该用户（本地），三重匹配防止历史格式不同导致重复追加：
+        // 1) 精确匹配 userId（cna 或 nickname）
+        // 2) 通过已存 token 内的 cna 值匹配（兼容旧版用 nickname 存 userId 的情况）
+        // 3) token 字符串完全相同（完全重复的抓包）
+        let existingIndex = existingData.findIndex(item => item.userId === cookieData.userId);
+        
+        if (existingIndex < 0 && stableUserId !== '未知用户') {
+            // 二次匹配：从已存条目的 token 里提取 cna，看是否和本次一致
+            existingIndex = existingData.findIndex(item => {
+                if (!item.token) return false;
+                const m = item.token.match(/(?:^|;\s*)cna=([^;]+)/);
+                return m && m[1].trim() === stableUserId;
+            });
+            if (existingIndex >= 0) {
+                console.log(`[${scriptName}] 🔍 通过 cna 二次匹配到旧条目，合并更新（防止重复）`);
+            }
+        }
+        
+        if (existingIndex < 0) {
+            // 三次匹配：token 完全相同（重复抓包）
+            existingIndex = existingData.findIndex(item => item.token === cookieData.token);
+            if (existingIndex >= 0) {
+                console.log(`[${scriptName}] 🔍 token 完全相同，跳过重复追加`);
+            }
+        }
+        
         if (existingIndex >= 0) {
             existingData[existingIndex] = cookieData;
             console.log(`[${scriptName}] ✅ 更新本地用户Cookie: ${cookieData.userName}`);
@@ -469,10 +495,31 @@ async function syncToQinglong(token, cookieData, dataStr) {
             console.log(`[${scriptName}] ✅ 新增本地用户Cookie: ${cookieData.userName}`);
         }
         
+        // 去重清理：移除 cna 相同但 userId 不同的历史残留条目（只保留最新的那条）
+        const seenCna = new Set();
+        const cleanedData = [];
+        for (const item of existingData) {
+            const m = item.token && item.token.match(/(?:^|;\s*)cna=([^;]+)/);
+            const cnaKey = m ? m[1].trim() : item.userId;
+            if (!seenCna.has(cnaKey)) {
+                seenCna.add(cnaKey);
+                cleanedData.push(item);
+            } else {
+                console.log(`[${scriptName}] 🧹 清理重复条目: userId=${item.userId}`);
+            }
+        }
+        const deduped = cleanedData;
+        if (deduped.length < existingData.length) {
+            console.log(`[${scriptName}] 🧹 去重完成: ${existingData.length} → ${deduped.length} 条`);
+        }
+        
         // 保存到本地（JSON 格式，含用户信息，供 Loon 去重使用）
-        const dataStr = JSON.stringify(existingData);
+        const dataStr = JSON.stringify(deduped);
         writeStore(dataStr, ckName);
-        console.log(`[${scriptName}] ✅ Cookie已保存到本地，账号数: ${existingData.length}`);
+        console.log(`[${scriptName}] ✅ Cookie已保存到本地，账号数: ${deduped.length}`);
+        
+        // 用清理后的数据替换 existingData，供后续同步
+        existingData = deduped;
         
         // 构建青龙所需的纯 Cookie 字符串（多账号用 @ 分隔）
         // 主脚本 aliyun_web.js 按 @ 分割来识别多账号，必须存纯 Cookie 字符串，不能存 JSON
