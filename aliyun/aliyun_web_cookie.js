@@ -2,7 +2,7 @@
 阿里云社区 Cookie 抓取模块 - Loon 专用版
 @Author: z.W.
 @Date: 2026-08-22
-@Version: 2.1.1
+@Version: 2.2.0
 @Description: 
   仅负责抓取阿里云社区Cookie，并同步至青龙面板
   不执行任何任务脚本
@@ -22,6 +22,9 @@
   - ql_data_name: 青龙变量名 (默认: aliyunWeb_data)
 
 更新日志:
+  v2.2.0 - 【关键修复】青龙存储格式改为纯 Cookie 字符串（多账号用@分隔）
+           原 JSON 数组格式导致主脚本按@分割出假多账号，每段都不是合法 Cookie → 提示失效
+           本地 Loon 持久化仍保留 JSON 数组（供去重用）
   v2.1.1 - 修复兜底逻辑：精确匹配失败时，只要有同名变量（>=1）就更新第一个，不再新建
            修复 userId 写死 nickname 导致去重语义丢失：改用 Cookie 中 cna 字段作唯一标识
   v2.0.0 - 重写为 Loon 专用版，参照 JD_Cookie_Sync_Loon.js 的 BoxJS 读取模式
@@ -34,7 +37,7 @@
 */
 
 const scriptName = '阿里云Web Cookie';
-const version = 'v2.1.1';
+const version = 'v2.2.0';
 const ckName = 'aliyunWeb_data';
 
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
@@ -466,16 +469,21 @@ async function syncToQinglong(token, cookieData, dataStr) {
             console.log(`[${scriptName}] ✅ 新增本地用户Cookie: ${cookieData.userName}`);
         }
         
-        // 保存到本地
+        // 保存到本地（JSON 格式，含用户信息，供 Loon 去重使用）
         const dataStr = JSON.stringify(existingData);
         writeStore(dataStr, ckName);
         console.log(`[${scriptName}] ✅ Cookie已保存到本地，账号数: ${existingData.length}`);
+        
+        // 构建青龙所需的纯 Cookie 字符串（多账号用 @ 分隔）
+        // 主脚本 aliyun_web.js 按 @ 分割来识别多账号，必须存纯 Cookie 字符串，不能存 JSON
+        const qlCookieStr = existingData.map(item => item.token).join('@');
+        console.log(`[${scriptName}] 📋 青龙同步格式: 纯Cookie字符串，账号数: ${existingData.length}`);
         
         // 同步到青龙
         const token = await getQlToken();
         
         if (token) {
-            const syncResult = await syncToQinglong(token, cookieData, dataStr);
+            const syncResult = await syncToQinglong(token, cookieData, qlCookieStr);
             
             if (syncResult) {
                 notify(scriptName + ' ' + version, '🎉 Cookie同步成功', 
