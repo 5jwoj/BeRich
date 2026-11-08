@@ -7,7 +7,7 @@
  * 3) 定时任务每天 08:00 自动签到、推送余额通知（支持指定代理策略，解决超时问题）
  * 4) Cookie 失效后重新用手机浏览器登录 V2EX 即可自动更新
  *
- * Version: v1.0.7
+ * Version: v1.0.8
  * Author: @5jwoj (修复版 by Antigravity)
  *
  * Loon 插件地址：
@@ -25,7 +25,7 @@ const BOXJS_KEY_POLICY = "v2ex_daily.policy"; // Loon 代理策略名，留空�
 // 常量与配置
 // ====================================================
 const SCRIPT_NAME  = "V2EX签到";
-const SCRIPT_TAG   = "[V2EX-Loon v1.0.7]";
+const SCRIPT_TAG   = "[V2EX-Loon v1.0.8]";
 // 脱去 www 前缀，避免被 Loon MitM 列表劫持到 127.0.0.1 导致请求失败
 // www.v2ex.com 已加入 MitM 用于捕获 Cookie，脚本自身出请请求走 v2ex.com
 const BASE_URL     = "https://v2ex.com";
@@ -57,6 +57,14 @@ if (typeof $request !== "undefined" && typeof $response === "undefined") {
 // ====================================================
 // ① 从请求头捕获 Cookie（已登录时访问任意页面触发）
 // ====================================================
+// 判断 Cookie 中是否含有 V2EX 登录凭据（按名称精确匹配，避免 "A=" 子串误判）
+function hasSession(cookieStr) {
+  return String(cookieStr || "")
+    .split(";")
+    .map((p) => p.trim().split("=")[0])
+    .some((k) => k === "A2" || k === "A");
+}
+
 function captureRequestCookie() {
   try {
     const headers = $request.headers || {};
@@ -72,9 +80,9 @@ function captureRequestCookie() {
       return;
     }
 
-    // 必须包含 V2EX 的 Session 关键字段 A=
-    if (!cookie.includes("A=")) {
-      console.log(`${SCRIPT_TAG} [请求捕获] 未检测到 Session (A=)，可能未登录，跳过`);
+    // 必须包含 V2EX 的登录凭据：A2（当前登录 Cookie）或旧版 A
+    if (!hasSession(cookie)) {
+      console.log(`${SCRIPT_TAG} [请求捕获] 未检测到登录凭据 (A2/A)，可能未登录，跳过`);
       $done({});
       return;
     }
@@ -167,8 +175,8 @@ function captureResponseCookie() {
     const merged       = { ...existingPairs, ...newPairs }; // 新值覆盖旧值
     const mergedCookie = Object.values(merged).join("; ");
 
-    const hadSession    = existingRaw.includes("A=");
-    const hasNewSession = "A" in newPairs;
+    const hadSession    = hasSession(existingRaw);
+    const hasNewSession = ("A2" in newPairs) || ("A" in newPairs);
 
     $persistentStore.write(mergedCookie, BOXJS_KEY_COOKIE);
     console.log(`${SCRIPT_TAG} [响应捕获] ✅ Cookie 已合并保存，总长度: ${mergedCookie.length}`);

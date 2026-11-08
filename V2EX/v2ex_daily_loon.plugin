@@ -5,11 +5,13 @@
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
 #!icon = https://www.v2ex.com/favicon.ico
 #!tag = 签到, V2EX
-#!version = 1.0.7
+#!version = 1.0.8
 #!date = 2026-10-04 18:43:00
 
 # ==============================================================================
-# V2EX 每日签到 Loon 插件 (v1.0.7 修复版)
+# V2EX 每日签到 Loon 插件 (v1.0.8 修复版)
+#
+# v1.0.8: 修复无法捕获 Cookie —— V2EX 现行登录 Cookie 为 A2，旧逻辑只认 "A="，导致被误判未登录
 #
 # 修复说明 (v1.0.7):
 #   脚本出站请求改为 v2ex.com（去掉 www 前缀）
