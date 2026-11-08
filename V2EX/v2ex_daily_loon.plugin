@@ -5,11 +5,13 @@
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
 #!icon = https://www.v2ex.com/favicon.ico
 #!tag = 签到, V2EX
-#!version = 1.0.8
+#!version = 1.0.9
 #!date = 2026-10-04 18:43:00
 
 # ==============================================================================
-# V2EX 每日签到 Loon 插件 (v1.0.8 修复版)
+# V2EX 每日签到 Loon 插件 (v1.0.9 修复版)
+#
+# v1.0.9: 签到请求超时时自动回退 www/非 www 域名；自动记录浏览器 UA 用于签到
 #
 # v1.0.8: 修复无法捕获 Cookie —— V2EX 现行登录 Cookie 为 A2，旧逻辑只认 "A="，导致被误判未登录
 #
@@ -51,7 +53,7 @@ http-request ^https?://(www\.)?v2ex\.com/ tag=V2EX Cookie捕获(请求头), scri
 
 # --- 每日签到 ---
 # 每天 08:00 自动签到并推送余额通知
-cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js, tag=V2EX每日签到, timeout=30, img-url=https://www.v2ex.com/favicon.ico, enable=true
+cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js, tag=V2EX每日签到, timeout=60, img-url=https://www.v2ex.com/favicon.ico, enable=true
 
 [Mitm]
 # 只保留 www.v2ex.com 做 MitM（用于捕获浏览器登录时的 Cookie）

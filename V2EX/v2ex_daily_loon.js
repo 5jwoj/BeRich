@@ -7,7 +7,7 @@
  * 3) 定时任务每天 08:00 自动签到、推送余额通知（支持指定代理策略，解决超时问题）
  * 4) Cookie 失效后重新用手机浏览器登录 V2EX 即可自动更新
  *
- * Version: v1.0.8
+ * Version: v1.0.9
  * Author: @5jwoj (修复版 by Antigravity)
  *
  * Loon 插件地址：
@@ -19,13 +19,14 @@
 // ====================================================
 const BOXJS_KEY_COOKIE = "v2ex_daily.cookie";
 const BOXJS_KEY_UA     = "v2ex_daily.ua";
+const BOXJS_KEY_UA_CAPTURED = "v2ex_daily.ua_captured"; // 自动记录的浏览器 UA
 const BOXJS_KEY_POLICY = "v2ex_daily.policy"; // Loon 代理策略名，留空则使用系统默认策略
 
 // ====================================================
 // 常量与配置
 // ====================================================
 const SCRIPT_NAME  = "V2EX签到";
-const SCRIPT_TAG   = "[V2EX-Loon v1.0.8]";
+const SCRIPT_TAG   = "[V2EX-Loon v1.0.9]";
 // 脱去 www 前缀，避免被 Loon MitM 列表劫持到 127.0.0.1 导致请求失败
 // www.v2ex.com 已加入 MitM 用于捕获 Cookie，脚本自身出请请求走 v2ex.com
 const BASE_URL     = "https://v2ex.com";
@@ -86,6 +87,10 @@ function captureRequestCookie() {
       $done({});
       return;
     }
+
+    // 同步记录浏览器 UA（cf_clearance 等 Cookie 与 UA 绑定，签到时需保持一致）
+    const ua = headers["User-Agent"] || headers["user-agent"] || "";
+    if (ua) $persistentStore.write(ua, BOXJS_KEY_UA_CAPTURED);
 
     const currentCookie = ($persistentStore.read(BOXJS_KEY_COOKIE) || "").trim();
     const newCookie = cookie.trim();
@@ -206,7 +211,9 @@ function getStoredCookie() {
 
 function getStoredUA() {
   const val = $persistentStore.read(BOXJS_KEY_UA);
-  return (val && val.trim()) ? val.trim() : DEFAULT_UA;
+  if (val && val.trim()) return val.trim();
+  const cap = $persistentStore.read(BOXJS_KEY_UA_CAPTURED);
+  return (cap && cap.trim()) ? cap.trim() : DEFAULT_UA;
 }
 
 function getStoredPolicy() {
@@ -260,6 +267,14 @@ async function httpGetWithRetry(url, headers) {
         await new Promise(r => setTimeout(r, RETRY_DELAY));
       }
     }
+  }
+  // 主域名失败，回退到另一个域名（v2ex.com <-> www.v2ex.com）再试一次
+  const alt = url.includes("//www.v2ex.com")
+    ? url.replace("//www.v2ex.com", "//v2ex.com")
+    : url.replace("//v2ex.com", "//www.v2ex.com");
+  if (alt !== url) {
+    console.log(`${SCRIPT_TAG} [域名回退] ${alt}`);
+    try { return await httpGet(alt, headers); } catch (e) { lastErr = e; }
   }
   throw lastErr;
 }
