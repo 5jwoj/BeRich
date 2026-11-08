@@ -1,83 +1,22 @@
 #!name = 博卡经理端 · 去除启动倒计时
-#!desc = 拦截小程序开屏/启动广告配置，并把响应里的倒计时秒数与广告开关归零。需开启 HTTPS 解密。
+#!desc = 根据抓包结果：开屏广告来自 api.bokao2o.com/message/advert/list，返回空列表即可跳过开屏倒计时。需开启 HTTPS 解密。
 #!author = WorkBuddy
+#!version = 1.1
 #!loon_version = 3.5.1(978)
 #!date = 2026-11-08
 #!tag = 去广告,小程序,博卡
 #!type = normal
 
-# ============================================================================
-# 博卡经理端 / 小店通经理端 —— 启动时右上角 3 秒倒计时屏蔽插件
-# 适用：Loon 3.5.1 (978) 及以上。旧版 Loon 请用 BokaAdBlock-Legacy.plugin
-# ============================================================================
+# v1.1 抓包确认：开屏广告接口为 https://api.bokao2o.com/message/advert/list/p/g8Manager/get?isAll=1
+#      (飞行模式下该请求失败则无倒计时)。原版 Mitm 未包含 api.bokao2o.com 导致不生效。
+# v1.0 初版，按关键词猜测域名与字段。
 #
-# 【第一次使用，必做】
-# 1. Loon → 设置 → HTTPS 解密(MitM)：生成新证书 → 安装描述文件 →
-#    iOS「设置 → 通用 → 关于本机 → 证书信任设置」里对该证书开启完全信任 →
-#    回到 Loon 打开 MitM 总开关。不装证书，下面所有规则都不会生效。
-# 2. 安装本插件（插件页右上角 + → 填入本文件的 raw 链接；或把文件导入 Loon）。
-# 3. 彻底杀掉微信后台，重新打开「博卡经理端」小程序，观察倒计时是否消失。
-#
-# 【如果没生效 —— 90% 是域名没覆盖到】
-# 小程序业务接口通常走博卡自己的域名，但也可能走独立的 API/CDN 域名。
-#   a) Loon → 仪表 → 抓包（或「最近请求」），杀掉微信重开小程序，
-#      记下启动时最先发出的几个请求域名；
-#   b) 把域名加进最下方 [Mitm] 的 hostname；
-#   c) 找到返回广告/启动配置的那个请求，把它的 URL 正则填到下面
-#      【F. 自定义接口】那一行，取消注释并把 hardBlock 打开；
-#   d) 排查时可临时把 hostname 改成 * 全量解密，抓完一定改回来
-#      （全量解密会影响微信支付、银行等 App，且有隐私风险）。
-#
-# 【重要限制】
-# 如果这 3 秒是小程序前端代码里写死的（例如 data: { time: 3 }，
-# 不读任何接口），网络层插件无法改变它 —— 那需要反编译 wxapkg 改包，
-# iOS 上基本不可行，只能反馈给博卡官方关闭。先用抓包确认：
-# 若启动时有一个响应里含 duration / countdown / showTime 之类字段，就能屏蔽。
-#
-# 【打包自带的三个开关】
-#  拦截广告接口 = 直接把路径含 ad / splash / launch 的请求返回空 JSON {}
-#  宽松匹配     = 默认只改博卡域名的响应；打开后对所有已解密响应生效
-#  拦截广告图片 = 把开屏图换为 1×1 透明像素（可能造成空白浮层，按需开）
-# ============================================================================
-
-
-[Argument]
-hardBlock = switch,true,type=boolean,tag=拦截广告接口,desc=把路径含 ad/splash/launch 等关键词的请求直接返回空 JSON
-loose = switch,false,type=boolean,tag=宽松匹配,desc=默认只处理博卡域名；抓不到接口时打开，对所有已解密响应生效
-zapImage = switch,false,type=boolean,tag=拦截广告图片,desc=把开屏/横幅图片替换成 1×1 透明图
-
+# 若仍有倒计时，把下面的 response 规则换成：
+# request if ${url} ~= /^https:\/\/api\.bokao2o\.com\/message\/advert\/list\// then reject
 
 [Rewrite]
-
-# ---------- A. 掐掉疑似开屏广告 / 启动配置接口（返回 {}） ----------
-request if ${hardBlock} == true && ${url} ~= /(splash|launch|startup|open-?screen|opening|boot-?ad|screen-?ad|getAd|adConfig|adList|adInfo|advertis|popupAd|bannerAd|\/ads?\/|\/ads?\?)/i then reject_dict(200)
-
-# ---------- B. 广告图片换成透明像素 ----------
-request if ${zapImage} == true && ${url} ~= /(splash|launch|startup|open-?screen|advert|banner|popup).*\.(png|jpe?g|gif|webp)/i then reject_img(200)
-
-# ---------- C. 数字型倒计时秒数 → 0（只匹配 1~60 的小数值，避免误伤时间戳） ----------
-response if (${loose} == true || ${url} ~= /(boka|shboka|bokachina|iboka)/i) && ${response.status} == 200 then response.body.replace(/"(duration|showTime|countdown|countDown|count_down|seconds|second|skipTime|skipSeconds|adTime|adSeconds|splashTime|launchTime|showDuration|displayDuration|showSeconds|displayTime|stayTime|remainTime|leftTime|timeLeft|time_left|waitTime|delayTime|autoCloseTime|closeTime|playDuration|adDuration)"\s*:\s*(?:[1-9]|[1-5]\d|60)/gi, "\"$1\":0")
-
-# ---------- D. 字符串型秒数 "3" → "0" ----------
-response if (${loose} == true || ${url} ~= /(boka|shboka|bokachina|iboka)/i) && ${response.status} == 200 then response.body.replace(/"(duration|showTime|countdown|countDown|count_down|seconds|second|skipTime|skipSeconds|adTime|adSeconds|splashTime|launchTime|showDuration|displayDuration|showSeconds|displayTime|stayTime|remainTime|leftTime|timeLeft|time_left|waitTime|delayTime|autoCloseTime|closeTime|playDuration|adDuration)"\s*:\s*"(?:[1-9]|[1-5]\d|60)"/gi, "\"$1\":\"0\"")
-
-# ---------- E. 广告展示开关 true → false ----------
-response if (${loose} == true || ${url} ~= /(boka|shboka|bokachina|iboka)/i) && ${response.status} == 200 then response.body.replace(/"(showAd|isShowAd|enableAd|adEnable|showSplash|isShowSplash|hasAd|hasAdvert|advertising|isAdvertising|showAdvert|adSwitch|enableSplash|openAd|showLaunchAd|showPopupAd|needAd|displayAd|adShow|showAdver)"\s*:\s*true/gi, "\"$1\":false")
-
-# ---------- F. 自定义接口（抓包后填这里，最有效的一条） ----------
-# 例：request if ${url} ~= /^https:\/\/api\.shboka\.com\/v1\/xxx\/splash/ then reject_dict(200)
-# 例：response if ${url} ~= /^https:\/\/api\.shboka\.com\/v1\/xxx\/config/ then response.json.replace("data.ad.duration", 0)
-
-# ---------- G. 想按实际字段名精确改包，可以加 json 动作 ----------
-# response if ${url} ~= /config/ && ${response.status} == 200 then response.json.delete("data.splash") | response.json.replace("data.duration", 0)
-
-
-[Script]
-# 进阶：递归清理未知字段名（需把 boka-adblock.js 放进 Loon 脚本目录）。
-# 新版 Script 语法（Loon 3.5.1(983)+），确认版本后取消注释：
-# response if ${url} ~= /(boka|shboka)/i then script("boka-adblock.js", {}) with requires_body=true, tag="博卡广告递归清理"
-
+# 开屏广告列表 -> 返回空数组（不用 {}，避免前端解析报错）
+response if ${url} ~= /^https:\/\/api\.bokao2o\.com\/message\/advert\/list\// && ${response.status} == 200 then response.body.replace(/"result":\[.*\],"success"/s, "\"result\":[],\"success\"")
 
 [Mitm]
-# 只解密博卡相关域名，不要改成 *；抓包发现新域名就往这里追加
-hostname = *.shboka.com, shboka.com, *.boka.cn, *.bokachina.com, *.iboka.cn, *.boka.com, *.boka.net
+hostname = api.bokao2o.com
