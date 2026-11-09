@@ -1,454 +1,605 @@
 /*
- * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版
+ * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版 v1.0.10
  *
- * 行为特性：
- * 1) [http-request]  访问 www.v2ex.com 时从「请求头」捕获现有 Cookie（已登录状态）
- * 2) [http-response] 登录 v2ex.com 时从「响应头 Set-Cookie」捕获新 Cookie（首次/重新登录）
- * 3) 定时任务每天 08:00 自动签到、推送余额通知（支持指定代理策略，解决超时问题）
- * 4) Cookie 失效后重新用手机浏览器登录 V2EX 即可自动更新
+ * 仓库: https://github.com/5jwoj/BeRich/tree/main/V2EX
  *
- * Version: v1.0.9
- * Author: @5jwoj (修复版 by Antigravity)
+ * ===== v1.0.10 修复清单 =====
+ *  1. $httpClient 的 timeout 单位是「毫秒」(Loon 官方文档, 默认 5000)，
+ *     旧版按「秒」传 30 = 30ms，签到请求必然超时。现改为 10000ms。
+ *  2. 指定代理策略的参数是 node，不是 policy。旧版 options["policy"] 被 Loon 忽略，
+ *     BoxJS 里填的策略名从未生效。现改为 options.node。
+ *  3. 显式关闭 auto-redirect / auto-cookie，自己判断 302 与 Set-Cookie，
+ *     避免 Loon 用匿名会话的 PB3_SESSION 改写手工传入的登录 Cookie。
+ *  4. 脚本自身发出的请求带 X-V2EX-Script: 1 标记，捕获脚本见到即跳过，
+ *     避免「自己抓自己」把签到请求误当浏览器请求处理。
+ *  5. http-response 只在 Set-Cookie 含 A2/A 时才写入。V2EX 每个响应都会下发
+ *     PB3_SESSION / V2EX_LANG，旧版无条件合并会污染已保存的登录 Cookie。
+ *  6. 区分「网络错误」与「Cookie 失效」：网络异常不再被吞掉后误报
+ *     「请检查 Cookie 是否有效」，通知里直接显示真实错误。
+ *  7. 多账号 Cookie 按 A2 值定位行更新，不再被响应合并逻辑打乱换行分隔。
+ *  8. 移除默认开启的 www 域名回退（www 在 MitM 列表内，会把 v1.0.7 修掉的
+ *     127.0.0.1 自劫持问题带回来）；需要时把 ENABLE_DOMAIN_FALLBACK 改成 true。
  *
- * Loon 插件地址：
- * https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.plugin
+ * BoxJS 可配置项:
+ *   v2ex_daily.cookie  Cookie（自动捕获，也可手动填，多账号用换行分隔）
+ *   v2ex_daily.ua      自定义 UA（建议留空，留空时用自动捕获的浏览器 UA；
+ *                      填错会导致 cf_clearance 与 UA 不匹配而被 Cloudflare 拦）
+ *   v2ex_daily.policy  出口节点 / 策略组名 / DIRECT（对应 Loon 的 node 参数）
  */
 
 // ====================================================
-// BoxJS / persistentStore 键名定义
+// 键名与常量
 // ====================================================
-const BOXJS_KEY_COOKIE = "v2ex_daily.cookie";
-const BOXJS_KEY_UA     = "v2ex_daily.ua";
-const BOXJS_KEY_UA_CAPTURED = "v2ex_daily.ua_captured"; // 自动记录的浏览器 UA
-const BOXJS_KEY_POLICY = "v2ex_daily.policy"; // Loon 代理策略名，留空则使用系统默认策略
+const BOXJS_KEY_COOKIE      = "v2ex_daily.cookie";
+const BOXJS_KEY_UA          = "v2ex_daily.ua";
+const BOXJS_KEY_UA_CAPTURED = "v2ex_daily.ua_captured";
+const BOXJS_KEY_POLICY      = "v2ex_daily.policy";
+
+const SCRIPT_NAME = "V2EX签到";
+const SCRIPT_TAG  = "[V2EX-Loon v1.0.10]";
+
+// 出站用不带 www 的域名：www.v2ex.com 在 [Mitm] 列表内，
+// 脚本的 $httpClient 请求走该域会被 Loon 本地 MitM 处理器拦截。
+const BASE_URL    = "https://v2ex.com";
+const DAILY_URL   = BASE_URL + "/mission/daily";
+const BALANCE_URL = BASE_URL + "/balance";
+
+// 自身请求标记，供捕获逻辑识别并跳过
+const SELF_HEADER = "X-V2EX-Script";
+const SELF_VALUE  = "1";
+
+const DEFAULT_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+
+const HTTP_TIMEOUT_MS       = 10000; // 毫秒！Loon $httpClient 的单位
+const MAX_RETRIES           = 3;
+const RETRY_DELAY_MS        = 2000;
+const ENABLE_DOMAIN_FALLBACK = false; // 见修复清单第 8 条
+
+const SESSION_KEYS  = ["A2", "A"];
+const COOKIE_ATTRS  = ["path", "domain", "expires", "max-age", "secure", "httponly", "samesite"];
 
 // ====================================================
-// 常量与配置
+// 通用工具
 // ====================================================
-const SCRIPT_NAME  = "V2EX签到";
-const SCRIPT_TAG   = "[V2EX-Loon v1.0.9]";
-// 脱去 www 前缀，避免被 Loon MitM 列表劫持到 127.0.0.1 导致请求失败
-// www.v2ex.com 已加入 MitM 用于捕获 Cookie，脚本自身出请请求走 v2ex.com
-const BASE_URL     = "https://v2ex.com";
-const DAILY_URL    = `${BASE_URL}/mission/daily`;
-const BALANCE_URL  = `${BASE_URL}/balance`;
-const DEFAULT_UA   = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/120.0.0.0 Mobile/15E148 Safari/604.1";
-const HTTP_TIMEOUT = 30;   // 单次请求超时（秒）
-const MAX_RETRIES  = 3;    // 最大重试次数
-const RETRY_DELAY  = 3000; // 重试间隔（毫秒）
+function log(msg) {
+  try { console.log(SCRIPT_TAG + " " + msg); } catch (e) {}
+}
 
-// ====================================================
-// 运行入口分发
-// ① http-request  → 从请求头捕获 Cookie（已登录场景）
-// ② http-response → 从响应头 Set-Cookie 捕获新 Cookie（登录场景）
-// ③ 无 $request   → cron 定时任务签到
-// ====================================================
-if (typeof $request !== "undefined" && typeof $response === "undefined") {
-  captureRequestCookie();
-} else if (typeof $response !== "undefined") {
-  captureResponseCookie();
-} else {
-  main().catch((e) => {
-    console.log(`${SCRIPT_TAG} 签到任务异常: ${e}`);
-    notify(`${SCRIPT_NAME} ❌`, "脚本执行出错", String(e));
-    $done({});
-  });
+function notify(title, subtitle, body) {
+  const s = String(subtitle || "");
+  const b = String(body || "");
+  log("[通知] " + title + " | " + s + " | " + b);
+  try { $notification.post(title, s, b); } catch (e) { log("通知发送失败: " + e); }
+}
+
+function read(key) {
+  try { return $persistentStore.read(key) || ""; } catch (e) { return ""; }
+}
+
+function write(key, val) {
+  try { return $persistentStore.write(String(val), key); }
+  catch (e) { log("写入 " + key + " 失败: " + e); return false; }
+}
+
+function shorten(s, n) {
+  const lim = n || 200;
+  const str = String(s == null ? "" : s).replace(/\s+/g, " ");
+  return str.length > lim ? str.slice(0, lim) + "…" : str;
+}
+
+function stripTags(s) {
+  return String(s || "").replace(/<script[\s\S]*?<\/script>/gi, " ")
+                         .replace(/<[^>]+>/g, " ")
+                         .replace(/\s+/g, " ")
+                         .trim();
+}
+
+// 响应头 key 大小写不敏感
+function header(obj, name) {
+  if (!obj) return "";
+  const target = name.toLowerCase();
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase() === target) return obj[k] == null ? "" : String(obj[k]);
+  }
+  return "";
+}
+
+function getRawHeader(obj, name) {
+  if (!obj) return "";
+  const target = name.toLowerCase();
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase() === target) return obj[k];
+  }
+  return "";
+}
+
+function isSelf(headers) {
+  return header(headers, SELF_HEADER) === SELF_VALUE;
+}
+
+function sleep(ms) {
+  return new Promise(function (r) { setTimeout(r, ms); });
+}
+
+function netError(msg) {
+  const e = new Error(msg);
+  e.isNetwork = true;
+  return e;
 }
 
 // ====================================================
-// ① 从请求头捕获 Cookie（已登录时访问任意页面触发）
+// Cookie 解析与多账号存储
 // ====================================================
-// 判断 Cookie 中是否含有 V2EX 登录凭据（按名称精确匹配，避免 "A=" 子串误判）
 function hasSession(cookieStr) {
   return String(cookieStr || "")
     .split(";")
-    .map((p) => p.trim().split("=")[0])
-    .some((k) => k === "A2" || k === "A");
+    .map(function (p) { return p.trim().split("=")[0]; })
+    .some(function (k) { return SESSION_KEYS.indexOf(k) >= 0; });
 }
 
-function captureRequestCookie() {
-  try {
-    const headers = $request.headers || {};
-    const cookie  = headers["Cookie"] || headers["cookie"] || headers["COOKIE"] || "";
-    const reqUrl  = $request.url || "";
-
-    console.log(`${SCRIPT_TAG} [请求捕获] URL: ${reqUrl}`);
-    console.log(`${SCRIPT_TAG} [请求捕获] Cookie 长度: ${cookie.length}`);
-
-    if (!cookie || cookie.trim().length < 10) {
-      console.log(`${SCRIPT_TAG} [请求捕获] Cookie 过短或为空，跳过`);
-      $done({});
-      return;
-    }
-
-    // 必须包含 V2EX 的登录凭据：A2（当前登录 Cookie）或旧版 A
-    if (!hasSession(cookie)) {
-      console.log(`${SCRIPT_TAG} [请求捕获] 未检测到登录凭据 (A2/A)，可能未登录，跳过`);
-      $done({});
-      return;
-    }
-
-    // 同步记录浏览器 UA（cf_clearance 等 Cookie 与 UA 绑定，签到时需保持一致）
-    const ua = headers["User-Agent"] || headers["user-agent"] || "";
-    if (ua) $persistentStore.write(ua, BOXJS_KEY_UA_CAPTURED);
-
-    const currentCookie = ($persistentStore.read(BOXJS_KEY_COOKIE) || "").trim();
-    const newCookie = cookie.trim();
-
-    if (currentCookie !== newCookie) {
-      const ok = $persistentStore.write(newCookie, BOXJS_KEY_COOKIE);
-      if (ok) {
-        console.log(`${SCRIPT_TAG} [请求捕获] ✅ Cookie 已保存，长度: ${newCookie.length}`);
-        notify(`${SCRIPT_NAME} ✅`, "Cookie 已自动保存（请求头）", "已捕获 V2EX Session，08:00 将自动签到");
-      } else {
-        console.log(`${SCRIPT_TAG} [请求捕获] ❌ persistentStore.write 返回 false`);
-      }
-    } else {
-      console.log(`${SCRIPT_TAG} [请求捕获] Cookie 未变更，无需写入`);
-    }
-  } catch (err) {
-    console.log(`${SCRIPT_TAG} [请求捕获异常] ${err}`);
+function sessionKey(cookieStr) {
+  for (const k of SESSION_KEYS) {
+    const m = String(cookieStr || "").match(new RegExp("(?:^|;\\s*)" + k + "=([^;]+)"));
+    if (m) return k + ":" + m[1];
   }
-  $done({});
+  return "";
+}
+
+function parseCookieLine(line) {
+  const pairs = {};
+  for (const part of String(line || "").split(";")) {
+    const p = part.trim();
+    const i = p.indexOf("=");
+    if (i > 0) pairs[p.slice(0, i).trim()] = p;
+  }
+  return pairs;
+}
+
+function pairsToString(pairs) {
+  return Object.keys(pairs).map(function (k) { return pairs[k]; }).join("; ");
+}
+
+// 按 A2 定位账号行：同账号覆盖，新账号追加，不破坏换行分隔
+function mergeCookieIntoStore(newLine) {
+  newLine = String(newLine || "").trim();
+  const raw = read(BOXJS_KEY_COOKIE).trim();
+  if (!raw) {
+    write(BOXJS_KEY_COOKIE, newLine);
+    return { changed: true, count: 1 };
+  }
+  const lines = raw.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+  const key = sessionKey(newLine);
+  let idx = -1;
+  if (key) idx = lines.findIndex(function (l) { return sessionKey(l) === key; });
+  if (idx < 0 && lines.length === 1) idx = 0; // 单账号模式直接替换
+  if (idx >= 0) {
+    if (lines[idx] === newLine) return { changed: false, count: lines.length };
+    lines[idx] = newLine;
+  } else {
+    lines.push(newLine);
+  }
+  write(BOXJS_KEY_COOKIE, lines.join("\n"));
+  return { changed: true, count: lines.length };
+}
+
+// Set-Cookie 可能是数组，也可能是逗号拼接的字符串
+function parseSetCookie(raw) {
+  const pairs = {};
+  const list = Array.isArray(raw)
+    ? raw
+    : String(raw || "").split(/,\s*(?=[A-Za-z_][A-Za-z0-9_-]*=)/);
+  for (const item of list) {
+    const first = String(item).split(";")[0].trim();
+    const i = first.indexOf("=");
+    if (i <= 0) continue;
+    const k = first.slice(0, i).trim();
+    if (COOKIE_ATTRS.indexOf(k.toLowerCase()) >= 0) continue;
+    pairs[k] = first;
+  }
+  return pairs;
 }
 
 // ====================================================
-// ② 从响应头 Set-Cookie 捕获新 Cookie（登录页核心）
-//    这是首次登录 / 重新登录时的关键捕获路径
+// ① 请求头捕获（浏览器已登录访问任意页面时）
+// ====================================================
+function captureRequestCookie() {
+  const headers = ($request && $request.headers) || {};
+  const cookie  = header(headers, "Cookie").trim();
+  const ua      = header(headers, "User-Agent").trim();
+
+  log("[请求捕获] URL=" + ($request.url || "") + " Cookie长度=" + cookie.length);
+
+  if (cookie.length < 10) {
+    log("[请求捕获] Cookie 为空或过短，跳过");
+    return;
+  }
+  if (!hasSession(cookie)) {
+    log("[请求捕获] 未检测到 A2/A 登录凭据，跳过（避免写入匿名会话）");
+    return;
+  }
+  // cf_clearance 与 UA 绑定，签到时必须复用浏览器 UA
+  if (ua) write(BOXJS_KEY_UA_CAPTURED, ua);
+
+  const r = mergeCookieIntoStore(cookie);
+  if (r.changed) {
+    notify(SCRIPT_NAME + " ✅", "Cookie 已自动保存（请求头）",
+           "当前账号数 " + r.count + "，每日 08:00 自动签到");
+  } else {
+    log("[请求捕获] Cookie 未变化，无需写入");
+  }
+}
+
+// ====================================================
+// ② 响应头捕获（浏览器提交登录表单时）
 // ====================================================
 function captureResponseCookie() {
-  try {
-    const respHeaders = $response.headers || {};
-    // Loon 中 Set-Cookie 可能为字符串或数组
-    const rawSetCookie =
-      respHeaders["Set-Cookie"] ||
-      respHeaders["set-cookie"]  ||
-      respHeaders["SET-COOKIE"]  ||
-      "";
+  const reqHeaders = ($request && $request.headers) || {};
+  const respHeaders = ($response && $response.headers) || {};
+  const rawSetCookie = getRawHeader(respHeaders, "Set-Cookie");
 
-    if (!rawSetCookie) {
-      console.log(`${SCRIPT_TAG} [响应捕获] 无 Set-Cookie 响应头`);
-      $done({});
-      return;
-    }
-
-    console.log(`${SCRIPT_TAG} [响应捕获] 检测到 Set-Cookie`);
-
-    // 解析所有 Set-Cookie 条目（可能是数组或逗号分隔字符串）
-    const setCookieList = Array.isArray(rawSetCookie)
-      ? rawSetCookie
-      : String(rawSetCookie).split(/,\s*(?=[A-Za-z_-]+=)/); // 按新 cookie 起始分割
-
-    // 过滤掉 Set-Cookie 属性字段，只保留 name=value
-    const ATTR_KEYS = new Set(["path", "domain", "expires", "max-age", "secure", "httponly", "samesite"]);
-    const newPairs  = {}; // { cookieName: "name=value" }
-
-    for (const entry of setCookieList) {
-      const parts    = entry.split(";");
-      const firstPart = (parts[0] || "").trim();
-      if (!firstPart.includes("=")) continue;
-
-      const eqIdx = firstPart.indexOf("=");
-      const key   = firstPart.substring(0, eqIdx).trim();
-      const val   = firstPart.substring(eqIdx + 1).trim();
-
-      if (ATTR_KEYS.has(key.toLowerCase())) continue; // 跳过属性字段
-      newPairs[key] = `${key}=${val}`;
-    }
-
-    const capturedKeys = Object.keys(newPairs);
-    console.log(`${SCRIPT_TAG} [响应捕获] 捕获到 Cookie 字段: ${capturedKeys.join(", ")}`);
-
-    if (capturedKeys.length === 0) {
-      $done({});
-      return;
-    }
-
-    // 与现有 Cookie 合并（新值覆盖旧值，保留其他字段）
-    const existingRaw    = ($persistentStore.read(BOXJS_KEY_COOKIE) || "").trim();
-    const existingPairs  = {};
-    if (existingRaw) {
-      for (const pair of existingRaw.split(";").map(p => p.trim()).filter(Boolean)) {
-        const eqIdx = pair.indexOf("=");
-        if (eqIdx > 0) {
-          const k = pair.substring(0, eqIdx).trim();
-          existingPairs[k] = pair;
-        }
-      }
-    }
-
-    const merged       = { ...existingPairs, ...newPairs }; // 新值覆盖旧值
-    const mergedCookie = Object.values(merged).join("; ");
-
-    const hadSession    = hasSession(existingRaw);
-    const hasNewSession = ("A2" in newPairs) || ("A" in newPairs);
-
-    $persistentStore.write(mergedCookie, BOXJS_KEY_COOKIE);
-    console.log(`${SCRIPT_TAG} [响应捕获] ✅ Cookie 已合并保存，总长度: ${mergedCookie.length}`);
-
-    if (hasNewSession) {
-      // 捕获到新的 Session，一定要通知
-      notify(
-        `${SCRIPT_NAME} ✅`,
-        hadSession ? "Session Cookie 已更新" : "登录成功！Cookie 已自动保存",
-        "每日 08:00 将自动签到并推送余额通知"
-      );
-    }
-  } catch (err) {
-    console.log(`${SCRIPT_TAG} [响应捕获异常] ${err}`);
+  if (!rawSetCookie) {
+    log("[响应捕获] 无 Set-Cookie 响应头");
+    return;
   }
-  $done({});
+
+  const pairs = parseSetCookie(rawSetCookie);
+  const keys = Object.keys(pairs);
+  log("[响应捕获] Set-Cookie 字段: " + (keys.join(", ") || "(无)"));
+
+  // 关键修复：V2EX 每个响应都会下发 PB3_SESSION / V2EX_LANG。
+  // 只有真正下发登录凭据 A2/A 时才允许写入，否则会把保存的会话覆盖成匿名会话。
+  const hasNewSession = SESSION_KEYS.some(function (k) { return k in pairs; });
+  if (!hasNewSession) {
+    log("[响应捕获] 未下发 A2/A，跳过写入（防止 PB3_SESSION 覆盖登录 Cookie）");
+    return;
+  }
+
+  const storeRaw = read(BOXJS_KEY_COOKIE).trim();
+  const lines = storeRaw
+    ? storeRaw.split("\n").map(function (s) { return s.trim(); }).filter(Boolean)
+    : [];
+  // 单账号时以现有行为基础合并字段；多账号且无法定位时新建一行
+  const baseLine = lines.length === 1 ? lines[0] : "";
+  const mergedLine = pairsToString(Object.assign(parseCookieLine(baseLine), pairs));
+  const r = mergeCookieIntoStore(mergedLine);
+
+  const ua = header(reqHeaders, "User-Agent").trim();
+  if (ua) write(BOXJS_KEY_UA_CAPTURED, ua);
+
+  if (r.changed) {
+    notify(SCRIPT_NAME + " ✅", "登录成功：Cookie 已自动保存",
+           "当前账号数 " + r.count + "，每日 08:00 自动签到");
+  }
 }
 
 // ====================================================
-// ③ 网络请求与通知封装
+// ③ 网络请求封装
 // ====================================================
-
 function getStoredCookie() {
-  const val = $persistentStore.read(BOXJS_KEY_COOKIE);
-  return val ? val.trim() : null;
+  return read(BOXJS_KEY_COOKIE).trim();
 }
 
 function getStoredUA() {
-  const val = $persistentStore.read(BOXJS_KEY_UA);
-  if (val && val.trim()) return val.trim();
-  const cap = $persistentStore.read(BOXJS_KEY_UA_CAPTURED);
-  return (cap && cap.trim()) ? cap.trim() : DEFAULT_UA;
+  const custom = read(BOXJS_KEY_UA).trim();
+  if (custom) return custom;
+  const captured = read(BOXJS_KEY_UA_CAPTURED).trim();
+  return captured || DEFAULT_UA;
 }
 
 function getStoredPolicy() {
-  const val = $persistentStore.read(BOXJS_KEY_POLICY);
-  return (val && val.trim()) ? val.trim() : null;
+  return read(BOXJS_KEY_POLICY).trim();
 }
 
 function buildHeaders(cookie) {
-  return {
+  const h = {
     "User-Agent":      getStoredUA(),
     "Cookie":          cookie,
-    "Referer":         DAILY_URL,
+    "Referer":         "https://www.v2ex.com/mission/daily",
     "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
   };
+  h[SELF_HEADER] = SELF_VALUE;
+  return h;
 }
 
-// 单次 HTTP GET，支持 Loon policy 指定代理策略
 function httpGet(url, headers) {
-  return new Promise((resolve, reject) => {
-    const options = { url, headers, timeout: HTTP_TIMEOUT };
-    const policy  = getStoredPolicy();
+  return new Promise(function (resolve, reject) {
+    const options = {
+      url: url,
+      headers: headers,
+      timeout: HTTP_TIMEOUT_MS,
+      "auto-redirect": false,
+      "auto-cookie": false,
+      insecure: true
+    };
+    const policy = getStoredPolicy();
     if (policy) {
-      options["policy"] = policy; // Loon 专属：指定出口代理策略，解决直连超时
-      console.log(`${SCRIPT_TAG} [请求] 使用策略: ${policy}`);
+      options.node = policy; // Loon 用 node，不是 policy
+      log("[请求] 指定 node: " + policy);
     }
-    $httpClient.get(options, (err, resp, body) => {
-      if (err) { reject(err); return; }
+    log("[请求] GET " + url + " timeout=" + HTTP_TIMEOUT_MS + "ms");
+
+    $httpClient.get(options, function (err, resp, body) {
+      if (err) {
+        reject(netError("请求失败: " + shorten(String(err), 160)));
+        return;
+      }
+      const status = resp ? (resp.status || resp.statusCode || 0) : 0;
+      const respHeaders = (resp && resp.headers) || {};
+      log("[响应] HTTP " + status +
+          " body=" + (body ? String(body).length : 0) + "B" +
+          " location=" + shorten(header(respHeaders, "location"), 80));
       resolve({
-        statusCode: resp ? (resp.status || resp.statusCode) : 0,
-        headers:    (resp && resp.headers) || {},
-        body:       body || ""
+        statusCode: status,
+        headers: respHeaders,
+        body: typeof body === "string" ? body : (body ? String(body) : "")
       });
     });
   });
 }
 
-// 带自动重试的 HTTP GET
 async function httpGetWithRetry(url, headers) {
-  let lastErr;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  let lastErr = null;
+  for (let i = 1; i <= MAX_RETRIES; i++) {
     try {
       return await httpGet(url, headers);
     } catch (e) {
       lastErr = e;
-      const isTimeout = String(e).includes("timeout") || String(e).includes("Timeout");
-      const isConnErr = String(e).includes("connect") || String(e).includes("network");
-      if (!isTimeout && !isConnErr) throw e; // 非网络错误不重试
-      if (attempt < MAX_RETRIES) {
-        console.log(`${SCRIPT_TAG} [重试 ${attempt}/${MAX_RETRIES}] ${e} — ${RETRY_DELAY / 1000}s 后重试...`);
-        await new Promise(r => setTimeout(r, RETRY_DELAY));
-      }
+      log("[重试 " + i + "/" + MAX_RETRIES + "] " + shorten(e && e.message ? e.message : e, 160));
+      if (i < MAX_RETRIES) await sleep(RETRY_DELAY_MS);
     }
   }
-  // 主域名失败，回退到另一个域名（v2ex.com <-> www.v2ex.com）再试一次
-  const alt = url.includes("//www.v2ex.com")
-    ? url.replace("//www.v2ex.com", "//v2ex.com")
-    : url.replace("//v2ex.com", "//www.v2ex.com");
-  if (alt !== url) {
-    console.log(`${SCRIPT_TAG} [域名回退] ${alt}`);
-    try { return await httpGet(alt, headers); } catch (e) { lastErr = e; }
+
+  if (ENABLE_DOMAIN_FALLBACK) {
+    const alt = url.indexOf("//www.v2ex.com") >= 0
+      ? url.replace("//www.v2ex.com", "//v2ex.com")
+      : url.replace("//v2ex.com", "//www.v2ex.com");
+    if (alt !== url) {
+      log("[域名回退] " + alt + "（注意：www 域在 MitM 列表内，可能被本地处理器拦截）");
+      try { return await httpGet(alt, headers); }
+      catch (e) { lastErr = e; }
+    }
   }
-  throw lastErr;
+  throw lastErr || netError("未知网络错误");
 }
 
-function notify(title, subtitle, body) {
-  console.log(`${SCRIPT_TAG} [通知] ${title} | ${subtitle} | ${body}`);
-  $notification.post(title, subtitle, body);
+// 手动跟随重定向：兑换成功后 V2EX 会 302 回 /mission/daily，
+// 不能把这种 302 当成 Cookie 失效；遇到 /signin 则停下交给上层判断。
+async function httpGetFollow(url, headers, maxHop) {
+  let res = await httpGetWithRetry(url, headers);
+  let hops = 0;
+  const limit = maxHop || 2;
+  while (res.statusCode >= 300 && res.statusCode < 400 && hops < limit) {
+    const loc = header(res.headers, "location");
+    if (!loc || loc.indexOf("/signin") >= 0) break;
+    const next = loc.indexOf("http") === 0
+      ? loc
+      : BASE_URL + (loc.indexOf("/") === 0 ? loc : "/" + loc);
+    log("[跟随重定向] " + next);
+    res = await httpGetWithRetry(next, headers);
+    hops++;
+  }
+  return res;
 }
 
 // ====================================================
-// ④ HTML 数据提取与解析
+// ④ 页面解析
 // ====================================================
-
 function extractOnceCode(html) {
-  const m = html.match(/\/mission\/daily\/redeem\?once=(\d+)/);
+  const m = String(html || "").match(/\/mission\/daily\/redeem\?once=(\d+)/);
   return m ? m[1] : null;
+}
+
+function isSigninResponse(res) {
+  const loc = header(res.headers, "location");
+  if (loc.indexOf("/signin") >= 0) return true;
+  const b = res.body || "";
+  if (b.indexOf("请登录") >= 0 || b.indexOf("Sign In") >= 0) return true;
+  if (b.indexOf("/signin") >= 0 && b.indexOf("/signout") < 0 &&
+      b.indexOf("/mission/daily/redeem?once=") < 0) return true;
+  return false;
+}
+
+// 用 exec 循环代替 matchAll，兼容较旧的 JavaScriptCore
+function eachMatch(str, re, fn) {
+  const r = new RegExp(re.source, "g");
+  let m;
+  while ((m = r.exec(str)) !== null) {
+    fn(m);
+    if (m[0] === "") r.lastIndex++;
+  }
 }
 
 function parseBalance(html) {
   const result = { copper: null, silver: null, gold: null };
-
-  const areaMatch = html.match(/<a href="\/balance" class="balance_area"[^>]*>([\s\S]*?)<\/a>/);
+  const areaMatch = String(html || "").match(/<a href="\/balance" class="balance_area"[^>]*>([\s\S]*?)<\/a>/);
   if (areaMatch) {
     const content = areaMatch[1];
-    for (const [, amount, alt] of [...content.matchAll(/(\d+)\s*<img[^>]+alt="([^"]+)"/g)]) {
-      const key = alt.trim().toUpperCase();
-      if (["B", "BRONZE", "铜币"].includes(key)) result.copper = parseInt(amount, 10);
-      else if (["S", "SILVER", "银币"].includes(key)) result.silver = parseInt(amount, 10);
-      else if (["G", "GOLD",   "金币"].includes(key)) result.gold   = parseInt(amount, 10);
-    }
+    eachMatch(content, /(\d+)\s*<img[^>]+alt="([^"]+)"/g, function (m) {
+      const amount = m[1], key = m[2].trim().toUpperCase();
+      if (["B", "BRONZE", "铜币"].indexOf(key) >= 0) result.copper = parseInt(amount, 10);
+      else if (["S", "SILVER", "银币"].indexOf(key) >= 0) result.silver = parseInt(amount, 10);
+      else if (["G", "GOLD", "金币"].indexOf(key) >= 0) result.gold = parseInt(amount, 10);
+    });
     if (result.copper === null && result.silver === null && result.gold === null) {
-      for (const [, amount, name] of [...content.matchAll(/(\d+)\s*(铜币|银币|金币)/g)]) {
-        if (name === "铜币") result.copper = parseInt(amount, 10);
-        else if (name === "银币") result.silver = parseInt(amount, 10);
-        else if (name === "金币") result.gold   = parseInt(amount, 10);
-      }
+      eachMatch(content, /(\d+)\s*(铜币|银币|金币)/g, function (m) {
+        if (m[2] === "铜币") result.copper = parseInt(m[1], 10);
+        else if (m[2] === "银币") result.silver = parseInt(m[1], 10);
+        else result.gold = parseInt(m[1], 10);
+      });
     }
   }
-
   if (result.copper === null && result.silver === null && result.gold === null) {
-    for (const [, amount, name] of [...html.matchAll(/<span class="balance_l">\s*(\d+)\s*<\/span>[\s\S]*?(铜币|银币|金币)/g)]) {
-      if (name === "铜币") result.copper = parseInt(amount, 10);
-      else if (name === "银币") result.silver = parseInt(amount, 10);
-      else if (name === "金币") result.gold   = parseInt(amount, 10);
-    }
+    eachMatch(String(html || ""), /<span class="balance_l">\s*(\d+)\s*<\/span>[\s\S]*?(铜币|银币|金币)/g, function (m) {
+      if (m[2] === "铜币") result.copper = parseInt(m[1], 10);
+      else if (m[2] === "银币") result.silver = parseInt(m[1], 10);
+      else result.gold = parseInt(m[1], 10);
+    });
   }
-
   return result;
 }
 
 function formatBalance(balance) {
-  const { copper, silver, gold } = balance;
-  if (copper === null && silver === null && gold === null) return "⚠️ 无法获取账户余额";
-
+  if (!balance) return "余额查询失败（不影响签到结果）";
+  const copper = balance.copper, silver = balance.silver, gold = balance.gold;
+  if (copper === null && silver === null && gold === null) return "⚠️ 无法解析账户余额";
   const parts = [];
-  if (gold   !== null) parts.push(`${gold} 金币`);
-  if (silver !== null) parts.push(`${silver} 银币`);
-  if (copper !== null) parts.push(`${copper} 铜币`);
-
+  if (gold !== null) parts.push(gold + " 金币");
+  if (silver !== null) parts.push(silver + " 银币");
+  if (copper !== null) parts.push(copper + " 铜币");
   let total = 0;
-  if (gold   !== null) total += gold   * 10000;
+  if (gold !== null) total += gold * 10000;
   if (silver !== null) total += silver * 100;
   if (copper !== null) total += copper;
-
-  let str = `账户余额: ${parts.join(" | ")}`;
-  if (total > 0) str += `\n总额(铜币当量): ${total}`;
+  let str = "账户余额: " + parts.join(" | ");
+  if (total > 0) str += "\n总额(铜币当量): " + total;
   return str;
-}
-
-// ====================================================
-// ⑤ 签到核心业务逻辑
-// ====================================================
-
-async function getOnceCode(cookie) {
-  try {
-    const res  = await httpGetWithRetry(DAILY_URL, buildHeaders(cookie));
-    const body = res.body || "";
-    if (body.includes("/signin") || body.includes("请登录"))
-      return { onceCode: null, alreadyClaimed: false, cookieExpired: true };
-    if (body.includes("每日登录奖励已领取"))
-      return { onceCode: null, alreadyClaimed: true, cookieExpired: false };
-    const onceCode = extractOnceCode(body);
-    if (onceCode) return { onceCode, alreadyClaimed: false, cookieExpired: false };
-    return { onceCode: null, alreadyClaimed: false, cookieExpired: false };
-  } catch (e) {
-    console.log(`${SCRIPT_TAG} 获取 Once Code 异常: ${e}`);
-    return { onceCode: null, alreadyClaimed: false, cookieExpired: false };
-  }
 }
 
 async function getBalance(cookie) {
   try {
-    const res = await httpGetWithRetry(BALANCE_URL, buildHeaders(cookie));
-    return parseBalance(res.body || "");
+    const res = await httpGetFollow(BALANCE_URL, buildHeaders(cookie));
+    if (res.statusCode >= 400 || isSigninResponse(res)) return null;
+    return parseBalance(res.body);
   } catch (e) {
-    return { copper: null, silver: null, gold: null };
+    log("[余额] 查询失败: " + shorten(e && e.message ? e.message : e, 120));
+    return null;
   }
 }
 
-async function redeemReward(cookie, onceCode) {
-  const redeemUrl = `${BASE_URL}/mission/daily/redeem?once=${onceCode}`;
-  try {
-    const res  = await httpGetWithRetry(redeemUrl, buildHeaders(cookie));
-    const body = res.body || "";
-    if (body.includes("/signin") || body.includes("请重新登录"))
-      return { success: false, reason: "cookie_expired" };
-    if (body.includes("每日登录奖励已领取") || body.includes("已成功领取每日登录奖励"))
-      return { success: true, reason: "claimed" };
-    const msgMatch = body.match(/<div class="box">\s*<div class="message">([\s\S]*?)<\/div>/);
-    if (msgMatch) return { success: true, reason: "message", message: msgMatch[1].trim() };
-    return { success: false, reason: "unknown", statusCode: res.statusCode };
-  } catch (e) {
-    return { success: false, reason: "network_error", error: String(e) };
-  }
-}
-
+// ====================================================
+// ⑤ 签到主流程
+// ====================================================
 async function signInAccount(cookie, idx, total) {
-  const prefix = total > 1 ? `账号${idx + 1} ` : "";
+  const prefix = total > 1 ? "账号" + (idx + 1) + " " : "";
 
-  const { onceCode, alreadyClaimed, cookieExpired } = await getOnceCode(cookie);
+  try {
+    const res = await httpGetFollow(DAILY_URL, buildHeaders(cookie));
 
-  if (cookieExpired) {
-    notify(`${SCRIPT_NAME} ${prefix}❌`, "Cookie 已失效", "请用手机浏览器打开 v2ex.com 重新登录，Cookie 将自动更新");
-    return;
-  }
-  if (alreadyClaimed) {
+    if (isSigninResponse(res)) {
+      notify(SCRIPT_NAME + " " + prefix + "❌", "Cookie 已失效（服务端要求登录）",
+             "HTTP " + res.statusCode + "，请用手机浏览器重新登录 V2EX，Cookie 会自动更新");
+      return;
+    }
+    if (res.statusCode >= 400) {
+      notify(SCRIPT_NAME + " " + prefix + "❌", "站点返回 HTTP " + res.statusCode,
+             "可能被 Cloudflare 拦截，请确认签到出口节点与抓包时一致。摘要: " + shorten(stripTags(res.body), 120));
+      return;
+    }
+    if (!res.body) {
+      notify(SCRIPT_NAME + " " + prefix + "❌", "签到页返回空内容",
+             "HTTP " + res.statusCode + "，请查看脚本日志中的请求与响应记录");
+      return;
+    }
+    if (res.body.indexOf("每日登录奖励已领取") >= 0) {
+      const balance = await getBalance(cookie);
+      notify(SCRIPT_NAME + " " + prefix, "今日已签到", formatBalance(balance));
+      return;
+    }
+
+    const once = extractOnceCode(res.body);
+    if (!once) {
+      notify(SCRIPT_NAME + " " + prefix + "❌", "未获取到 Once Code",
+             "HTTP " + res.statusCode + "，页面摘要: " + shorten(stripTags(res.body), 160));
+      return;
+    }
+    log("[签到] once=" + once);
+
+    const redeemUrl = BASE_URL + "/mission/daily/redeem?once=" + once;
+    const rr = await httpGetFollow(redeemUrl, buildHeaders(cookie));
+
+    if (isSigninResponse(rr)) {
+      notify(SCRIPT_NAME + " " + prefix + "❌", "兑换时 Cookie 已失效",
+             "HTTP " + rr.statusCode + "，请重新登录 V2EX");
+      return;
+    }
+    if (rr.statusCode >= 400) {
+      notify(SCRIPT_NAME + " " + prefix + "❌", "兑换失败 HTTP " + rr.statusCode,
+             shorten(stripTags(rr.body), 160));
+      return;
+    }
+
+    const body = rr.body || "";
+    const ok = body.indexOf("每日登录奖励已领取") >= 0 ||
+               body.indexOf("已成功领取每日登录奖励") >= 0 ||
+               /<div class="box">\s*<div class="message">/.test(body);
     const balance = await getBalance(cookie);
-    notify(`${SCRIPT_NAME} ${prefix}`, "今日已签到", formatBalance(balance));
-    return;
-  }
-  if (!onceCode) {
-    notify(`${SCRIPT_NAME} ${prefix}❌`, "未获取到 Once Code", "请检查 Cookie 是否有效或 V2EX 页面结构是否变更");
-    return;
-  }
 
-  const result = await redeemReward(cookie, onceCode);
-
-  if (result.success) {
-    const balance  = await getBalance(cookie);
-    const subtitle = result.message ? `提示: ${result.message}` : "每日奖励领取成功";
-    notify(`${SCRIPT_NAME} ${prefix}✅`, subtitle, formatBalance(balance));
-  } else {
-    const msgs = {
-      cookie_expired: ["Cookie 已失效",   "请用手机浏览器访问 v2ex.com 重新登录"],
-      network_error:  ["网络请求失败",     result.error || "请检查网络连接"],
-      unknown:        [`状态码: ${result.statusCode || "N/A"}`, "请登录 V2EX 手动确认"],
-    };
-    const [subtitle, body] = msgs[result.reason] || ["签到失败", "请登录 V2EX 手动确认"];
-    notify(`${SCRIPT_NAME} ${prefix}❌`, subtitle, body);
+    if (ok) {
+      notify(SCRIPT_NAME + " " + prefix + "✅", "每日登录奖励领取成功", formatBalance(balance));
+    } else {
+      notify(SCRIPT_NAME + " " + prefix + "❌", "签到结果未确认",
+             "HTTP " + rr.statusCode + "，请登录 V2EX 手动确认。摘要: " + shorten(stripTags(body), 160));
+    }
+  } catch (e) {
+    const isNet = !!(e && e.isNetwork);
+    notify(SCRIPT_NAME + " " + prefix + "❌",
+           isNet ? "网络请求失败（与 Cookie 无关）" : "脚本执行出错",
+           shorten(e && e.message ? e.message : e, 200) +
+           (isNet ? " ｜ 请检查 Loon 节点/策略、DNS、MitM 设置，并查看脚本日志" : ""));
   }
 }
 
 async function main() {
-  const rawCookie = getStoredCookie();
-
-  if (!rawCookie) {
-    notify(
-      `${SCRIPT_NAME} ⚠️`,
-      "尚未获取到 Cookie",
-      "请用手机浏览器打开 v2ex.com 并登录，Cookie 将自动保存"
-    );
-    $done({});
+  const raw = getStoredCookie();
+  if (!raw) {
+    notify(SCRIPT_NAME + " ⚠️", "尚未获取到 Cookie",
+           "请用手机浏览器打开 www.v2ex.com 并登录，Cookie 将自动保存");
     return;
   }
 
-  const cookies = rawCookie.split("\n").map(c => c.trim()).filter(Boolean);
-  console.log(`${SCRIPT_TAG} 检测到 ${cookies.length} 个账户`);
+  const cookies = raw.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+  log("检测到 " + cookies.length + " 个账号，UA=" + shorten(getStoredUA(), 70));
 
   for (let i = 0; i < cookies.length; i++) {
-    await signInAccount(cookies[i], i, cookies.length);
-    if (i < cookies.length - 1) {
-      await new Promise(r => setTimeout(r, 3000));
+    if (!hasSession(cookies[i])) {
+      notify(SCRIPT_NAME + " ❌", "账号" + (i + 1) + " 缺少 A2 登录凭据",
+             "请用手机浏览器重新登录 V2EX，再访问任意页面补全 Cookie");
+      continue;
     }
+    await signInAccount(cookies[i], i, cookies.length);
+    if (i < cookies.length - 1) await sleep(3000);
   }
-
-  $done({});
 }
+
+// ====================================================
+// 入口分发
+//   http-response → 登录响应捕获
+//   http-request  → 请求头 Cookie 捕获
+//   无上下文      → cron 签到
+// ====================================================
+(function () {
+  try {
+    const hasResp = typeof $response !== "undefined" && $response !== null;
+    const hasReq  = typeof $request !== "undefined" && $request !== null;
+    const ctxHeaders = hasReq ? (($request && $request.headers) || {}) : {};
+
+    if (isSelf(ctxHeaders)) {
+      log("脚本自身发出的请求，跳过捕获逻辑");
+      $done({});
+      return;
+    }
+
+    if (hasResp) {
+      captureResponseCookie();
+      $done({});
+      return;
+    }
+    if (hasReq) {
+      captureRequestCookie();
+      $done({});
+      return;
+    }
+
+    main()
+      .catch(function (e) {
+        log("签到任务异常: " + (e && e.stack ? e.stack : e));
+        notify(SCRIPT_NAME + " ❌", "脚本执行出错", shorten(e && e.message ? e.message : e, 200));
+      })
+      .then(function () { $done({}); });
+  } catch (e) {
+    log("入口异常: " + (e && e.stack ? e.stack : e));
+    notify(SCRIPT_NAME + " ❌", "脚本执行出错", shorten(e && e.message ? e.message : e, 200));
+    $done({});
+  }
+})();
