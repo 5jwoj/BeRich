@@ -1,7 +1,15 @@
 /*
- * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版 v1.0.10
+ * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版 v1.0.11
  *
  * 仓库: https://github.com/5jwoj/BeRich/tree/main/V2EX
+ *
+ * ===== v1.0.11 修复 =====
+ *  9. 余额解析重构：旧正则要求 <a href="/balance" class="balance_area"> 属性顺序
+ *     完全一致且图标必须有 alt，V2EX 现多用 class="silver" / src 标识币种。
+ *     现支持中英文单位、图标 alt/class/src/title、数字在图标前后、千分位、
+ *     balance_l、无容器全页兜底；/balance 解析不出时回退解析签到页顶部余额区。
+ * 10. 解析仍失败会打印 [余额诊断] 页面真实片段，并把前 4000 字符写入
+ *     v2ex_daily.debug_balance，便于一次定位页面结构。
  *
  * ===== v1.0.10 修复清单 =====
  *  1. $httpClient 的 timeout 单位是「毫秒」(Loon 官方文档, 默认 5000)，
@@ -36,7 +44,7 @@ const BOXJS_KEY_UA_CAPTURED = "v2ex_daily.ua_captured";
 const BOXJS_KEY_POLICY      = "v2ex_daily.policy";
 
 const SCRIPT_NAME = "V2EX签到";
-const SCRIPT_TAG  = "[V2EX-Loon v1.0.10]";
+const SCRIPT_TAG  = "[V2EX-Loon v1.0.11]";
 
 // 出站用不带 www 的域名：www.v2ex.com 在 [Mitm] 列表内，
 // 脚本的 $httpClient 请求走该域会被 Loon 本地 MitM 处理器拦截。
@@ -402,7 +410,8 @@ function isSigninResponse(res) {
 
 // 用 exec 循环代替 matchAll，兼容较旧的 JavaScriptCore
 function eachMatch(str, re, fn) {
-  const r = new RegExp(re.source, "g");
+  const flags = "g" + (re.ignoreCase ? "i" : "") + (re.multiline ? "m" : "");
+  const r = new RegExp(re.source, flags);
   let m;
   while ((m = r.exec(str)) !== null) {
     fn(m);
@@ -410,39 +419,134 @@ function eachMatch(str, re, fn) {
   }
 }
 
+// 取标签上的某个属性，兼容单双引号与任意属性顺序
+function attrOf(tag, name) {
+  const m = String(tag).match(new RegExp(name + "\\s*=\\s*([\"'])(.*?)\\1", "i"));
+  return m ? m[2] : "";
+}
+
+// 从 alt / class / src / title / 文本里判断币种
+function currencyOf(s) {
+  const t = String(s || "").toLowerCase();
+  if (t.indexOf("金币") >= 0 || t.indexOf("gold") >= 0) return "gold";
+  if (t.indexOf("银币") >= 0 || t.indexOf("silver") >= 0) return "silver";
+  if (t.indexOf("铜币") >= 0 || t.indexOf("bronze") >= 0 || t.indexOf("copper") >= 0) return "copper";
+  if (/(^|[^a-z0-9])g([^a-z0-9]|$)/.test(t)) return "gold";
+  if (/(^|[^a-z0-9])s([^a-z0-9]|$)/.test(t)) return "silver";
+  if (/(^|[^a-z0-9])b([^a-z0-9]|$)/.test(t)) return "copper";
+  return null;
+}
+
+// 把货币图标替换成 {{copper}}/{{silver}}/{{gold}} 标记，再去掉其余标签，
+// 这样数字在图标前 / 图标后、属性顺序、单双引号都能统一处理
+function normalizeBalanceText(html) {
+  let s = String(html || "").replace(/<script[\s\S]*?<\/script>/gi, " ");
+  s = s.replace(/<img\b[^>]*>/gi, function (tag) {
+    const kind = currencyOf(attrOf(tag, "alt")) ||
+                 currencyOf(attrOf(tag, "class")) ||
+                 currencyOf(attrOf(tag, "src")) ||
+                 currencyOf(attrOf(tag, "title"));
+    return kind ? " {{" + kind + "}} " : " ";
+  });
+  s = s.replace(/<[^>]*>/g, " ")
+       .replace(/&nbsp;|&#160;/gi, " ")
+       .replace(/&[a-z]+;/gi, " ")
+       .replace(/\s+/g, " ");
+  return s;
+}
+
+function allBalanceNull(p) {
+  return !p || (p.copper === null && p.silver === null && p.gold === null);
+}
+
+// v1.0.11：不再依赖固定属性顺序与 alt，支持中英文、图标 class/src、
+// 数字在图标前后、千分位逗号、balance_l、以及全页兜底
 function parseBalance(html) {
+  const raw = String(html || "");
   const result = { copper: null, silver: null, gold: null };
-  const areaMatch = String(html || "").match(/<a href="\/balance" class="balance_area"[^>]*>([\s\S]*?)<\/a>/);
-  if (areaMatch) {
-    const content = areaMatch[1];
-    eachMatch(content, /(\d+)\s*<img[^>]+alt="([^"]+)"/g, function (m) {
-      const amount = m[1], key = m[2].trim().toUpperCase();
-      if (["B", "BRONZE", "铜币"].indexOf(key) >= 0) result.copper = parseInt(amount, 10);
-      else if (["S", "SILVER", "银币"].indexOf(key) >= 0) result.silver = parseInt(amount, 10);
-      else if (["G", "GOLD", "金币"].indexOf(key) >= 0) result.gold = parseInt(amount, 10);
-    });
-    if (result.copper === null && result.silver === null && result.gold === null) {
-      eachMatch(content, /(\d+)\s*(铜币|银币|金币)/g, function (m) {
-        if (m[2] === "铜币") result.copper = parseInt(m[1], 10);
-        else if (m[2] === "银币") result.silver = parseInt(m[1], 10);
-        else result.gold = parseInt(m[1], 10);
+
+  function set(kind, val) {
+    if (!kind || result[kind] !== null) return;
+    const n = parseInt(String(val).replace(/[,\s]/g, ""), 10);
+    if (!isNaN(n) && n >= 0) result[kind] = n;
+  }
+
+  // 把币种标记 / 数字 / 单位切成 token 后按「数字在标记前还是后」配对，
+  // 避免跨图标误配（如 12 {{silver}} 345 {{bronze}} 把 12 配给 bronze）
+  function scan(normalized, labelRequired) {
+    let text = normalized;
+    if (labelRequired) {
+      const idx = text.search(/余额|balance/i);
+      if (idx < 0) return; // 没有余额标签就不猜，防止把奖励明细当余额
+      text = text.slice(Math.max(0, idx - 200), idx + 500);
+    }
+
+    const tokens = [];
+    eachMatch(text, /\{\{(copper|silver|gold)\}\}|([\d,]+)|(铜币|银币|金币|copper|silver|gold|bronze)/gi,
+      function (m) {
+        if (m[1]) tokens.push({ t: "mark", v: m[1] });
+        else if (m[2]) tokens.push({ t: "num", v: m[2] });
+        else if (currencyOf(m[3])) tokens.push({ t: "mark", v: currencyOf(m[3]) });
       });
+    if (!tokens.length) return;
+
+    // 用第一个币种标记左右是否有数字判断整段的方向
+    let numFirst = tokens[0].t === "num";
+    let firstMark = -1;
+    for (let k = 0; k < tokens.length; k++) {
+      if (tokens[k].t === "mark") { firstMark = k; break; }
+    }
+    if (firstMark >= 0) {
+      const leftIsNum  = firstMark > 0 && tokens[firstMark - 1].t === "num";
+      const rightIsNum = firstMark + 1 < tokens.length && tokens[firstMark + 1].t === "num";
+      if (leftIsNum && !rightIsNum) numFirst = true;
+      else if (rightIsNum && !leftIsNum) numFirst = false;
+    }
+
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].t !== "mark") continue;
+      const left = tokens[i - 1], right = tokens[i + 1];
+      let val = null;
+      if (numFirst) {
+        if (left && left.t === "num") val = left.v;
+        else if (right && right.t === "num") val = right.v;
+      } else {
+        if (right && right.t === "num") val = right.v;
+        else if (left && left.t === "num") val = left.v;
+      }
+      if (val !== null) set(tokens[i].v, val);
     }
   }
-  if (result.copper === null && result.silver === null && result.gold === null) {
-    eachMatch(String(html || ""), /<span class="balance_l">\s*(\d+)\s*<\/span>[\s\S]*?(铜币|银币|金币)/g, function (m) {
-      if (m[2] === "铜币") result.copper = parseInt(m[1], 10);
-      else if (m[2] === "银币") result.silver = parseInt(m[1], 10);
-      else result.gold = parseInt(m[1], 10);
-    });
+
+  // 优先在余额容器内解析（class 可能在 href 前、也可能带额外值）
+  let scope = null;
+  const area = raw.match(/<[^>]*class=["'][^"']*balance_area[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
+               raw.match(/<[^>]*class=["'][^"']*balance_area[^"']*["'][^>]*>([\s\S]{0,800})/i);
+  if (area) scope = area[1];
+
+  // 容器本身就代表余额区，可直接扫；没有容器则要求附近有「余额 / balance」标签
+  if (scope !== null) scan(normalizeBalanceText(scope), false);
+  else scan(normalizeBalanceText(raw.slice(0, 8000)), true);
+
+  // 旧版 span.balance_l 结构
+  if (allBalanceNull(result)) {
+    eachMatch(raw, /<span[^>]*class=["'][^"']*balance_l[^"']*["'][^>]*>\s*([\d,]+)\s*<\/span>[\s\S]{0,160}?(铜币|银币|金币|copper|silver|gold|bronze)/gi,
+      function (m) { set(currencyOf(m[2]), m[1]); });
   }
+
+  // 容器解析失败 → 顶部区域兜底；再失败则只在「余额」关键字附近找
+  if (allBalanceNull(result) && scope !== null) scan(normalizeBalanceText(raw.slice(0, 8000)), true);
+  if (allBalanceNull(result)) {
+    const p = raw.search(/账户余额|当前余额|总余额|余额|balance/i);
+    if (p >= 0) scan(normalizeBalanceText(raw.slice(Math.max(0, p - 200), p + 1500)), true);
+  }
+
   return result;
 }
 
 function formatBalance(balance) {
-  if (!balance) return "余额查询失败（不影响签到结果）";
+  if (allBalanceNull(balance)) return "余额解析失败（签到已完成，详见脚本日志 [余额诊断]）";
   const copper = balance.copper, silver = balance.silver, gold = balance.gold;
-  if (copper === null && silver === null && gold === null) return "⚠️ 无法解析账户余额";
   const parts = [];
   if (gold !== null) parts.push(gold + " 金币");
   if (silver !== null) parts.push(silver + " 银币");
@@ -456,15 +560,51 @@ function formatBalance(balance) {
   return str;
 }
 
-async function getBalance(cookie) {
+// 解析失败时打印真实页面片段，一次运行即可定位结构
+function dumpBalanceDebug(html) {
+  const text = String(html || "");
+  log("[余额诊断] 页面长度 " + text.length + "B，关键片段：");
+  const marks = ["balance_area", "balance_l", "铜币", "银币", "金币", "copper", "silver", "gold", "bronze", "余额", "balance"];
+  const shown = [];
+  for (let i = 0; i < marks.length && shown.length < 5; i++) {
+    const p = text.toLowerCase().indexOf(marks[i].toLowerCase());
+    if (p < 0) continue;
+    let near = false;
+    for (let j = 0; j < shown.length; j++) if (Math.abs(shown[j] - p) < 180) near = true;
+    if (near) continue;
+    shown.push(p);
+    log("[余额诊断] …" + shorten(text.slice(Math.max(0, p - 140), p + 260), 400) + "…");
+  }
+  if (!shown.length) log("[余额诊断] 未找到任何余额关键字，可能返回了登录页 / Cloudflare 挑战页");
+  try {
+    write("v2ex_daily.debug_balance", text.slice(0, 4000));
+    log("[余额诊断] 余额页前 4000 字符已存入 persistentStore: v2ex_daily.debug_balance");
+  } catch (e) {}
+}
+
+async function getBalance(cookie, fallbackHtml) {
+  let balanceHtml = "";
   try {
     const res = await httpGetFollow(BALANCE_URL, buildHeaders(cookie));
-    if (res.statusCode >= 400 || isSigninResponse(res)) return null;
-    return parseBalance(res.body);
+    balanceHtml = res.body || "";
+    if (res.statusCode < 400 && !isSigninResponse(res)) {
+      const p = parseBalance(balanceHtml);
+      if (!allBalanceNull(p)) return p;
+    }
+    log("[余额] /balance 页未解析出数值，body=" + balanceHtml.length + "B，尝试签到页顶部余额区");
   } catch (e) {
     log("[余额] 查询失败: " + shorten(e && e.message ? e.message : e, 120));
-    return null;
   }
+  // 签到成功页 / 今日已签到页的顶部导航同样带余额区
+  if (fallbackHtml) {
+    const p2 = parseBalance(fallbackHtml);
+    if (!allBalanceNull(p2)) {
+      log("[余额] 已从签到页顶部余额区解析成功");
+      return p2;
+    }
+  }
+  dumpBalanceDebug(balanceHtml || fallbackHtml || "");
+  return null;
 }
 
 // ====================================================
@@ -492,7 +632,7 @@ async function signInAccount(cookie, idx, total) {
       return;
     }
     if (res.body.indexOf("每日登录奖励已领取") >= 0) {
-      const balance = await getBalance(cookie);
+      const balance = await getBalance(cookie, res.body);
       notify(SCRIPT_NAME + " " + prefix, "今日已签到", formatBalance(balance));
       return;
     }
@@ -523,7 +663,7 @@ async function signInAccount(cookie, idx, total) {
     const ok = body.indexOf("每日登录奖励已领取") >= 0 ||
                body.indexOf("已成功领取每日登录奖励") >= 0 ||
                /<div class="box">\s*<div class="message">/.test(body);
-    const balance = await getBalance(cookie);
+    const balance = await getBalance(cookie, rr.body);
 
     if (ok) {
       notify(SCRIPT_NAME + " " + prefix + "✅", "每日登录奖励领取成功", formatBalance(balance));
