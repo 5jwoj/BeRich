@@ -1,17 +1,22 @@
-#!name = V2EX 每日签到 (v1.0.10 修复版)
-#!desc = V2EX 每日签到 + Cookie 自动捕获。修复签到请求超时、代理策略无效、Cookie 被匿名会话覆盖、网络错误误报为 Cookie 失效等问题。
+#!name = V2EX 每日签到 (v1.0.11 修复版)
+#!desc = V2EX 每日签到 + Cookie 自动捕获。修复签到超时、代理策略无效、Cookie 被覆盖、误报 Cookie 失效，并重构余额解析与诊断输出。
 #!openUrl = http://boxjs.com/#/app/v2ex.daily.loon
 #!author = 5jwoj[https://github.com/5jwoj]
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
 #!icon = https://www.v2ex.com/favicon.ico
 #!tag = 签到, V2EX
-#!version = 1.0.10
-#!date = 2026-11-09 12:50:00
+#!version = 1.0.11
+#!date = 2026-11-09 13:20:00
 
 # ==============================================================================
-# V2EX 每日签到 Loon 插件 v1.0.10
+# V2EX 每日签到 Loon 插件 v1.0.11
 #
-# 【本版修复】
+# 【v1.0.11 新增】
+#  9. 余额解析重构：兼容 V2EX 新版图标 class/src、中英文单位、属性顺序变化；
+#     /balance 解析不出时回退解析签到页顶部余额区。
+# 10. 解析失败打印 [余额诊断] 真实页面片段，并写入 v2ex_daily.debug_balance。
+#
+# 【v1.0.10 修复】
 #  1. 脚本内 $httpClient 的 timeout 单位是毫秒，旧版传 30 等于 30ms，
 #     签到请求必然超时 → 改为 10000ms。
 #  2. Loon 指定出口用 node 参数，旧版写 policy 被忽略 → 改为 node。
@@ -27,7 +32,7 @@
 # 【落地方式，务必先选一种，否则 Loon 仍会拉到旧脚本】
 #  方式 A（推荐，改自己的仓库）：
 #    把本文件与 v2ex_daily_loon.js 覆盖到你自己的仓库同一目录。
-#    下方 script-path 保持原 URL 不变，末尾的 ?v=1.0.10 用于强制 Loon 刷新脚本缓存。
+#    下方 script-path 保持原 URL 不变，末尾的 ?v=1.0.11 用于强制 Loon 刷新脚本缓存。
 #  方式 B（上传到 Gist / 自己的 CDN）：
 #    把下方 3 处 script-path 的 URL 换成你自己的 js 原始文件地址。
 #  方式 C（不用远程托管，本地脚本）：
@@ -49,13 +54,13 @@
 
 [Script]
 # --- ① 请求头捕获：浏览器已登录访问 V2EX 时，保存完整 Cookie + 浏览器 UA ---
-http-request ^https?://(www\.)?v2ex\.com/ tag=V2EX Cookie捕获(请求头), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.10, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
+http-request ^https?://(www\.)?v2ex\.com/ tag=V2EX Cookie捕获(请求头), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.11, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
 
 # --- ② 响应头捕获：仅在 /signin 登录响应里取 A2，避免全站响应污染 Cookie ---
-http-response ^https?://(www\.)?v2ex\.com/signin tag=V2EX Cookie捕获(登录响应), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.10, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
+http-response ^https?://(www\.)?v2ex\.com/signin tag=V2EX Cookie捕获(登录响应), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.11, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
 
 # --- ③ 每日 08:00 签到 ---
-cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.10, tag=V2EX每日签到, timeout=120, img-url=https://www.v2ex.com/favicon.ico, enable=true
+cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.11, tag=V2EX每日签到, timeout=120, img-url=https://www.v2ex.com/favicon.ico, enable=true
 
 [Mitm]
 # 只解密 www 域用于捕获 Cookie；脚本出站走不带 www 的 v2ex.com，避免自劫持
