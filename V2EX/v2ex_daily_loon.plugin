@@ -1,15 +1,24 @@
-#!name = V2EX 每日签到 (v1.0.11 修复版)
-#!desc = V2EX 每日签到 + Cookie 自动捕获。修复签到超时、代理策略无效、Cookie 被覆盖、误报 Cookie 失效，并重构余额解析与诊断输出。
+#!name = V2EX 每日签到 (v1.0.12 修复版)
+#!desc = V2EX 每日签到 + Cookie 自动捕获。修复捕获链路静默失败、误报 Cookie 失效、签到超时、代理策略无效、余额解析等问题。
 #!openUrl = http://boxjs.com/#/app/v2ex.daily.loon
 #!author = 5jwoj[https://github.com/5jwoj]
 #!homepage = https://github.com/5jwoj/BeRich/tree/main/V2EX
 #!icon = https://www.v2ex.com/favicon.ico
 #!tag = 签到, V2EX
-#!version = 1.0.11
-#!date = 2026-11-09 13:20:00
+#!version = 1.0.12
+#!date = 2026-11-11 12:10:00
 
 # ==============================================================================
-# V2EX 每日签到 Loon 插件 v1.0.11
+# V2EX 每日签到 Loon 插件 v1.0.12
+#
+# 【v1.0.12 修复：抓不到 Cookie / 误报 Cookie 失效】
+#  1. 捕获不再死认 A2，兼容 A20 与 PB3_SESSION；仍防止匿名会话覆盖登录态。
+#  2. 捕获失败会明确弹通知（含「未读到请求头 → 必须用 www.v2ex.com + 开 MitM」），
+#     不再只写日志；Cookie 没变化时也会提示「已确认，无需重新抓包」。
+#  3. 签到不再因缺 A2 直接跳过，由服务端 302 /signin 判定真失效。
+#  4. 失效通知列出排查点：重新登录 / 固定 policy / UA 留空。
+#     PB3_SESSION 内含客户端 IP，签到出口与抓包时不一致会被判会话无效。
+#  5. 日志增加脱敏的 Cookie 字段清单、UA、出口策略，便于一次定位。
 #
 # 【v1.0.11 新增】
 #  9. 余额解析重构：兼容 V2EX 新版图标 class/src、中英文单位、属性顺序变化；
@@ -32,7 +41,7 @@
 # 【落地方式，务必先选一种，否则 Loon 仍会拉到旧脚本】
 #  方式 A（推荐，改自己的仓库）：
 #    把本文件与 v2ex_daily_loon.js 覆盖到你自己的仓库同一目录。
-#    下方 script-path 保持原 URL 不变，末尾的 ?v=1.0.11 用于强制 Loon 刷新脚本缓存。
+#    下方 script-path 保持原 URL 不变，末尾的 ?v=1.0.12 用于强制 Loon 刷新脚本缓存。
 #  方式 B（上传到 Gist / 自己的 CDN）：
 #    把下方 3 处 script-path 的 URL 换成你自己的 js 原始文件地址。
 #  方式 C（不用远程托管，本地脚本）：
@@ -42,7 +51,12 @@
 #
 # 【使用前检查】
 #  1. Loon → 设置 → HTTPS 解密(MitM) 已开启，CA 证书已安装并信任。
-#  2. 用手机浏览器打开 https://www.v2ex.com/ 登录，收到「Cookie 已自动保存」。
+#  2. 必须用带 www 的地址 https://www.v2ex.com/ ，并且要真正「登录」，
+#     登录后再刷新任意页面，看到「Cookie 已自动保存」才算成功。
+#     只打开页面但浏览器处于未登录态，不会保存（旧版那个「抓包成功」
+#     其实存的是匿名 PB3_SESSION，是假成功）。
+#     注意：[Mitm] 只解密 www.v2ex.com；直接打开 v2ex.com（无 www）
+#     不会触发捕获，脚本读不到明文的 Cookie 请求头。
 #  3. BoxJS 中 v2ex_daily.ua 建议留空（留空时自动使用捕获到的浏览器 UA，
 #     填错会导致 cf_clearance 与 UA 不匹配被 Cloudflare 拦）。
 #  4. BoxJS 中 v2ex_daily.policy 可填节点名 / 策略组名 / DIRECT，对应 Loon 的 node。
@@ -54,14 +68,17 @@
 
 [Script]
 # --- ① 请求头捕获：浏览器已登录访问 V2EX 时，保存完整 Cookie + 浏览器 UA ---
-http-request ^https?://(www\.)?v2ex\.com/ tag=V2EX Cookie捕获(请求头), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.11, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
+http-request ^https?://(www\.)?v2ex\.com/ tag=V2EX Cookie捕获(请求头), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.12, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
 
 # --- ② 响应头捕获：仅在 /signin 登录响应里取 A2，避免全站响应污染 Cookie ---
-http-response ^https?://(www\.)?v2ex\.com/signin tag=V2EX Cookie捕获(登录响应), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.11, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
+http-response ^https?://(www\.)?v2ex\.com/signin tag=V2EX Cookie捕获(登录响应), script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.12, requires-body=false, img-url=https://www.v2ex.com/favicon.ico
 
 # --- ③ 每日 08:00 签到 ---
-cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.11, tag=V2EX每日签到, timeout=120, img-url=https://www.v2ex.com/favicon.ico, enable=true
+cron "0 8 * * *" script-path=https://raw.githubusercontent.com/5jwoj/BeRich/main/V2EX/v2ex_daily_loon.js?v=1.0.12, tag=V2EX每日签到, timeout=120, img-url=https://www.v2ex.com/favicon.ico, enable=true
 
 [Mitm]
-# 只解密 www 域用于捕获 Cookie；脚本出站走不带 www 的 v2ex.com，避免自劫持
+# 只解密 www 域用于捕获 Cookie；脚本出站走不带 www 的 v2ex.com，避免自劫持。
+# 因此浏览器必须访问 www.v2ex.com 才能捕获；访问 v2ex.com 时规则虽匹配但无明文头。
+# 若确实要覆盖无 www 的入口，可把 hostname 改成 v2ex.com 并把脚本内
+# BASE_URL 改成 https://www.v2ex.com（两者必须错开，否则 $httpClient 会被本地 MitM 拦截）。
 hostname = www.v2ex.com

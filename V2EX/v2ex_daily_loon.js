@@ -1,7 +1,19 @@
 /*
- * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版 v1.0.11
+ * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版 v1.0.12
  *
  * 仓库: https://github.com/5jwoj/BeRich/tree/main/V2EX
+ *
+ * ===== v1.0.12 修复：捕获链路不再「静默失败」 =====
+ *  1. 请求头捕获不再死认 A2：SESSION_KEYS 增加 A20；PB3_SESSION 作为弱会话
+ *     凭据也可保存（浏览器请求头里的那份就是当前会话）。仅当新请求缺 A2/A20
+ *     且本地已存带 A2 的 Cookie 时才拒绝覆盖，防匿名会话污染。
+ *  2. 所有捕获分支都会发通知：读不到 Cookie 头 / 无会话字段 / 疑似匿名 /
+ *     Cookie 未变化，各有明确提示并带节流，不再只写 console.log。
+ *     读不到请求头时直接提示「必须用 www.v2ex.com 且开启 MitM」。
+ *  3. 签到不再因缺少 A2 直接跳过，改由服务端 302 /signin 判定真失效。
+ *  4. 失效通知列出排查点：重新登录、固定 policy（PB3_SESSION 内含客户端 IP，
+ *     换出口会被判会话无效）、UA 留空；日志打印脱敏后的 Cookie 字段名。
+ *  5. cron 上下文若注入空 $request，不再被误判成捕获任务。
  *
  * ===== v1.0.11 修复 =====
  *  9. 余额解析重构：旧正则要求 <a href="/balance" class="balance_area"> 属性顺序
@@ -44,7 +56,7 @@ const BOXJS_KEY_UA_CAPTURED = "v2ex_daily.ua_captured";
 const BOXJS_KEY_POLICY      = "v2ex_daily.policy";
 
 const SCRIPT_NAME = "V2EX签到";
-const SCRIPT_TAG  = "[V2EX-Loon v1.0.11]";
+const SCRIPT_TAG  = "[V2EX-Loon v1.0.12]";
 
 // 出站用不带 www 的域名：www.v2ex.com 在 [Mitm] 列表内，
 // 脚本的 $httpClient 请求走该域会被 Loon 本地 MitM 处理器拦截。
@@ -63,8 +75,12 @@ const MAX_RETRIES           = 3;
 const RETRY_DELAY_MS        = 2000;
 const ENABLE_DOMAIN_FALLBACK = false; // 见修复清单第 8 条
 
-const SESSION_KEYS  = ["A2", "A"];
-const COOKIE_ATTRS  = ["path", "domain", "expires", "max-age", "secure", "httponly", "samesite"];
+// 强登录凭据：V2EX 历来用 A2，部分版本用 A20 / A
+const SESSION_KEYS      = ["A2", "A20", "A"];
+// 弱会话凭据：PB3_SESSION 每次响应都会下发（含匿名），不能用来判断"已登录"；
+// 但浏览器请求头里携带的那份就是当前会话，可作为捕获兜底保存。
+const WEAK_SESSION_KEYS = ["PB3_SESSION"];
+const COOKIE_ATTRS      = ["path", "domain", "expires", "max-age", "secure", "httponly", "samesite"];
 
 // ====================================================
 // 通用工具
@@ -78,6 +94,27 @@ function notify(title, subtitle, body) {
   const b = String(body || "");
   log("[通知] " + title + " | " + s + " | " + b);
   try { $notification.post(title, s, b); } catch (e) { log("通知发送失败: " + e); }
+}
+
+// 同类提示在 seconds 秒内只弹一次，避免每次打开页面都刷屏
+function notifyOnce(key, seconds, title, subtitle, body) {
+  const storeKey = "v2ex_daily.notify." + key;
+  const now = Date.now();
+  const last = parseInt(read(storeKey), 10) || 0;
+  if (now - last < seconds * 1000) {
+    log("[通知抑制] " + key + "（" + seconds + "s 内已提示过）");
+    return;
+  }
+  write(storeKey, String(now));
+  notify(title, subtitle, body);
+}
+
+// 只列字段名不列值，方便日志排查又不泄露凭据
+function cookieSummary(cookieStr) {
+  const keys = String(cookieStr || "").split(";")
+    .map(function (p) { return p.trim().split("=")[0]; })
+    .filter(Boolean);
+  return keys.join(",") || "(空)";
 }
 
 function read(key) {
@@ -143,6 +180,17 @@ function hasSession(cookieStr) {
     .split(";")
     .map(function (p) { return p.trim().split("=")[0]; })
     .some(function (k) { return SESSION_KEYS.indexOf(k) >= 0; });
+}
+
+function hasWeakSession(cookieStr) {
+  return String(cookieStr || "")
+    .split(";")
+    .map(function (p) { return p.trim().split("=")[0]; })
+    .some(function (k) { return WEAK_SESSION_KEYS.indexOf(k) >= 0; });
+}
+
+function hasAnySession(cookieStr) {
+  return hasSession(cookieStr) || hasWeakSession(cookieStr);
 }
 
 function sessionKey(cookieStr) {
@@ -214,26 +262,53 @@ function captureRequestCookie() {
   const headers = ($request && $request.headers) || {};
   const cookie  = header(headers, "Cookie").trim();
   const ua      = header(headers, "User-Agent").trim();
+  const url     = ($request && $request.url) || "";
 
-  log("[请求捕获] URL=" + ($request.url || "") + " Cookie长度=" + cookie.length);
+  log("[请求捕获] URL=" + url + " Cookie长度=" + cookie.length +
+      " 字段=" + cookieSummary(cookie) + " 请求头数=" + Object.keys(headers).length);
 
+  // ① 读不到 Cookie 头：多半是 MitM 没生效，或访问的是未解密的 v2ex.com（无 www）
   if (cookie.length < 10) {
-    log("[请求捕获] Cookie 为空或过短，跳过");
+    log("[请求捕获] 未读到 Cookie 请求头");
+    notifyOnce("capture-no-header", 120, SCRIPT_NAME + " ⚠️", "未读取到 Cookie 请求头",
+      "请用 https://www.v2ex.com/ （必须带 www）打开并登录；\n" +
+      "确认 Loon 的 HTTPS 解密已开启、CA 证书已信任。\nURL: " + shorten(url, 90));
     return;
   }
-  if (!hasSession(cookie)) {
-    log("[请求捕获] 未检测到 A2/A 登录凭据，跳过（避免写入匿名会话）");
+
+  const strong = hasSession(cookie);
+  const stored = read(BOXJS_KEY_COOKIE).trim();
+
+  // ② 只有语言/偏好类字段，没有任何会话凭据
+  if (!hasAnySession(cookie)) {
+    log("[请求捕获] 无任何会话字段");
+    notifyOnce("capture-no-session", 120, SCRIPT_NAME + " ⚠️", "浏览器未携带会话 Cookie",
+      "当前字段: " + cookieSummary(cookie) + "。请先登录 V2EX 再刷新页面。");
     return;
   }
+
+  // ③ 防污染：新请求没有 A2/A20，但本地已存有带 A2 的 Cookie → 保留原值
+  if (!strong && stored && hasSession(stored)) {
+    log("[请求捕获] 疑似匿名会话，保留原有 Cookie");
+    notifyOnce("capture-anonymous", 120, SCRIPT_NAME + " ⚠️", "浏览器似乎已退出登录",
+      "本次请求缺少 A2/A20（字段: " + cookieSummary(cookie) + "）。\n" +
+      "为避免覆盖登录态，已保留原有 Cookie，请在浏览器重新登录 V2EX。");
+    return;
+  }
+
   // cf_clearance 与 UA 绑定，签到时必须复用浏览器 UA
   if (ua) write(BOXJS_KEY_UA_CAPTURED, ua);
 
   const r = mergeCookieIntoStore(cookie);
   if (r.changed) {
-    notify(SCRIPT_NAME + " ✅", "Cookie 已自动保存（请求头）",
-           "当前账号数 " + r.count + "，每日 08:00 自动签到");
+    notify(SCRIPT_NAME + (strong ? " ✅" : " ⚠️"),
+           strong ? "Cookie 已自动保存" : "Cookie 已保存（未检测到 A2/A20）",
+           "字段: " + cookieSummary(cookie) + "\n账号数 " + r.count +
+           (strong ? "" : "\n若签到仍提示失效，请在浏览器确认已登录。"));
   } else {
     log("[请求捕获] Cookie 未变化，无需写入");
+    notifyOnce("capture-same", 300, SCRIPT_NAME + " ✅", "Cookie 已确认（无变化）",
+      "字段: " + cookieSummary(cookie) + "。无需重新抓包，可直接运行签到。");
   }
 }
 
@@ -247,6 +322,8 @@ function captureResponseCookie() {
 
   if (!rawSetCookie) {
     log("[响应捕获] 无 Set-Cookie 响应头");
+    notifyOnce("resp-no-header", 300, SCRIPT_NAME + " ⚠️", "登录响应没有 Set-Cookie",
+      "可能被 Cloudflare 拦截，或登录表单未真正提交。请求头捕获仍可正常工作。");
     return;
   }
 
@@ -255,10 +332,14 @@ function captureResponseCookie() {
   log("[响应捕获] Set-Cookie 字段: " + (keys.join(", ") || "(无)"));
 
   // 关键修复：V2EX 每个响应都会下发 PB3_SESSION / V2EX_LANG。
-  // 只有真正下发登录凭据 A2/A 时才允许写入，否则会把保存的会话覆盖成匿名会话。
+  // 只有真正下发登录凭据 A2/A20/A 时才允许写入，否则会把保存的会话覆盖成匿名会话。
   const hasNewSession = SESSION_KEYS.some(function (k) { return k in pairs; });
   if (!hasNewSession) {
-    log("[响应捕获] 未下发 A2/A，跳过写入（防止 PB3_SESSION 覆盖登录 Cookie）");
+    log("[响应捕获] 未下发 A2/A20/A，跳过写入（防止 PB3_SESSION 覆盖登录 Cookie）");
+    notifyOnce("resp-no-session", 300, SCRIPT_NAME + " ⚠️", "登录响应未下发登录凭据",
+      "本次 Set-Cookie 字段: " + (keys.join(", ") || "(无)") +
+      "。常见原因：验证码/二次验证未通过、密码错误、被 Cloudflare 拦截。\n" +
+      "只要浏览器已登录，直接刷新任意页面即可由请求头捕获补上 Cookie。");
     return;
   }
 
@@ -617,8 +698,15 @@ async function signInAccount(cookie, idx, total) {
     const res = await httpGetFollow(DAILY_URL, buildHeaders(cookie));
 
     if (isSigninResponse(res)) {
-      notify(SCRIPT_NAME + " " + prefix + "❌", "Cookie 已失效（服务端要求登录）",
-             "HTTP " + res.statusCode + "，请用手机浏览器重新登录 V2EX，Cookie 会自动更新");
+      log("[诊断] 签到页要求登录: status=" + res.statusCode +
+          " location=" + header(res.headers, "location") +
+          " Cookie字段=" + cookieSummary(cookie));
+      notify(SCRIPT_NAME + " " + prefix + "❌", "服务端要求登录（会话未被接受）",
+             "HTTP " + res.statusCode + "，Cookie 字段: " + cookieSummary(cookie) +
+             "\n① 用 www.v2ex.com 重新登录并刷新，等「Cookie 已自动保存」；" +
+             "\n② BoxJS 的 v2ex_daily.policy 填与抓包时相同的节点/策略组" +
+             "（PB3_SESSION 与出口 IP 绑定，换 IP 会被判会话无效）；" +
+             "\n③ v2ex_daily.ua 留空，避免 cf_clearance 与 UA 不匹配。");
       return;
     }
     if (res.statusCode >= 400) {
@@ -649,8 +737,9 @@ async function signInAccount(cookie, idx, total) {
     const rr = await httpGetFollow(redeemUrl, buildHeaders(cookie));
 
     if (isSigninResponse(rr)) {
-      notify(SCRIPT_NAME + " " + prefix + "❌", "兑换时 Cookie 已失效",
-             "HTTP " + rr.statusCode + "，请重新登录 V2EX");
+      notify(SCRIPT_NAME + " " + prefix + "❌", "兑换时会话失效",
+             "HTTP " + rr.statusCode + "。签到页已通过但兑换被拒，多为出口 IP 中途变化；" +
+             "请在 BoxJS 固定 v2ex_daily.policy，并重新抓一次 Cookie。");
       return;
     }
     if (rr.statusCode >= 400) {
@@ -682,20 +771,28 @@ async function signInAccount(cookie, idx, total) {
 
 async function main() {
   const raw = getStoredCookie();
+  const policy = read(BOXJS_KEY_POLICY).trim();
+  log("[诊断] " + SCRIPT_TAG + " 账号数=" +
+      (raw ? raw.split("\n").filter(function (s) { return s.trim(); }).length : 0) +
+      " UA=" + shorten(getStoredUA(), 70) +
+      " 出口策略=" + (policy || "(未设置，跟随 Loon 默认)"));
+
   if (!raw) {
     notify(SCRIPT_NAME + " ⚠️", "尚未获取到 Cookie",
-           "请用手机浏览器打开 www.v2ex.com 并登录，Cookie 将自动保存");
+           "请用手机浏览器打开 https://www.v2ex.com/ （必须带 www）并登录。\n" +
+           "登录后刷新任意页面，会弹出「Cookie 已自动保存」。");
     return;
   }
 
   const cookies = raw.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
-  log("检测到 " + cookies.length + " 个账号，UA=" + shorten(getStoredUA(), 70));
+  log("检测到 " + cookies.length + " 个账号");
 
   for (let i = 0; i < cookies.length; i++) {
+    log("[诊断] 账号" + (i + 1) + " Cookie 字段: " + cookieSummary(cookies[i]));
+    // 不再因缺少 A2 直接跳过：PB3_SESSION 等会话同样可能有效，
+    // 由服务端 302 /signin 来判定真失效，避免误报「Cookie 失效」。
     if (!hasSession(cookies[i])) {
-      notify(SCRIPT_NAME + " ❌", "账号" + (i + 1) + " 缺少 A2 登录凭据",
-             "请用手机浏览器重新登录 V2EX，再访问任意页面补全 Cookie");
-      continue;
+      log("[诊断] 账号" + (i + 1) + " 未检测到 A2/A20，仍尝试签到，以服务端结果为准");
     }
     await signInAccount(cookies[i], i, cookies.length);
     if (i < cookies.length - 1) await sleep(3000);
@@ -711,7 +808,10 @@ async function main() {
 (function () {
   try {
     const hasResp = typeof $response !== "undefined" && $response !== null;
-    const hasReq  = typeof $request !== "undefined" && $request !== null;
+    // cron 上下文偶尔会注入空的 $request，必须确认真的带 URL 或请求头，
+    // 否则签到任务会被误判成捕获任务而根本不执行。
+    const hasReq  = typeof $request !== "undefined" && $request !== null &&
+                    !!($request.url || ($request.headers && Object.keys($request.headers).length));
     const ctxHeaders = hasReq ? (($request && $request.headers) || {}) : {};
 
     if (isSelf(ctxHeaders)) {
