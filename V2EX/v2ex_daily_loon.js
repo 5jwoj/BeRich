@@ -1,7 +1,21 @@
 /*
- * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版 v1.0.12
+ * V2EX 每日签到 & Cookie 自动捕获 - Loon 专用版 v1.0.13
  *
  * 仓库: https://github.com/5jwoj/BeRich/tree/main/V2EX
+ *
+ * ===== v1.0.13 修复：TLS 握手重试不再像「报错」 =====
+ *  1. LNGCDAsyncSocketTLSError / SSL handshake failed 是 Loon 到 V2EX 之间
+ *     TCP+TLS 建连阶段失败（HTTP 请求根本没发出去），与 Cookie、V2EX 页面、
+ *     脚本逻辑全部无关。旧版统一打印「[重试] 请求失败」，看起来像脚本坏了。
+ *     现单独识别为 [链路重试]，日志里明确写「与 Cookie 无关」。
+ *  2. 插件的 http-request / http-response 规则从 (www\.)?v2ex\.com 收窄为
+ *     只匹配 www.v2ex.com，与 [Mitm] hostname 对齐。因为出站走无 www 的
+ *     v2ex.com 且该域未被解密，旧规则里无 www 的分支本来就抓不到任何东西，
+ *     却会让签到请求进入脚本规则链，增加本地 MitM 处理的不确定性。
+ *  3. 重试退避由固定 2000ms 改为指数退避 + 抖动（约 0.9s / 1.8s），
+ *     更快恢复、也更容易错开节点瞬态故障。
+ *  4. 统计本次链路重试次数，成功通知里附带「固定 v2ex_daily.policy」建议；
+ *     未设置 policy 时诊断日志直接点明这是重试高发的原因。
  *
  * ===== v1.0.12 修复：捕获链路不再「静默失败」 =====
  *  1. 请求头捕获不再死认 A2：SESSION_KEYS 增加 A20；PB3_SESSION 作为弱会话
@@ -56,7 +70,7 @@ const BOXJS_KEY_UA_CAPTURED = "v2ex_daily.ua_captured";
 const BOXJS_KEY_POLICY      = "v2ex_daily.policy";
 
 const SCRIPT_NAME = "V2EX签到";
-const SCRIPT_TAG  = "[V2EX-Loon v1.0.12]";
+const SCRIPT_TAG  = "[V2EX-Loon v1.0.13]";
 
 // 出站用不带 www 的域名：www.v2ex.com 在 [Mitm] 列表内，
 // 脚本的 $httpClient 请求走该域会被 Loon 本地 MitM 处理器拦截。
@@ -72,8 +86,12 @@ const DEFAULT_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Apple
 
 const HTTP_TIMEOUT_MS       = 10000; // 毫秒！Loon $httpClient 的单位
 const MAX_RETRIES           = 3;
-const RETRY_DELAY_MS        = 2000;
+const RETRY_BASE_DELAY_MS   = 900;   // 指数退避基数：约 0.9s / 1.8s
+const RETRY_JITTER_MS       = 300;   // 叠加随机抖动，错开节点瞬态故障
 const ENABLE_DOMAIN_FALLBACK = false; // 见修复清单第 8 条
+
+// 本次脚本执行中累计的链路重试次数（TLS 握手等），用于成功通知里的建议
+let linkRetryCount = 0;
 
 // 强登录凭据：V2EX 历来用 A2，部分版本用 A20 / A
 const SESSION_KEYS      = ["A2", "A20", "A"];
@@ -427,6 +445,24 @@ function httpGet(url, headers) {
   });
 }
 
+// Loon 底层 GCDAsyncSocket 的 TLS 握手失败：连接还没建起来，HTTP 请求根本没发出。
+// 与 Cookie / V2EX 页面 / 脚本逻辑无关，属于代理节点或链路的瞬态问题。
+function isLinkError(e) {
+  const s = String((e && e.message) || e || "").toLowerCase();
+  return s.indexOf("ssl handshake") >= 0 ||
+         s.indexOf("tls handshake") >= 0 ||
+         s.indexOf("handshake failed") >= 0 ||
+         s.indexOf("tlserror") >= 0 ||
+         s.indexOf("167772294") >= 0;
+}
+
+// 成功通知的可选附加说明：链路重试多发时，指向真正该改的配置
+function linkHint() {
+  if (linkRetryCount < 2) return "";
+  return "\n⚠️ 本次链路重试 " + linkRetryCount + " 次（TLS 握手失败，已自动恢复）。" +
+         "建议在 BoxJS 把 v2ex_daily.policy 固定为抓包时同一个节点/策略组。";
+}
+
 async function httpGetWithRetry(url, headers) {
   let lastErr = null;
   for (let i = 1; i <= MAX_RETRIES; i++) {
@@ -434,8 +470,18 @@ async function httpGetWithRetry(url, headers) {
       return await httpGet(url, headers);
     } catch (e) {
       lastErr = e;
-      log("[重试 " + i + "/" + MAX_RETRIES + "] " + shorten(e && e.message ? e.message : e, 160));
-      if (i < MAX_RETRIES) await sleep(RETRY_DELAY_MS);
+      linkRetryCount++;
+      const msg = shorten(e && e.message ? e.message : e, 160);
+      if (isLinkError(e)) {
+        log("[链路重试 " + i + "/" + MAX_RETRIES + "] TLS 握手失败（节点/链路问题，与 Cookie 无关）: " + msg);
+      } else {
+        log("[重试 " + i + "/" + MAX_RETRIES + "] " + msg);
+      }
+      if (i < MAX_RETRIES) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, i - 1) +
+                      Math.floor(Math.random() * RETRY_JITTER_MS);
+        await sleep(delay);
+      }
     }
   }
 
@@ -721,7 +767,7 @@ async function signInAccount(cookie, idx, total) {
     }
     if (res.body.indexOf("每日登录奖励已领取") >= 0) {
       const balance = await getBalance(cookie, res.body);
-      notify(SCRIPT_NAME + " " + prefix, "今日已签到", formatBalance(balance));
+      notify(SCRIPT_NAME + " " + prefix, "今日已签到", formatBalance(balance) + linkHint());
       return;
     }
 
@@ -755,7 +801,7 @@ async function signInAccount(cookie, idx, total) {
     const balance = await getBalance(cookie, rr.body);
 
     if (ok) {
-      notify(SCRIPT_NAME + " " + prefix + "✅", "每日登录奖励领取成功", formatBalance(balance));
+      notify(SCRIPT_NAME + " " + prefix + "✅", "每日登录奖励领取成功", formatBalance(balance) + linkHint());
     } else {
       notify(SCRIPT_NAME + " " + prefix + "❌", "签到结果未确认",
              "HTTP " + rr.statusCode + "，请登录 V2EX 手动确认。摘要: " + shorten(stripTags(body), 160));
@@ -775,7 +821,13 @@ async function main() {
   log("[诊断] " + SCRIPT_TAG + " 账号数=" +
       (raw ? raw.split("\n").filter(function (s) { return s.trim(); }).length : 0) +
       " UA=" + shorten(getStoredUA(), 70) +
-      " 出口策略=" + (policy || "(未设置，跟随 Loon 默认)"));
+      " 出口策略=" + (policy || "(未设置，跟随 Loon 默认 → 易出现 TLS 握手重试)"));
+
+  if (!policy) {
+    log("[诊断] 未固定出口策略：cron 下 $httpClient 的 node 走「当前路由」，" +
+        "默认策略组每次可能选中不同节点，是 TLS 握手失败重试的高发原因。" +
+        "建议在 BoxJS 把 v2ex_daily.policy 设为抓包时同一个节点/策略组。");
+  }
 
   if (!raw) {
     notify(SCRIPT_NAME + " ⚠️", "尚未获取到 Cookie",
