@@ -1,0 +1,60 @@
+#!name = YouTube Enhance (Loon 移植版)
+#!desc = 去广告、后台播放、PiP、最高 4 倍速与 On-the-go 控件。由 @gholts 的 Surge 模块转换而来，底层代码基于 @Maasea 的 YouTube.Enhance (Apache-2.0)。
+#!author = gholts[https://github.com/gholts/surge] · Maasea[https://github.com/Maasea/sgmodule]
+#!homepage = https://github.com/5jwoj/BeRich/tree/main/YouTube
+#!icon = https://www.youtube.com/favicon.ico
+#!system = iOS,iPadOS
+#!tag = YouTube, 去广告, Loon
+#!type = normal
+#!version = 1.0.0
+#!date = 2026-11-20
+
+# ==============================================================================
+# 声明与致谢 / Credits & Thanks
+#
+# · 原 Surge 模块作者：@gholts   https://github.com/gholts/surge
+#   modules/youtube-enhance.sgmodule —— 本插件完整沿用其脚本、匹配规则、
+#   参数默认值与功能设计，仅把配置语法由 Surge 模块转换为 Loon 插件。
+# · 底层代码作者：@Maasea   https://github.com/Maasea/sgmodule
+#   原模块注明 "Based on Maasea's code (Apache-2.0)"；YouTube Enhance 的
+#   核心思路源自 Maasea 的 YouTube.Enhance.sgmodule，遵循 Apache-2.0 许可。
+#
+# 衷心感谢 @gholts 与 @Maasea 的开源分享！脚本版权与许可均归原作者所有，
+# 本文件未改动任何脚本逻辑，4 个脚本仍从原作者仓库实时加载。
+# ==============================================================================
+
+# Surge -> Loon conversion notes:
+#   #!arguments / #!arguments-desc  -> [Argument] section, {{{arg}}} -> {arg}
+#   #!requirement=SYSTEM='iOS'      -> #!system
+#   #!REQUIREMENT line condition    -> enable={auto_hd}
+#   [URL Rewrite] xxx - reject      -> [Rewrite] xxx reject
+#   %APPEND%, engine=, max-size     -> dropped (Loon has no equivalent)
+#   requires-body=1                  -> requires-body=true
+#   binary-body-mode=1               -> binary-body-mode=true
+
+[Argument]
+block_upload = switch,true,type=boolean,tag=移除上传入口,desc=Remove upload tab
+block_shorts = switch,false,type=boolean,tag=移除 Shorts,desc=Remove Shorts tab
+auto_hd = switch,true,type=boolean,tag=自动最高画质,desc=Prefer highest offered resolution and Premium bitrate
+block_games = switch,true,type=boolean,tag=移除 Playables,desc=Remove Playables on homepage
+block_vertical_live = switch,false,type=boolean,tag=移除竖屏直播,desc=Remove Vertical live on homepage
+jump_ahead = switch,true,type=boolean,tag=启用 Jump Ahead,desc=Enable Jump Ahead button
+block_store = switch,true,type=boolean,tag=移除创作者商店,desc=Remove creator stores and product cards
+block_ai = switch,true,type=boolean,tag=移除 AI 功能,desc=Remove Ask and AI summaries
+on_the_go = switch,true,type=boolean,tag=On-the-go 控件,desc=On-the-go controls when compatible UI is available
+
+[Script]
+http-request ^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/player\/ad_break(?:\?.*)?$ script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/request.js,tag=YT.ad-break
+http-response ^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(?:navigation\/resolve_url|browse|next|player|search|reel\/reel_watch_sequence|guide|account\/get_setting|get_watch)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/response.js,requires-body=true,binary-body-mode=true,tag=YT.response,argument="{"blockUpload":{block_upload},"blockShorts":{block_shorts},"blockGames":{block_games},"blockVerticalLive":{block_vertical_live},"jumpAhead":{jump_ahead},"autoHd":{auto_hd},"blockStore":{block_store},"blockAi":{block_ai},"onTheGo":{on_the_go}}"
+http-response ^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(?:config|log_event)(?:\?.*)?$ script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/key.js,requires-body=true,binary-body-mode=true,tag=YT.key
+http-response ^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(?:\?.*)?$ script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/ump.js,requires-body=true,binary-body-mode=true,tag=YT.ump,argument="{"blockGames":{block_games},"blockVerticalLive":{block_vertical_live},"jumpAhead":{jump_ahead},"autoHd":{auto_hd},"blockStore":{block_store},"blockAi":{block_ai},"onTheGo":{on_the_go}}"
+http-request ^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback(?:\?.*)?$ script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/request.js,requires-body=true,binary-body-mode=true,tag=YT.init,argument="{"autoHd":{auto_hd}}"
+http-request ^https?:\/\/[\w-]+\.googlevideo\.com\/videoplayback(?:\?.*)?$ script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/request.js,requires-body=true,binary-body-mode=true,enable={auto_hd},tag=YT.auto-hd,argument="{"autoHd":{auto_hd}}"
+http-request ^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event(?:\?.*)?$ script-path=https://raw.githubusercontent.com/gholts/surge/main/scripts/youtube/request.js,tag=YT.log-event
+
+[Rewrite]
+^https:\/\/www\.youtube\.com\/(pagead|pcs)\/ reject
+^https:\/\/s\.youtube\.com\/api\/stats\/ads reject
+
+[MITM]
+hostname = *.googlevideo.com, youtubei.googleapis.com, www.youtube.com, s.youtube.com
